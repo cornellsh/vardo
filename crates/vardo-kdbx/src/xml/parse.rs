@@ -45,9 +45,6 @@ struct Parser<'a> {
     pos: usize,
     limits: ParseLimits,
     elements_seen: usize,
-    /// Whitespace seen before a start tag's `>`, handed to the element once
-    /// its children have been parsed.
-    trailing_space: String,
 }
 
 pub fn parse(bytes: &[u8], limits: ParseLimits) -> Result<Document> {
@@ -60,7 +57,6 @@ pub fn parse(bytes: &[u8], limits: ParseLimits) -> Result<Document> {
         pos: 0,
         limits,
         elements_seen: 0,
-        trailing_space: String::new(),
     }
     .document()
 }
@@ -89,9 +85,22 @@ impl<'a> Parser<'a> {
         self.pos += n;
     }
 
-    fn skip_whitespace(&mut self) {
-        let skipped = self.rest().len() - self.rest().trim_start().len();
-        self.bump(skipped);
+    /// Skips XML whitespace, which is exactly `#x20 | #x9 | #xD | #xA`.
+    ///
+    /// Deliberately *not* `str::trim_start`, which also strips vertical tab,
+    /// form feed and assorted Unicode spaces. Being more permissive than the
+    /// spec is a parser-differential hazard: we would accept documents other
+    /// readers reject, and the same file would then mean different things to
+    /// different clients.
+    fn skip_whitespace(&mut self) -> &'a str {
+        let start = self.pos;
+        let n = self
+            .rest()
+            .bytes()
+            .take_while(|b| matches!(b, b' ' | b'\t' | b'\r' | b'\n'))
+            .count();
+        self.bump(n);
+        &self.src[start..self.pos]
     }
 
     /// Consumes up to and including `needle`, returning the text before it.
@@ -131,6 +140,18 @@ impl<'a> Parser<'a> {
                 ));
             }
             epilogue.push(n);
+        }
+
+        // `node` returns `None` both at end of input and when it meets an end
+        // tag it does not own. Without this check the second case would end the
+        // loop early and silently discard the rest of the document: `<a/></x><b/>`
+        // parsed to `<a/>`, losing `<b/>` with no error at all.
+        //
+        // For a vault that is data loss twice over — entries missing on open,
+        // then destroyed for good on the next save. Found by `cargo-fuzz`, not
+        // by inspection.
+        if self.pos < self.src.len() {
+            return self.err("trailing content after the root element");
         }
 
         Ok(Document {
@@ -232,11 +253,10 @@ impl<'a> Parser<'a> {
         self.bump(1); // '<'
         let name = self.name()?.to_string();
         let mut attributes = Vec::new();
+        let start_trailing_space;
 
         loop {
-            let ws_start = self.pos;
-            self.skip_whitespace();
-            let trailing_space = self.src[ws_start..self.pos].to_string();
+            let trailing_space = self.skip_whitespace().to_string();
 
             if self.starts_with("/>") {
                 self.bump(2);
@@ -246,11 +266,15 @@ impl<'a> Parser<'a> {
                     children: Vec::new(),
                     self_closing: true,
                     trailing_space,
+                    end_trailing_space: String::new(),
                 });
             }
             if self.starts_with(">") {
                 self.bump(1);
-                self.trailing_space = trailing_space;
+                // Bound to a local, never to `self`. Parsing children recurses
+                // through this same function, so shared state here would let a
+                // nested element consume its parent's pending whitespace.
+                start_trailing_space = trailing_space;
                 break;
             }
             if self.pos >= self.src.len() {
@@ -259,10 +283,11 @@ impl<'a> Parser<'a> {
             if attributes.len() >= self.limits.max_attributes_per_element {
                 return self.err(format!("<{name}> has too many attributes"));
             }
-            attributes.push(self.attribute()?);
+            attributes.push(self.attribute(trailing_space)?);
         }
 
         let mut children = Vec::new();
+        let end_trailing_space;
         loop {
             if self.pos >= self.src.len() {
                 return self.err(format!("unclosed element <{name}>"));
@@ -273,7 +298,7 @@ impl<'a> Parser<'a> {
                 if close != name {
                     return self.err(format!("</{close}> closes <{name}>"));
                 }
-                self.skip_whitespace();
+                end_trailing_space = self.skip_whitespace().to_string();
                 if !self.starts_with(">") {
                     return self.err(format!("malformed end tag </{close}"));
                 }
@@ -292,18 +317,22 @@ impl<'a> Parser<'a> {
             children,
             // `<Foo></Foo>` round-trips as written, not collapsed to `<Foo/>`.
             self_closing: false,
-            trailing_space: std::mem::take(&mut self.trailing_space),
+            trailing_space: start_trailing_space,
+            end_trailing_space,
         })
     }
 
-    fn attribute(&mut self) -> Result<Attribute> {
+    fn attribute(&mut self, leading_space: String) -> Result<Attribute> {
+        if leading_space.is_empty() {
+            return self.err("attribute is not separated from what precedes it");
+        }
         let name = self.name()?.to_string();
-        self.skip_whitespace();
+        let space_before_eq = self.skip_whitespace().to_string();
         if !self.starts_with("=") {
             return self.err(format!("attribute {name:?} has no value"));
         }
         self.bump(1);
-        self.skip_whitespace();
+        let space_after_eq = self.skip_whitespace().to_string();
 
         let quote = match self.peek() {
             Some('"') => Quote::Double,
@@ -321,6 +350,9 @@ impl<'a> Parser<'a> {
             name,
             raw_value,
             quote,
+            leading_space,
+            space_before_eq,
+            space_after_eq,
         })
     }
 }

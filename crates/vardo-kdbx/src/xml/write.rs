@@ -51,9 +51,12 @@ fn write_element(e: &Element, out: &mut Vec<u8>) {
     out.push(b'<');
     out.extend_from_slice(e.name.as_bytes());
     for a in &e.attributes {
-        out.push(b' ');
+        // Whatever separated it in the source, not a normalised single space.
+        out.extend_from_slice(a.leading_space.as_bytes());
         out.extend_from_slice(a.name.as_bytes());
+        out.extend_from_slice(a.space_before_eq.as_bytes());
         out.push(b'=');
+        out.extend_from_slice(a.space_after_eq.as_bytes());
         let q = a.quote.ch() as u8;
         out.push(q);
         out.extend_from_slice(a.raw_value.as_bytes());
@@ -75,5 +78,6 @@ fn write_element(e: &Element, out: &mut Vec<u8>) {
     }
     out.extend_from_slice(b"</");
     out.extend_from_slice(e.name.as_bytes());
+    out.extend_from_slice(e.end_trailing_space.as_bytes());
     out.push(b'>');
 }

@@ -327,3 +327,30 @@ fn walk_and_break_protected(node: &mut xml::Node, done: &mut bool) {
         }
     }
 }
+
+#[test]
+fn trailing_content_is_rejected_not_silently_dropped() {
+    // Regression, found by cargo-fuzz. A stray end tag used to terminate the
+    // epilogue loop early, so `<a/></x><b/>` parsed as `<a/>` — eight bytes
+    // discarded with no error.
+    //
+    // In a vault that is data loss twice: entries missing on open, then
+    // destroyed permanently by the next save.
+    for src in [
+        &b"<a/></x><b/>"[..],
+        &b"<a/>trailing</x>LOST"[..],
+        &b"<a/><!--ok--></x>"[..],
+    ] {
+        let err = xml::parse(src, ParseLimits::default()).unwrap_err();
+        assert!(
+            err.to_string().contains("trailing content"),
+            "{:?} gave {err}",
+            String::from_utf8_lossy(src)
+        );
+    }
+
+    // A legitimate epilogue still round-trips.
+    let ok = b"<a/>\n<!-- trailing comment -->\n";
+    let doc = xml::parse(ok, ParseLimits::default()).unwrap();
+    assert_eq!(doc.to_bytes(), ok);
+}

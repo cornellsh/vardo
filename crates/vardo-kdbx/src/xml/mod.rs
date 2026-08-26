@@ -61,6 +61,15 @@ pub struct Attribute {
     /// Still-escaped value, exactly as it appeared in the source.
     pub raw_value: String,
     pub quote: Quote,
+    /// Whitespace that separated this attribute from what preceded it.
+    ///
+    /// Writers are not required to use a single space, and a document using
+    /// anything else would be rewritten on save if we normalised here.
+    pub leading_space: String,
+    /// Whitespace between the attribute name and `=`, as in `x ="1"`.
+    pub space_before_eq: String,
+    /// Whitespace between `=` and the value, as in `x= "1"`.
+    pub space_after_eq: String,
 }
 
 impl Attribute {
@@ -69,6 +78,9 @@ impl Attribute {
             name: name.into(),
             raw_value: encode_text(value, true),
             quote: Quote::Double,
+            leading_space: " ".to_string(),
+            space_before_eq: String::new(),
+            space_after_eq: String::new(),
         }
     }
 
@@ -127,6 +139,11 @@ pub struct Element {
     /// empty element in a file produced by the other tool — exactly the class
     /// of spurious diff this DOM exists to prevent.
     pub trailing_space: String,
+    /// Whitespace inside the end tag, as in `</Foo >`.
+    ///
+    /// Legal XML and emitted by some writers. Same reasoning as
+    /// `trailing_space`: normalising it rewrites the file.
+    pub end_trailing_space: String,
 }
 
 impl Element {
@@ -137,6 +154,7 @@ impl Element {
             children: Vec::new(),
             self_closing: true,
             trailing_space: String::new(),
+            end_trailing_space: String::new(),
         }
     }
 

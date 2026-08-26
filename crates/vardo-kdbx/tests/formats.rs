@@ -39,87 +39,43 @@ fn read(name: &str, pw: &str) -> vardo_kdbx::Document {
     open(&bytes, &Credentials::with_password(pw)).unwrap_or_else(|e| panic!("{name}: {e}"))
 }
 
-/// (fixture, password, major, minor, cipher, kdf)
-const MATRIX: &[(&str, &str, u16, u16, [u8; 16], [u8; 16])] = &[
-    (
-        "test_db_kdbx4_with_password_argon2.kdbx",
-        "demopass",
-        4,
-        0,
-        CIPHER_AES256_CBC,
-        KDF_ARGON2D,
-    ),
-    (
-        "test_db_kdbx4_with_password_argon2id.kdbx",
-        "demopass",
-        4,
-        0,
-        CIPHER_AES256_CBC,
-        KDF_ARGON2ID,
-    ),
-    (
-        "test_db_kdbx4_with_password_argon2_chacha20.kdbx",
-        "demopass",
-        4,
-        0,
-        CIPHER_CHACHA20,
-        KDF_ARGON2D,
-    ),
-    (
-        "test_db_kdbx4_with_password_argon2id_chacha20.kdbx",
-        "demopass",
-        4,
-        0,
-        CIPHER_CHACHA20,
-        KDF_ARGON2ID,
-    ),
-    (
-        "test_db_kdbx4_with_password_argon2_twofish.kdbx",
-        "demopass",
-        4,
-        0,
-        CIPHER_TWOFISH,
-        KDF_ARGON2D,
-    ),
-    (
-        "test_db_kdbx4_with_password_argon2id_twofish.kdbx",
-        "demopass",
-        4,
-        0,
-        CIPHER_TWOFISH,
-        KDF_ARGON2ID,
-    ),
-    (
-        "test_db_kdbx41_with_password_aes.kdbx",
-        "demopass",
-        4,
-        1,
-        CIPHER_AES256_CBC,
-        KDF_AES,
-    ),
+struct Case {
+    file: &'static str,
+    password: &'static str,
+    major: u16,
+    minor: u16,
+    cipher: [u8; 16],
+    kdf: [u8; 16],
+}
+
+const fn case(
+    file: &'static str,
+    password: &'static str,
+    major: u16,
+    minor: u16,
+    cipher: [u8; 16],
+    kdf: [u8; 16],
+) -> Case {
+    Case { file, password, major, minor, cipher, kdf }
+}
+
+const MATRIX: &[Case] = &[
+    case("test_db_kdbx4_with_password_argon2.kdbx", "demopass", 4, 0, CIPHER_AES256_CBC, KDF_ARGON2D),
+    case("test_db_kdbx4_with_password_argon2id.kdbx", "demopass", 4, 0, CIPHER_AES256_CBC, KDF_ARGON2ID),
+    case("test_db_kdbx4_with_password_argon2_chacha20.kdbx", "demopass", 4, 0, CIPHER_CHACHA20, KDF_ARGON2D),
+    case("test_db_kdbx4_with_password_argon2id_chacha20.kdbx", "demopass", 4, 0, CIPHER_CHACHA20, KDF_ARGON2ID),
+    case("test_db_kdbx4_with_password_argon2_twofish.kdbx", "demopass", 4, 0, CIPHER_TWOFISH, KDF_ARGON2D),
+    case("test_db_kdbx4_with_password_argon2id_twofish.kdbx", "demopass", 4, 0, CIPHER_TWOFISH, KDF_ARGON2ID),
+    case("test_db_kdbx41_with_password_aes.kdbx", "demopass", 4, 1, CIPHER_AES256_CBC, KDF_AES),
     // KDBX 3.1 always uses AES-KDF, with parameters in dedicated header fields
     // rather than a VariantDictionary.
-    (
-        "test_db_with_password.kdbx",
-        "demopass",
-        3,
-        1,
-        CIPHER_AES256_CBC,
-        KDF_AES,
-    ),
-    (
-        "test_db_kdbx3_with_chacha20_protected_fields.kdbx",
-        "password",
-        3,
-        1,
-        CIPHER_AES256_CBC,
-        KDF_AES,
-    ),
+    case("test_db_with_password.kdbx", "demopass", 3, 1, CIPHER_AES256_CBC, KDF_AES),
+    case("test_db_kdbx3_with_chacha20_protected_fields.kdbx", "password", 3, 1, CIPHER_AES256_CBC, KDF_AES),
 ];
 
 #[test]
 fn every_supported_cipher_and_kdf_combination_opens() {
-    for (name, pw, major, minor, cipher, kdf) in MATRIX {
+    for Case { file: name, password: pw, major, minor, cipher, kdf } in MATRIX {
         let doc = read(name, pw);
         assert_eq!(doc.version().major, *major, "{name}: major version");
         assert_eq!(doc.version().minor, *minor, "{name}: minor version");
@@ -137,7 +93,7 @@ fn every_supported_cipher_and_kdf_combination_opens() {
 
 #[test]
 fn every_fixture_parses_and_round_trips_its_xml() {
-    for (name, pw, ..) in MATRIX {
+    for Case { file: name, password: pw, .. } in MATRIX {
         let doc = read(name, pw);
         let dom = doc
             .parse_xml()
@@ -149,7 +105,7 @@ fn every_fixture_parses_and_round_trips_its_xml() {
 
 #[test]
 fn every_fixture_decrypts_its_protected_values() {
-    for (name, pw, ..) in MATRIX {
+    for Case { file: name, password: pw, .. } in MATRIX {
         let doc = read(name, pw);
         let dom = doc.parse_xml().unwrap();
         doc.protected_values(&dom)
