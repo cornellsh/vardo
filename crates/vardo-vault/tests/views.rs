@@ -267,6 +267,11 @@ fn kdbx31_entries_decrypt_via_the_typed_view() {
 fn reading_never_disturbs_the_document() {
     // The typed view is a lens, not a copy. If reading mutated the DOM, saving
     // after a read would rewrite the file.
+    //
+    // Note the vault's DOM is *not* equal to `doc.xml`: unlocking replaces
+    // protected ciphertext with plaintext, deliberately, so that edits cannot
+    // shift keystream positions. Only the structure outside protected values
+    // must be untouched.
     let p = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../fixtures/test_db_kdbx41_with_password_aes.kdbx");
     let bytes = std::fs::read(p).unwrap();
@@ -279,6 +284,22 @@ fn reading_never_disturbs_the_document() {
         let _ = e.history();
         let _ = e.attachments();
     }
-    assert_eq!(v.document().to_bytes(), before);
-    assert_eq!(before, doc.xml);
+    assert_eq!(v.document().to_bytes(), before, "reading mutated the DOM");
+
+    // The plaintext DOM must match the canonical form of the original, which
+    // is the definition of "decrypted in place and nothing else changed".
+    let canonical = doc.canonical_payload(&doc.parse_xml().unwrap()).unwrap();
+    assert_eq!(before, canonical.to_vec());
+}
+
+#[test]
+fn kdbx31_vaults_open_but_report_themselves_unwritable() {
+    // 3.1 has no authenticated integrity, so we never write it. That must not
+    // stop us reading one.
+    let v = vault("test_db_with_password.kdbx", "demopass");
+    assert!(!v.is_writable());
+    assert!(v.root().is_some());
+
+    let v4 = rich();
+    assert!(v4.is_writable());
 }

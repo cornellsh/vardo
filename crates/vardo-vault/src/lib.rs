@@ -60,7 +60,11 @@ pub struct Vault {
     /// Addresses are used purely as identity and are never dereferenced.
     dom: Box<xml::Document>,
     /// Format settings to preserve on save.
-    save_options: vardo_kdbx::write::SaveOptions,
+    ///
+    /// `None` for KDBX 3.1, which this crate reads but deliberately never
+    /// writes (the format has no authenticated integrity). Reading a 3.1 vault
+    /// must still work, so this cannot be a hard requirement of opening one.
+    save_options: Option<vardo_kdbx::write::SaveOptions>,
     binaries: Vec<vardo_kdbx::header::Binary>,
     limits: vardo_kdbx::Limits,
 }
@@ -86,7 +90,7 @@ impl Vault {
         )?);
         Ok(Self {
             dom,
-            save_options: vardo_kdbx::write::SaveOptions::preserving(doc)?,
+            save_options: vardo_kdbx::write::SaveOptions::preserving(doc).ok(),
             binaries: doc.inner.binaries.clone(),
             limits: vardo_kdbx::Limits::default(),
         })
@@ -105,20 +109,22 @@ impl Vault {
         &mut self.dom
     }
 
+    /// True if this vault can be written back. False for KDBX 3.1.
+    pub fn is_writable(&self) -> bool {
+        self.save_options.is_some()
+    }
+
     /// Re-encrypts and encodes, preserving the original format settings.
     pub fn save_with(
         &self,
         creds: &vardo_kdbx::Credentials,
         rng: &mut dyn vardo_kdbx::write::Rng,
     ) -> vardo_kdbx::Result<Vec<u8>> {
-        vardo_kdbx::write::save_plaintext(
-            &self.dom,
-            &self.binaries,
-            creds,
-            &self.save_options,
-            &self.limits,
-            rng,
-        )
+        let opts = self
+            .save_options
+            .as_ref()
+            .ok_or(vardo_kdbx::Error::UnsupportedVersion { major: 3, minor: 1 })?;
+        vardo_kdbx::write::save_plaintext(&self.dom, &self.binaries, creds, opts, &self.limits, rng)
     }
 
     /// Overwrites every plaintext secret in the DOM.

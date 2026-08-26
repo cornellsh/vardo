@@ -169,9 +169,7 @@ fn field_order_is_not_a_change() {
                     .unwrap()
                     .child_mut("Group")
                     .unwrap();
-                fn find(
-                    g: &mut vardo_kdbx::xml::Element,
-                ) -> Option<&mut vardo_kdbx::xml::Element> {
+                fn find(g: &mut vardo_kdbx::xml::Element) -> Option<&mut vardo_kdbx::xml::Element> {
                     for c in g.children.iter_mut() {
                         if let vardo_kdbx::xml::Node::Element(e) = c {
                             if e.name == "Entry" {

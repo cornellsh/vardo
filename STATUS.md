@@ -1,6 +1,18 @@
 # Status
 
-`vardo-kdbx` is complete and hardened. Nothing above it exists yet.
+Container, typed view, and merge planning are done. Sync and UI are not
+started.
+
+Run `./check.sh` — fmt, clippy `-D warnings`, and the full suite. It fails
+loudly rather than printing a total that hides failures, which an earlier
+version of that command did.
+
+| Crate | State |
+|---|---|
+| `vardo-kdbx` | complete, fuzzed |
+| `vardo-vault` | typed view + safe editing |
+| `vardo-merge` | three-way planning; application not yet written |
+| `vardo-sync` | not started |
 
 ## What works
 
@@ -29,11 +41,36 @@ reads 3.1 also reads 4.x), ARC4 inner streams (broken since 2014).
 
 | | |
 |---|---|
-| Tests | 65, all passing |
-| Clippy | clean, `--all-targets` |
+| Tests | 118, all passing |
+| Clippy | clean at `-D warnings`, `--all-targets` |
 | Fuzz executions | ~14.9M across four targets, zero failures |
-| Rust | 4,259 lines |
 | `unsafe` | none — `#![forbid(unsafe_code)]` |
+
+## The bug that shaped the vault layer
+
+A merge test failed with three *untouched* entries reporting conflicting
+password changes. The cause was not in merge.
+
+`write::save` decrypted protected values from the DOM **at save time**.
+Protected values share one keystream and are decrypted **by position**, so any
+edit that added, removed or reordered a protected element left the ciphertext
+keyed to the old positions while the ordinals came from the new ones.
+**Deleting one entry corrupted the password of every entry after it** — silently,
+with no error, in a file that still opened.
+
+The fix is structural rather than careful: an unlocked [`Vault`] holds
+*plaintext* in its DOM and encrypts only at save. Inside that window there is
+no positional coupling at all, so arbitrary mutation is safe.
+
+The cost is plaintext passwords in an in-memory XML tree rather than in
+individually zeroized buffers, bounded by `Vault::lock()`. That is the same
+exposure every KeePass client has while unlocked, and it buys the elimination
+of an entire silent-corruption class. Both the hazard and the fix have
+regression tests, so nobody can "simplify" it back.
+
+Worth noting: this was found by a test asserting a *product* property, not by
+review, and not by fuzzing. The container layer was already fuzzed to 14.9M
+executions and could not have caught it — nothing was malformed.
 
 ## The three decisions that shaped it
 
@@ -85,15 +122,32 @@ then destroyed permanently by the next save.
 
 Details in `fuzz/README.md`.
 
+## Merge semantics
+
+`plan()` never mutates. It returns what a merge *would* do, so the user sees it
+first. KeePassXC added a preview dialog in PR #10173; here it is the only way in.
+
+- Newer edit wins; the loser is preserved in history rather than dropped.
+- **Same-second divergent edits are a conflict, never a coin flip.** KDBX stores
+  whole seconds, so this happens for real, and guessing is how vaults get
+  quietly corrupted. This is KeePassXC #3340.
+- Delete-versus-edit resolves by time; the deletion wins only if strictly newer.
+- A disappearance with no tombstone **keeps** the entry — an unexplained absence
+  is not a recorded deletion, and keeping is recoverable while dropping is not.
+- **Without a base, nothing is ever deleted.** A first sync cannot tell "they
+  added it" from "we deleted it".
+- Field order is a writer's choice, not user data, so reordering is not a change.
+
+The load-bearing test is `identical_vaults_produce_no_changes`: two saves of the
+same data share no ciphertext at all, and merge must still see nothing.
+
 ## Next
 
-1. **`vardo-vault`** — the typed view over the DOM. Entries, groups, times,
-   history, attachments. Reads through the DOM, writes as surgical mutations.
-2. **`vardo-merge`** — clean-room 3-way merge, `Synchronize` semantics, dry-run
-   preview. Diffs canonical payloads. This is the product.
-3. **`vardo-sync`** — `StorageBackend` trait, `FakeDrive` with fault injection,
+1. **Apply** a `MergePlan` to a vault (planning is done; mutation is not).
+2. **`vardo-sync`** — `StorageBackend` trait, `FakeDrive` with fault injection,
    then the real Google Drive backend. See `ADR-001-sync.md`.
-4. **UI** — Tauri v2 + Svelte. Only after the above are boring.
+3. **UI** — Tauri v2 (see `ADR-002-ui-toolkit.md`). Only after the above are
+   boring.
 
 ## Reading order
 

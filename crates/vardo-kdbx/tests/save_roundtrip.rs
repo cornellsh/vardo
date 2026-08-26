@@ -276,12 +276,19 @@ fn editing_a_ciphertext_document_is_documented_as_unsafe() {
 
     let before: Vec<String> = {
         let v = doc.protected_values(&dom).unwrap();
-        (0..v.len()).map(|i| v.get_str(i).unwrap().to_string()).collect()
+        (0..v.len())
+            .map(|i| v.get_str(i).unwrap().to_string())
+            .collect()
     };
     assert!(before.len() > 3, "need several protected values");
 
     // Remove the first entry, ciphertext and all.
-    let root = dom.root.child_mut("Root").unwrap().child_mut("Group").unwrap();
+    let root = dom
+        .root
+        .child_mut("Root")
+        .unwrap()
+        .child_mut("Group")
+        .unwrap();
     let at = root
         .children
         .iter()
@@ -323,7 +330,12 @@ fn the_vault_layer_survives_the_same_edit() {
     )
     .unwrap();
 
-    let root = dom.root.child_mut("Root").unwrap().child_mut("Group").unwrap();
+    let root = dom
+        .root
+        .child_mut("Root")
+        .unwrap()
+        .child_mut("Group")
+        .unwrap();
     let at = root
         .children
         .iter()
