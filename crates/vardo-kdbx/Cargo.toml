@@ -1,5 +1,5 @@
 [package]
-name = "bolthole-kdbx"
+name = "vardo-kdbx"
 description = "KDBX (KeePass) container reader/writer with lossless round-trip fidelity"
 version.workspace = true
 edition.workspace = true

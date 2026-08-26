@@ -1,13 +1,13 @@
 [workspace]
 resolver = "2"
-members = ["crates/bolthole-kdbx", "crates/bolthole-conformance"]
+members = ["crates/vardo-kdbx", "crates/vardo-conformance"]
 
 [workspace.package]
 version = "0.0.1"
 edition = "2021"
 rust-version = "1.82"
 license = "Apache-2.0 OR MIT"
-repository = "https://github.com/bolthole/bolthole"
+repository = "https://github.com/vardo/vardo"
 
 [workspace.dependencies]
 aes = "0.8"

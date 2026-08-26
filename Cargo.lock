@@ -143,29 +143,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bolthole-conformance"
-version = "0.0.1"
-dependencies = [
- "bolthole-kdbx",
- "keepass",
-]
-
-[[package]]
-name = "bolthole-kdbx"
-version = "0.0.1"
-dependencies = [
- "aes 0.8.4",
- "argon2",
- "cbc 0.1.2",
- "chacha20 0.9.1",
- "flate2",
- "hmac 0.12.1",
- "sha2 0.10.9",
- "thiserror",
- "zeroize",
-]
-
-[[package]]
 name = "bumpalo"
 version = "3.20.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -881,6 +858,29 @@ dependencies = [
  "js-sys",
  "serde_core",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "vardo-conformance"
+version = "0.0.1"
+dependencies = [
+ "keepass",
+ "vardo-kdbx",
+]
+
+[[package]]
+name = "vardo-kdbx"
+version = "0.0.1"
+dependencies = [
+ "aes 0.8.4",
+ "argon2",
+ "cbc 0.1.2",
+ "chacha20 0.9.1",
+ "flate2",
+ "hmac 0.12.1",
+ "sha2 0.10.9",
+ "thiserror",
+ "zeroize",
 ]
 
 [[package]]

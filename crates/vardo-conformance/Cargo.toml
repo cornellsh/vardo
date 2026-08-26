@@ -1,9 +1,9 @@
 [package]
-name = "bolthole-conformance"
+name = "vardo-conformance"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [dependencies]
-bolthole-kdbx = { path = "../bolthole-kdbx" }
+vardo-kdbx = { path = "../vardo-kdbx" }
 keepass = { version = "0.13", features = ["save_kdbx4"] }

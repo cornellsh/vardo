@@ -10,7 +10,7 @@
 
 use std::collections::BTreeMap;
 
-use bolthole_kdbx::{open, Credentials};
+use vardo_kdbx::{open, Credentials};
 
 fn main() {
     let mut args = std::env::args().skip(1);
@@ -27,7 +27,7 @@ fn main() {
 }
 
 fn usage() -> ! {
-    eprintln!("usage: bolthole-conformance <read|roundtrip> <file.kdbx> [password]");
+    eprintln!("usage: vardo-conformance <read|roundtrip> <file.kdbx> [password]");
     std::process::exit(2)
 }
 
@@ -42,7 +42,11 @@ fn dump(path: &str, pw: &str) {
     db.save(&mut out, key).expect("kp save");
     let after = open(&out, &creds).expect("re-read");
     std::fs::write("/tmp/after.xml", &after.xml).unwrap();
-    println!("wrote /tmp/before.xml ({}B) /tmp/after.xml ({}B)", before.xml.len(), after.xml.len());
+    println!(
+        "wrote /tmp/before.xml ({}B) /tmp/after.xml ({}B)",
+        before.xml.len(),
+        after.xml.len()
+    );
 }
 
 fn read(path: &str, pw: &str) {

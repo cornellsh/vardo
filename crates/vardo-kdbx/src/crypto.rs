@@ -93,7 +93,8 @@ impl MasterKeys {
 
     pub fn verify_header_hmac(&self, header_raw: &[u8], expected: &[u8]) -> Result<()> {
         let key = self.block_key(HEADER_BLOCK_INDEX);
-        let mut mac = <HmacSha256 as Mac>::new_from_slice(key.as_slice()).expect("HMAC accepts any key len");
+        let mut mac =
+            <HmacSha256 as Mac>::new_from_slice(key.as_slice()).expect("HMAC accepts any key len");
         mac.update(header_raw);
         // Constant-time comparison; `verify_slice` is the whole reason we use
         // the mac API rather than comparing digests by hand.
@@ -102,10 +103,7 @@ impl MasterKeys {
     }
 }
 
-fn transform_key(
-    composite: &[u8; 32],
-    params: &VariantDictionary,
-) -> Result<Zeroizing<Vec<u8>>> {
+fn transform_key(composite: &[u8; 32], params: &VariantDictionary) -> Result<Zeroizing<Vec<u8>>> {
     let uuid = params
         .get_bytes("$UUID")
         .ok_or(Error::MissingHeaderField("KdfParameters.$UUID"))?;
@@ -132,13 +130,12 @@ fn transform_key(
         let version = match params.get_u64("V").unwrap_or(0x13) {
             0x10 => argon2::Version::V0x10,
             0x13 => argon2::Version::V0x13,
-            other => {
-                return Err(Error::Kdf(format!("unsupported Argon2 version {other:#x}")))
-            }
+            other => return Err(Error::Kdf(format!("unsupported Argon2 version {other:#x}"))),
         };
 
         let params = argon2::Params::new(
-            u32::try_from(memory_bytes / 1024).map_err(|_| Error::Kdf("memory too large".into()))?,
+            u32::try_from(memory_bytes / 1024)
+                .map_err(|_| Error::Kdf("memory too large".into()))?,
             u32::try_from(iterations).map_err(|_| Error::Kdf("iterations too large".into()))?,
             u32::try_from(parallelism).map_err(|_| Error::Kdf("parallelism too large".into()))?,
             Some(32),
@@ -199,7 +196,8 @@ pub fn read_hmac_block_stream(keys: &MasterKeys, buf: &[u8]) -> Result<Vec<u8>> 
         let data = c.take(len as usize)?;
 
         let key = keys.block_key(index);
-        let mut mac = <HmacSha256 as Mac>::new_from_slice(key.as_slice()).expect("HMAC accepts any key len");
+        let mut mac =
+            <HmacSha256 as Mac>::new_from_slice(key.as_slice()).expect("HMAC accepts any key len");
         mac.update(&index.to_le_bytes());
         mac.update(&len.to_le_bytes());
         mac.update(data);
