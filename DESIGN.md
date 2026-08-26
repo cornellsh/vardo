@@ -44,8 +44,24 @@ week — and it should look like *itself*, not like a project-management tool.
 
 ## 2. Colour — Radix Colors
 
-The single highest-leverage thing to adopt, and it comes from the same people
-as Base UI.
+### Why Radix here, when `ADR-004` rejected Radix
+
+Different thing entirely. `ADR-004` rejected **Radix Primitives** — React
+components — on maintenance risk. `@radix-ui/colors` is **a CSS file**: zero
+dependencies, zero peer dependencies, no JavaScript.
+
+Base UI deliberately ships no colours (*"components are unstyled, don't bundle
+CSS, and don't prescribe a styling solution"*), so there is nothing to use
+instead.
+
+Its last publish was 2023, which is not staleness but completion. A palette is
+a set of numbers: no API to break, no ARIA spec to drift against, no browser
+compat to chase. The risk that disqualified Radix Primitives does not transfer
+— a component library that stalls is a liability I would have to maintain; a
+palette that stalls is a file I vendor. Same authors either way; Radix Colors
+is Colm Tuite's, who now works on Base UI.
+
+### The scale
 
 Twelve steps per scale, each step designed for a specific job, with a matched
 dark scale and alpha variants for every one. Critically, **steps 11 and 12 are
@@ -69,21 +85,32 @@ built in is worth more than one with more shades.
 
 ### The accent
 
-Everything in this category is blue, purple, or near-black. 1Password is blue.
-Bitwarden is blue. KeePassXC is blue-grey. Linear is lavender. Choosing another
-blue means being invisible.
+**Accent: `blue`. Neutral: `slate`.**
 
-**Accent: `bronze`. Neutral: `sand`.**
+Every serious product in this category is blue — 1Password, Bitwarden,
+KeePassXC — and Signal, the stated reference, is blue. That is a convention
+because it works, not because everyone is lazy:
 
-Warm, quiet, and thematically exact without being literal — brass, keys, old
-locks. It is unusual in software generally and unheard of in this category, and
-because Radix ships it as a full scale with a dark counterpart, it costs nothing
-to try. It is also one token: if it turns out wrong, changing it is a one-line
-edit, which is the point of doing colour this way.
+- **It is semantically free.** Red, amber and green are already spoken for by
+  destructive, warning and success. An accent that sits near any of them
+  competes with state. A warm accent next to amber warnings is actively
+  confusing.
+- **It survives at 12px.** Accent is used on focus rings, links and small
+  labels. Blue holds legibility at small sizes and low chroma better than warm
+  hues, which go muddy.
+- **For a security tool, looking conventional is a feature.** This should read
+  as infrastructure. Trust comes from familiarity, not novelty. Nobody wants a
+  quirky password manager.
 
-Semantic colours stay conventional, because this is not the place to be
-interesting: `red` for destructive, `amber` for warnings, `jade` for success and
+Semantic colours: `red` destructive, `amber` warning, `green` success and
 sync-healthy.
+
+> An earlier draft of this file chose `bronze` on `sand` and justified it as
+> "unheard of in this category". That is differentiation for its own sake, which
+> is not a reason. Visual distinctiveness in software comes from **execution** —
+> density, spacing, typography, restraint — not from an unusual hue. Linear is
+> not memorable because it is lavender; it is memorable because everything in it
+> is tight and consistent. Pick the boring colour and spend the effort on craft.
 
 ### Light first
 
@@ -91,9 +118,10 @@ Default to light, follow the system preference, and offer an explicit override.
 Dark mode is designed properly rather than derived — but this app is not
 dark-by-default, because that is the costume.
 
-If dark: canvas at Radix `sand` step 1, **never `#000000`**. Pure black emits no
-light, so elevated surfaces have nothing to contrast against and the whole thing
-turns to mush. Elevation comes from stepping the surface, not from shadows.
+If dark: canvas at Radix `slate` step 1, **never `#000000`**. Pure black emits
+no light, so elevated surfaces have nothing to contrast against and the whole
+thing turns to mush. Elevation comes from stepping the surface, not from
+shadows.
 
 ---
 
@@ -182,24 +210,24 @@ a real custom property. One source of truth for both utilities and bespoke CSS.
 
 ```css
 @import "tailwindcss";
-@import "@radix-ui/colors/sand.css";
-@import "@radix-ui/colors/sand-dark.css";
-@import "@radix-ui/colors/bronze.css";
-@import "@radix-ui/colors/bronze-dark.css";
+@import "@radix-ui/colors/slate.css";
+@import "@radix-ui/colors/slate-dark.css";
+@import "@radix-ui/colors/blue.css";
+@import "@radix-ui/colors/blue-dark.css";
 
 /* Two-stage on purpose. `@theme inline` bakes values in at build time, so
    toggling .dark at runtime would do nothing — the single most common way to
    break dark mode in v4. */
 :root {
-  --canvas:        var(--sand-1);
-  --surface:       var(--sand-2);
-  --surface-hover: var(--sand-3);
-  --border:        var(--sand-6);
-  --border-strong: var(--sand-7);
-  --text:          var(--sand-12);
-  --text-muted:    var(--sand-11);
-  --accent:        var(--bronze-9);
-  --accent-text:   var(--bronze-11);
+  --canvas:        var(--slate-1);
+  --surface:       var(--slate-2);
+  --surface-hover: var(--slate-3);
+  --border:        var(--slate-6);
+  --border-strong: var(--slate-7);
+  --text:          var(--slate-12);
+  --text-muted:    var(--slate-11);
+  --accent:        var(--blue-9);
+  --accent-text:   var(--blue-11);
 }
 
 @theme {
