@@ -1,0 +1,20 @@
+[package]
+name = "vardo-drive"
+description = "Google Drive storage backend and installed-app OAuth"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+# The real HTTP client. Off by default so the logic can be built and tested
+# without pulling in TLS and a networking stack.
+default = []
+network = ["dep:ureq"]
+
+[dependencies]
+vardo-kdbx = { path = "../vardo-kdbx" }
+vardo-sync = { path = "../vardo-sync" }
+sha2.workspace = true
+ureq = { version = "3", optional = true }

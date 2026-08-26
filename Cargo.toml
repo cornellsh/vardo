@@ -5,6 +5,7 @@ members = [
   "crates/vardo-vault",
   "crates/vardo-merge",
   "crates/vardo-sync",
+  "crates/vardo-drive",
   "crates/vardo-conformance",
 ]
 exclude = ["fuzz"]
