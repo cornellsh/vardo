@@ -1,0 +1,112 @@
+/* Self-hosted, not a CDN: the CSP is `default-src 'self'` and the app must work
+   offline. Open Sans is what tdesktop bundles — see DESIGN.md §2. */
+@import '@fontsource-variable/open-sans';
+@import 'tailwindcss';
+@import './tokens.css';
+
+/*
+ * Deliberately NOT `@theme inline`: that resolves custom properties at build
+ * time, so toggling `.dark` at runtime would have no effect. This is the single
+ * most common way to break dark mode in Tailwind v4.
+ */
+@theme {
+  --color-window: var(--window-bg);
+  --color-window-over: var(--window-bg-over);
+  --color-window-ripple: var(--window-bg-ripple);
+  --color-fg: var(--window-fg);
+  --color-bold: var(--window-bold-fg);
+  --color-muted: var(--window-sub-text-fg);
+  --color-accent: var(--window-bg-active);
+  --color-accent-text: var(--accent-behind-text);
+  --color-on-accent: var(--window-fg-active);
+  --color-link: var(--window-active-text-fg);
+  --color-attention: var(--attention-button-fg);
+  --color-rail: var(--side-bar-bg);
+  --color-row-over: var(--dialogs-bg-over);
+  --color-row-active: var(--dialogs-bg-active);
+  --color-row-name: var(--dialogs-name-fg);
+  --color-row-text: var(--dialogs-text-fg);
+  --color-box: var(--box-bg);
+  --color-hairline: var(--shadow-fg);
+
+  --font-sans: var(--font-ui-stack);
+  --font-mono: var(--font-mono-stack);
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-ui-stack);
+  /* 13px, from tdesktop basic.style `fsize`. Denser than a typical web app, and
+     the main reason Telegram reads as a desktop application. Do not raise it. */
+  font-size: var(--fsize);
+  line-height: 1.35;
+  color: var(--window-fg);
+  background: var(--window-bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Telegram is a desktop app: text is UI, not content. Selection is enabled
+   only where a value is meant to be selectable. */
+body {
+  user-select: none;
+  cursor: default;
+}
+
+.selectable {
+  user-select: text;
+  cursor: text;
+}
+
+/* Secrets, TOTP codes and UUIDs. `zero` disambiguates 0/O and `tnum` stops a
+   counting TOTP from shifting width. The one place this app deviates from
+   Telegram, because Telegram never asks you to read a random string. */
+.secret {
+  font-family: var(--font-mono-stack);
+  font-feature-settings: 'zero' 1, 'tnum' 1;
+  letter-spacing: 0.01em;
+}
+
+/* Keyboard-first is a release gate (DESIGN.md §7), so the ring is never
+   removed — only hidden for pointer users via :focus-visible. */
+:focus-visible {
+  outline: 2px solid var(--window-bg-active);
+  outline-offset: -2px;
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--window-sub-text-fg) 40%, transparent);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--window-sub-text-fg) 65%, transparent);
+  background-clip: content-box;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

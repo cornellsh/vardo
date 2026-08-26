@@ -32,3 +32,26 @@ fi
 
 passed=$(echo "$output" | grep -oE "^test result: ok\. [0-9]+" | grep -oE "[0-9]+" | paste -sd+ | bc)
 echo "OK — $passed tests passed"
+
+# --- frontend -------------------------------------------------------------
+# Skipped rather than failed when dependencies are absent, so a Rust-only
+# checkout still runs green.
+if [ -d app/node_modules ]; then
+	echo
+	echo "== app: typecheck =="
+	(cd app && npx tsc --noEmit)
+
+	# The ported Telegram palette is not APCA-verified upstream, and several
+	# pairs fail WCAG AA as shipped. This gate is why the deviations in
+	# tokens.css are measured rather than asserted — it caught nine failures
+	# that eyeballing missed, mostly hover states and the focus ring.
+	echo "== app: contrast =="
+	(cd app && node scripts/contrast.mjs)
+
+	echo "== app: build =="
+	(cd app && npx vite build >/dev/null)
+	echo "OK — app builds"
+else
+	echo
+	echo "skipping app checks (run: cd app && npm install)"
+fi
