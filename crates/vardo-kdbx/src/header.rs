@@ -344,10 +344,9 @@ impl InnerHeader {
                             detail: format!("expected 4 bytes, got {}", data.len()),
                         });
                     }
-                    stream_cipher =
-                        Some(InnerStreamCipher::from(i32::from_le_bytes(
-                            data.try_into().unwrap(),
-                        )));
+                    stream_cipher = Some(InnerStreamCipher::from(i32::from_le_bytes(
+                        data.try_into().unwrap(),
+                    )));
                 }
                 2 => stream_key = Some(data.to_vec()),
                 3 => {

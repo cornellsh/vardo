@@ -3,7 +3,7 @@
 **Question:** can we depend on the `keepass` crate, or must we write the KDBX
 container layer ourselves?
 
-**Method:** built a minimal KDBX4 reader (`bolthole-kdbx`) that decrypts to raw
+**Method:** built a minimal KDBX4 reader (`vardo-kdbx`) that decrypts to raw
 XML, giving ground truth independent of any candidate library. Then for each
 fixture: `original → keepass::open → keepass::save → our reader → diff the XML`.
 
@@ -78,12 +78,12 @@ verified before writing it.
 ## Result 4 — why normalisation is still disqualifying *for this product*
 
 Dropping `<Tags/>` in favour of no element is arguably semantically identical.
-It is still fatal here, for a reason specific to what Bolthole is:
+It is still fatal here, for a reason specific to what Vardo is:
 
 > **We are building a merge engine. A non-byte-stable round-trip manufactures
 > phantom diffs on every single save.**
 
-KeePassXC writes the file. Bolthole opens it, changes *nothing*, saves. The
+KeePassXC writes the file. Vardo opens it, changes *nothing*, saves. The
 document now differs by ~35 elements. Any structural 3-way merge sees that as
 change on our side and raises conflicts that do not exist.
 
@@ -113,7 +113,7 @@ distinction `CRITIQUE.md` §2.2 drew, and it holds.
 
 ## Decision
 
-**Write `bolthole-kdbx` ourselves, DOM-first.** Confirmed by evidence, not
+**Write `vardo-kdbx` ourselves, DOM-first.** Confirmed by evidence, not
 preference.
 
 `keepass` stays in the workspace as a **differential-testing oracle** — where
@@ -122,7 +122,7 @@ we disagree, one of us is wrong and it's worth knowing which. It is MIT, mature,
 
 ## What already works
 
-`crates/bolthole-kdbx` reads KDBX 4.0 and 4.1 to raw XML:
+`crates/vardo-kdbx` reads KDBX 4.0 and 4.1 to raw XML:
 
 ```
 OK  test_db_kdbx41_features.kdbx              4.1  5987 B

@@ -1,4 +1,4 @@
-# Bolthole
+# Vardo
 
 A KDBX-native password manager for Windows, macOS, and Linux. Syncs via Google
 Drive. Stays byte-compatible with KeePassium on iOS.

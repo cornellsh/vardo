@@ -16,10 +16,7 @@ pub enum Error {
     },
 
     #[error("malformed {what}: {detail}")]
-    Malformed {
-        what: &'static str,
-        detail: String,
-    },
+    Malformed { what: &'static str, detail: String },
 
     #[error("unknown cipher UUID {0}")]
     UnknownCipher(String),
