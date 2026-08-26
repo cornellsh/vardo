@@ -18,6 +18,7 @@ pub mod error;
 pub mod header;
 pub mod limits;
 pub mod protected;
+pub mod write;
 pub mod xml;
 
 use std::io::Read;
@@ -81,6 +82,47 @@ impl Document {
     /// Decrypts every `Protected="True"` value, in document order.
     pub fn protected_values(&self, dom: &xml::Document) -> Result<protected::ProtectedValues> {
         protected::decrypt_all(dom, self.inner.stream_cipher, &self.inner.stream_key)
+    }
+
+    /// The payload with protected values replaced by plaintext.
+    ///
+    /// This is the only form in which two KDBX files can meaningfully be
+    /// compared; see [`protected::canonical_payload`].
+    pub fn canonical_payload(
+        &self,
+        dom: &xml::Document,
+    ) -> Result<zeroize::Zeroizing<Vec<u8>>> {
+        protected::canonical_payload(dom, self.inner.stream_cipher, &self.inner.stream_key)
+    }
+
+    /// Re-encodes `dom` into a complete KDBX file, preserving this document's
+    /// version, cipher, compression and KDF settings.
+    ///
+    /// The output is deliberately *not* byte-identical to the input: fresh
+    /// seeds and IVs are minted on every save, because reusing them would be a
+    /// cryptographic flaw. What is preserved exactly is the decrypted payload.
+    /// See [`crate::write`] for the full argument.
+    pub fn save(&self, dom: &xml::Document, creds: &Credentials) -> Result<Vec<u8>> {
+        self.save_with(dom, creds, &mut write::OsRng)
+    }
+
+    /// As [`Document::save`], with injectable randomness for testing.
+    pub fn save_with(
+        &self,
+        dom: &xml::Document,
+        creds: &Credentials,
+        rng: &mut dyn write::Rng,
+    ) -> Result<Vec<u8>> {
+        let opts = write::SaveOptions::preserving(self)?;
+        write::save(
+            dom,
+            &self.inner,
+            &self.inner.binaries,
+            creds,
+            &opts,
+            &self.limits,
+            rng,
+        )
     }
 }
 

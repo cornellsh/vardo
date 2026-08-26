@@ -177,6 +177,53 @@ pub fn decrypt_all(
     Ok(ProtectedValues { values })
 }
 
+/// The document with every protected value replaced by its plaintext.
+///
+/// # Why this exists
+///
+/// Raw XML is **not** stable across saves and cannot be, because each save
+/// re-encrypts protected values under a fresh inner key (see [`crate::write`]).
+/// Two files holding identical data therefore differ in every password field.
+///
+/// Diffing raw payloads would consequently report a change to every entry on
+/// every sync — precisely the phantom-conflict failure this project exists to
+/// avoid. The canonical form is the comparable one, and it is what the merge
+/// engine must operate on.
+///
+/// The result contains **every password in the vault in plaintext**. It is
+/// zeroized on drop; do not copy it into an unprotected buffer.
+pub fn canonical_payload(
+    doc: &xml::Document,
+    cipher: InnerStreamCipher,
+    key: &[u8],
+) -> Result<Zeroizing<Vec<u8>>> {
+    let values = decrypt_all(doc, cipher, key)?;
+    let mut out = doc.clone();
+    let mut ordinal = 0usize;
+    canonicalize(&mut out.root, &values, &mut ordinal);
+    Ok(Zeroizing::new(out.to_bytes()))
+}
+
+fn canonicalize(e: &mut xml::Element, values: &ProtectedValues, ordinal: &mut usize) {
+    if is_protected(e) {
+        if let Some(v) = values.get_str(*ordinal) {
+            e.set_text(&v);
+        }
+        *ordinal += 1;
+        return;
+    }
+    for child in e.children.iter_mut() {
+        if let xml::Node::Element(child) = child {
+            canonicalize(child, values, ordinal);
+        }
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn base64_decode_for_test(s: &str) -> Option<Vec<u8>> {
+    base64_decode(s)
+}
+
 /// Standard base64 with padding. Returns `None` on any invalid input.
 fn base64_decode(s: &str) -> Option<Vec<u8>> {
     const INVALID: u8 = 0xFF;

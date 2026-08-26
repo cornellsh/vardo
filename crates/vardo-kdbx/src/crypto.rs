@@ -93,6 +93,15 @@ impl MasterKeys {
         Zeroizing::new(h.finalize().into())
     }
 
+    /// Computes the header HMAC that authenticates `header_raw`.
+    pub fn header_hmac(&self, header_raw: &[u8]) -> [u8; 32] {
+        let key = self.block_key(HEADER_BLOCK_INDEX);
+        let mut mac =
+            <HmacSha256 as Mac>::new_from_slice(key.as_slice()).expect("HMAC accepts any key len");
+        mac.update(header_raw);
+        mac.finalize().into_bytes().into()
+    }
+
     pub fn verify_header_hmac(&self, header_raw: &[u8], expected: &[u8]) -> Result<()> {
         let key = self.block_key(HEADER_BLOCK_INDEX);
         let mut mac =
@@ -227,6 +236,67 @@ pub fn read_hmac_block_stream(keys: &MasterKeys, buf: &[u8]) -> Result<Vec<u8>> 
         index += 1;
     }
     Ok(out)
+}
+
+/// Splits `data` into HMAC-authenticated blocks and appends them to `out`.
+///
+/// Block size matches KeePass's 1 MiB so that files we write have the same
+/// framing shape as files it writes.
+pub fn write_hmac_block_stream(keys: &MasterKeys, data: &[u8], out: &mut Vec<u8>) {
+    const BLOCK: usize = 1024 * 1024;
+
+    let mut index: u64 = 0;
+    let emit = |chunk: &[u8], index: u64, out: &mut Vec<u8>| {
+        let key = keys.block_key(index);
+        let mut mac =
+            <HmacSha256 as Mac>::new_from_slice(key.as_slice()).expect("HMAC accepts any key len");
+        let len = chunk.len() as u32;
+        mac.update(&index.to_le_bytes());
+        mac.update(&len.to_le_bytes());
+        mac.update(chunk);
+        out.extend_from_slice(&mac.finalize().into_bytes());
+        out.extend_from_slice(&len.to_le_bytes());
+        out.extend_from_slice(chunk);
+    };
+
+    for chunk in data.chunks(BLOCK) {
+        emit(chunk, index, out);
+        index += 1;
+    }
+    // Zero-length terminator block.
+    emit(&[], index, out);
+}
+
+pub fn encrypt(cipher_id: [u8; 16], key: &[u8; 32], iv: &[u8], data: &[u8]) -> Result<Vec<u8>> {
+    match cipher_id {
+        header::CIPHER_AES256_CBC => {
+            use aes::cipher::BlockEncryptMut;
+            let iv: [u8; 16] = iv.try_into().map_err(|_| Error::Malformed {
+                what: "EncryptionIV",
+                detail: format!("AES-CBC needs a 16-byte IV, got {}", iv.len()),
+            })?;
+            // PKCS#7 always adds at least one byte, so the buffer must have a
+            // full spare block for the padded output.
+            let mut buf = vec![0u8; data.len() + 16];
+            buf[..data.len()].copy_from_slice(data);
+            let n = cbc::Encryptor::<aes::Aes256>::new(key.into(), &iv.into())
+                .encrypt_padded_mut::<aes::cipher::block_padding::Pkcs7>(&mut buf, data.len())
+                .map_err(|e| Error::Malformed {
+                    what: "AES-CBC payload",
+                    detail: format!("padding failed: {e}"),
+                })?
+                .len();
+            buf.truncate(n);
+            Ok(buf)
+        }
+        // ChaCha20 is a stream cipher, so encryption and decryption are the
+        // same operation.
+        header::CIPHER_CHACHA20 => decrypt(cipher_id, key, iv, data),
+        header::CIPHER_TWOFISH => Err(Error::UnknownCipher(
+            "Twofish (not yet implemented)".to_string(),
+        )),
+        other => Err(Error::UnknownCipher(hex(&other))),
+    }
 }
 
 pub fn decrypt(cipher_id: [u8; 16], key: &[u8; 32], iv: &[u8], data: &[u8]) -> Result<Vec<u8>> {
