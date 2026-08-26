@@ -131,11 +131,11 @@ mod tests {
     #[test]
     fn rejects_malformed_input() {
         for bad in [
-            "Zg=",      // wrong length
-            "Zm9!",     // invalid character
-            "=Zm9",     // padding not at end
-            "Z===",     // too much padding
-            "Zm==Zm9v", // interior padding: two concatenated strings
+            "Zg=",       // wrong length
+            "Zm9!",      // invalid character
+            "=Zm9",      // padding not at end
+            "Z===",      // too much padding
+            "Zm==Zm9v",  // interior padding: two concatenated strings
             "Zm9vYmFyZ", // not a multiple of 4
         ] {
             assert!(decode(bad).is_none(), "should reject {bad:?}");

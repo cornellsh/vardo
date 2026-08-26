@@ -162,13 +162,15 @@ pub fn decrypt_all(
             continue;
         }
         let mut raw =
-            Zeroizing::new(crate::base64::decode(text.trim()).ok_or_else(|| Error::Malformed {
-                what: "protected value",
-                detail: format!(
-                    "<{}> at ordinal {ordinal} is not valid base64",
-                    element.name
-                ),
-            })?);
+            Zeroizing::new(
+                crate::base64::decode(text.trim()).ok_or_else(|| Error::Malformed {
+                    what: "protected value",
+                    detail: format!(
+                        "<{}> at ordinal {ordinal} is not valid base64",
+                        element.name
+                    ),
+                })?,
+            );
         stream.apply(&mut raw);
         values.push(raw);
     }
@@ -196,11 +198,37 @@ pub fn canonical_payload(
     cipher: InnerStreamCipher,
     key: &[u8],
 ) -> Result<Zeroizing<Vec<u8>>> {
+    Ok(Zeroizing::new(
+        plaintext_document(doc, cipher, key)?.to_bytes(),
+    ))
+}
+
+/// The document with protected ciphertext replaced by plaintext, as a DOM.
+///
+/// # Why every editor must go through this
+///
+/// Protected values are decrypted by **position** within one shared keystream.
+/// While a document holds ciphertext, adding, removing or reordering any
+/// protected element invalidates every value after it: those bytes are keyed
+/// to the old positions but will be decrypted against the new ones.
+///
+/// So an unlocked, editable vault must hold *plaintext* and encrypt only at
+/// save. Deleting a single entry from a ciphertext document silently corrupts
+/// the password of every entry after it — which is exactly what happened here
+/// until a merge test caught three untouched entries decrypting to garbage.
+///
+/// The returned document contains **every password in plaintext**. Treat it as
+/// secret for as long as it exists.
+pub fn plaintext_document(
+    doc: &xml::Document,
+    cipher: InnerStreamCipher,
+    key: &[u8],
+) -> Result<xml::Document> {
     let values = decrypt_all(doc, cipher, key)?;
     let mut out = doc.clone();
     let mut ordinal = 0usize;
     canonicalize(&mut out.root, &values, &mut ordinal);
-    Ok(Zeroizing::new(out.to_bytes()))
+    Ok(out)
 }
 
 fn canonicalize(e: &mut xml::Element, values: &ProtectedValues, ordinal: &mut usize) {
@@ -221,8 +249,6 @@ fn canonicalize(e: &mut xml::Element, values: &ProtectedValues, ordinal: &mut us
 #[cfg(test)]
 mod tests {
     use super::*;
-
-
 
     #[test]
     fn arc4_and_unknown_streams_are_refused() {

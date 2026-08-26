@@ -225,11 +225,20 @@ fn works_across_the_whole_format_matrix() {
     for (name, pw) in [
         ("test_db_kdbx4_with_password_argon2.kdbx", "demopass"),
         ("test_db_kdbx4_with_password_argon2id.kdbx", "demopass"),
-        ("test_db_kdbx4_with_password_argon2_chacha20.kdbx", "demopass"),
-        ("test_db_kdbx4_with_password_argon2_twofish.kdbx", "demopass"),
+        (
+            "test_db_kdbx4_with_password_argon2_chacha20.kdbx",
+            "demopass",
+        ),
+        (
+            "test_db_kdbx4_with_password_argon2_twofish.kdbx",
+            "demopass",
+        ),
         ("test_db_kdbx41_features.kdbx", "demopass"),
         ("test_db_with_password.kdbx", "demopass"), // KDBX 3.1
-        ("test_db_kdbx3_with_chacha20_protected_fields.kdbx", "password"),
+        (
+            "test_db_kdbx3_with_chacha20_protected_fields.kdbx",
+            "password",
+        ),
     ] {
         let v = vault(name, pw);
         let root = v.root().unwrap_or_else(|| panic!("{name}: no root group"));
@@ -245,7 +254,10 @@ fn works_across_the_whole_format_matrix() {
 
 #[test]
 fn kdbx31_entries_decrypt_via_the_typed_view() {
-    let v = vault("test_db_kdbx3_with_chacha20_protected_fields.kdbx", "password");
+    let v = vault(
+        "test_db_kdbx3_with_chacha20_protected_fields.kdbx",
+        "password",
+    );
     let entries = v.entries();
     assert_eq!(entries.len(), 1);
     assert_eq!(entries[0].password().unwrap().expose(), "admin");

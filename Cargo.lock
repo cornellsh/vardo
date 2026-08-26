@@ -923,6 +923,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "vardo-merge"
+version = "0.0.1"
+dependencies = [
+ "vardo-kdbx",
+ "vardo-vault",
+ "zeroize",
+]
+
+[[package]]
 name = "vardo-vault"
 version = "0.0.1"
 dependencies = [
