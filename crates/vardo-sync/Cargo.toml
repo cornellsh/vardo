@@ -1,0 +1,13 @@
+[package]
+name = "vardo-sync"
+description = "Storage backends and the sync protocol"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+vardo-kdbx = { path = "../vardo-kdbx" }
+vardo-vault = { path = "../vardo-vault" }
+vardo-merge = { path = "../vardo-merge" }
