@@ -119,6 +119,14 @@ pub struct Element {
     /// us from silently rewriting the ~35 empty elements in a typical KeePass
     /// document on every save.
     pub self_closing: bool,
+    /// Whitespace between the last attribute (or the name) and the closing
+    /// `>` or `/>`.
+    ///
+    /// Real writers disagree here: KeePassXC emits `<Tags/>` while IntelliJ's
+    /// KeePass library emits `<Tags />`. Normalising it would rewrite every
+    /// empty element in a file produced by the other tool — exactly the class
+    /// of spurious diff this DOM exists to prevent.
+    pub trailing_space: String,
 }
 
 impl Element {
@@ -128,6 +136,7 @@ impl Element {
             attributes: Vec::new(),
             children: Vec::new(),
             self_closing: true,
+            trailing_space: String::new(),
         }
     }
 

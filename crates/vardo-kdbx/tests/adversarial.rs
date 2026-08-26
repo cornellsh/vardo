@@ -117,8 +117,10 @@ fn limits_are_the_only_thing_standing_between_us_and_the_bomb() {
 
 #[test]
 fn oversized_file_is_refused_before_parsing() {
-    let mut limits = Limits::default();
-    limits.max_file_size = 16;
+    let limits = Limits {
+        max_file_size: 16,
+        ..Limits::default()
+    };
     let err = open_with_limits(&base(), &creds(), limits).unwrap_err();
     assert!(matches!(err, Error::ResourceLimit(_)));
 }

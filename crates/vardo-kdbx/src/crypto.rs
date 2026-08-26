@@ -267,6 +267,70 @@ pub fn write_hmac_block_stream(keys: &MasterKeys, data: &[u8], out: &mut Vec<u8>
     emit(&[], index, out);
 }
 
+/// Reads the KDBX 3.1 hashed block stream.
+///
+/// Layout per block: `[u32 index][32-byte SHA-256][u32 size][size bytes]`,
+/// terminated by a zero-size block.
+///
+/// Note the weakness relative to KDBX4: these digests are **unkeyed**, so they
+/// catch accidental corruption but not deliberate tampering — anyone can
+/// recompute them. KDBX 3.1 has no authenticated integrity at all, which is
+/// among the reasons KDBX4 exists and why this crate never writes 3.1.
+pub fn read_hashed_block_stream(buf: &[u8]) -> Result<Vec<u8>> {
+    let mut c = Cursor::new(buf);
+    let mut out = Vec::new();
+    let mut expected_index: u32 = 0;
+
+    loop {
+        let index = c.u32()?;
+        if index != expected_index {
+            return Err(Error::Malformed {
+                what: "hashed block stream",
+                detail: format!("block index {index}, expected {expected_index}"),
+            });
+        }
+        let digest = c.take(32)?.to_vec();
+        let size = c.u32()? as usize;
+
+        if size == 0 {
+            if digest.iter().any(|&b| b != 0) {
+                return Err(Error::Malformed {
+                    what: "hashed block stream",
+                    detail: "terminator block has a non-zero digest".into(),
+                });
+            }
+            break;
+        }
+
+        let data = c.take(size)?;
+        if Sha256::digest(data).as_slice() != digest {
+            return Err(Error::BlockAuthFailed {
+                index: index as u64,
+            });
+        }
+        out.extend_from_slice(data);
+        expected_index += 1;
+    }
+    Ok(out)
+}
+
+/// Derives the KDBX 3.1 master key. Unlike KDBX4 there is no separate HMAC key.
+pub fn derive_kdbx3_key(
+    creds: &Credentials,
+    master_seed: &[u8],
+    transform_seed: &[u8],
+    rounds: u64,
+    limits: &Limits,
+) -> Result<Zeroizing<[u8; 32]>> {
+    limits.check("AES-KDF rounds", rounds, limits.max_aes_kdf_rounds)?;
+    let composite = creds.composite_key();
+    let transformed = aes_kdf(&composite, transform_seed, rounds)?;
+    let mut h = Sha256::new();
+    h.update(master_seed);
+    h.update(transformed.as_slice());
+    Ok(Zeroizing::new(h.finalize().into()))
+}
+
 pub fn encrypt(cipher_id: [u8; 16], key: &[u8; 32], iv: &[u8], data: &[u8]) -> Result<Vec<u8>> {
     match cipher_id {
         header::CIPHER_AES256_CBC => {
@@ -292,9 +356,24 @@ pub fn encrypt(cipher_id: [u8; 16], key: &[u8; 32], iv: &[u8], data: &[u8]) -> R
         // ChaCha20 is a stream cipher, so encryption and decryption are the
         // same operation.
         header::CIPHER_CHACHA20 => decrypt(cipher_id, key, iv, data),
-        header::CIPHER_TWOFISH => Err(Error::UnknownCipher(
-            "Twofish (not yet implemented)".to_string(),
-        )),
+        header::CIPHER_TWOFISH => {
+            use aes::cipher::BlockEncryptMut;
+            let iv: [u8; 16] = iv.try_into().map_err(|_| Error::Malformed {
+                what: "EncryptionIV",
+                detail: format!("Twofish-CBC needs a 16-byte IV, got {}", iv.len()),
+            })?;
+            let mut buf = vec![0u8; data.len() + 16];
+            buf[..data.len()].copy_from_slice(data);
+            let n = cbc::Encryptor::<twofish::Twofish>::new(key.into(), &iv.into())
+                .encrypt_padded_mut::<aes::cipher::block_padding::Pkcs7>(&mut buf, data.len())
+                .map_err(|e| Error::Malformed {
+                    what: "Twofish-CBC payload",
+                    detail: format!("padding failed: {e}"),
+                })?
+                .len();
+            buf.truncate(n);
+            Ok(buf)
+        }
         other => Err(Error::UnknownCipher(hex(&other))),
     }
 }
@@ -325,9 +404,20 @@ pub fn decrypt(cipher_id: [u8; 16], key: &[u8; 32], iv: &[u8], data: &[u8]) -> R
             chacha20::ChaCha20::new(key.into(), &iv.into()).apply_keystream(&mut buf);
             Ok(buf)
         }
-        header::CIPHER_TWOFISH => Err(Error::UnknownCipher(
-            "Twofish (not yet implemented)".to_string(),
-        )),
+        header::CIPHER_TWOFISH => {
+            let iv: [u8; 16] = iv.try_into().map_err(|_| Error::Malformed {
+                what: "EncryptionIV",
+                detail: format!("Twofish-CBC needs a 16-byte IV, got {}", iv.len()),
+            })?;
+            let mut buf = data.to_vec();
+            let plain = cbc::Decryptor::<twofish::Twofish>::new(key.into(), &iv.into())
+                .decrypt_padded_mut::<aes::cipher::block_padding::Pkcs7>(&mut buf)
+                .map_err(|e| Error::Malformed {
+                    what: "Twofish-CBC payload",
+                    detail: format!("invalid padding: {e}"),
+                })?;
+            Ok(plain.to_vec())
+        }
         other => Err(Error::UnknownCipher(hex(&other))),
     }
 }

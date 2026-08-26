@@ -146,10 +146,10 @@ pub fn open_with_limits(bytes: &[u8], creds: &Credentials, limits: Limits) -> Re
     limits.check("file size", bytes.len() as u64, limits.max_file_size)?;
 
     let outer = OuterHeader::parse(bytes)?;
+    if outer.version.major == 3 {
+        return open_kdbx3(bytes, creds, limits, outer);
+    }
     if !outer.version.is_kdbx4() {
-        // KDBX 3.1 uses a different integrity scheme (StreamStartBytes and a
-        // hashed, unauthenticated block stream). Deliberately unimplemented
-        // rather than silently mishandled.
         return Err(Error::UnsupportedVersion {
             major: outer.version.major,
             minor: outer.version.minor,
@@ -199,5 +199,90 @@ pub fn open_with_limits(bytes: &[u8], creds: &Credentials, limits: Limits) -> Re
         inner,
         limits,
         xml: xml.to_vec(),
+    })
+}
+
+/// Reads KDBX 3.1.
+///
+/// Structurally different from KDBX4 in three ways that matter:
+///
+/// * the KDF is always AES-KDF, parameterised by two dedicated header fields
+///   rather than a VariantDictionary;
+/// * there is no HMAC. Integrity rests on unkeyed SHA-256 per block, so the
+///   format detects corruption but not tampering;
+/// * the credential check is `StreamStartBytes` — the first 32 plaintext bytes
+///   must match a header field. A wrong password therefore surfaces *after*
+///   decryption rather than before it.
+///
+/// There is no inner header; the inner stream cipher lives in the outer header
+/// and attachments are inlined in the XML rather than pooled.
+///
+/// Read-only on purpose. Writing 3.1 would mean emitting a format with no
+/// authenticated integrity, and every client that can read 3.1 can also read
+/// 4.x.
+fn open_kdbx3(
+    bytes: &[u8],
+    creds: &Credentials,
+    limits: Limits,
+    outer: OuterHeader,
+) -> Result<Document> {
+    let master_seed = outer.master_seed()?;
+    let transform_seed = outer
+        .field(5)
+        .ok_or(Error::MissingHeaderField("TransformSeed"))?;
+    let rounds_raw = outer
+        .field(6)
+        .ok_or(Error::MissingHeaderField("TransformRounds"))?;
+    let rounds = u64::from_le_bytes(rounds_raw.try_into().map_err(|_| Error::Malformed {
+        what: "TransformRounds",
+        detail: format!("expected 8 bytes, got {}", rounds_raw.len()),
+    })?);
+    let stream_start = outer
+        .field(9)
+        .ok_or(Error::MissingHeaderField("StreamStartBytes"))?
+        .to_vec();
+
+    let key = crypto::derive_kdbx3_key(creds, master_seed, transform_seed, rounds, &limits)?;
+    let ciphertext = &bytes[outer.raw.len()..];
+    let plaintext = crypto::decrypt(outer.cipher()?, &key, outer.encryption_iv()?, ciphertext)
+        // A wrong password usually yields invalid CBC padding, which is
+        // indistinguishable from corruption and must not leak which it was.
+        .map_err(|_| Error::HeaderAuthFailed)?;
+
+    if plaintext.len() < stream_start.len() || plaintext[..stream_start.len()] != stream_start[..] {
+        return Err(Error::HeaderAuthFailed);
+    }
+
+    let blocks = crypto::read_hashed_block_stream(&plaintext[stream_start.len()..])?;
+    let payload = if outer.compressed()? {
+        decompress_bounded(&blocks, limits.max_decompressed_size)?
+    } else {
+        blocks
+    };
+
+    // Synthesised: 3.1 keeps these in the outer header, but everything
+    // downstream expects the KDBX4 shape.
+    let stream_id = outer
+        .field(10)
+        .ok_or(Error::MissingHeaderField("InnerRandomStreamID"))?;
+    let stream_id = i32::from_le_bytes(stream_id.try_into().map_err(|_| Error::Malformed {
+        what: "InnerRandomStreamID",
+        detail: "expected 4 bytes".into(),
+    })?);
+    let inner = InnerHeader {
+        stream_cipher: header::InnerStreamCipher::from(stream_id),
+        stream_key: outer
+            .field(8)
+            .ok_or(Error::MissingHeaderField("InnerRandomStreamKey"))?
+            .to_vec(),
+        binaries: Vec::new(),
+        unknown: Vec::new(),
+    };
+
+    Ok(Document {
+        outer,
+        inner,
+        limits,
+        xml: payload,
     })
 }
