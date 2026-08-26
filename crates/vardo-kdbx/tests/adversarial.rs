@@ -219,7 +219,8 @@ fn doctype_is_rejected_outright() {
 
 #[test]
 fn external_entity_reference_cannot_reach_the_filesystem() {
-    let xxe = br#"<?xml version="1.0"?><!DOCTYPE r [<!ENTITY x SYSTEM "file:///etc/passwd">]><r>&x;</r>"#;
+    let xxe =
+        br#"<?xml version="1.0"?><!DOCTYPE r [<!ENTITY x SYSTEM "file:///etc/passwd">]><r>&x;</r>"#;
     assert!(xml::parse(xxe, ParseLimits::default()).is_err());
 
     // Even without a DTD, an undefined entity is passed through as literal
@@ -245,20 +246,20 @@ fn deep_nesting_is_bounded_rather_than_overflowing_the_stack() {
 #[test]
 fn malformed_markup_is_rejected_cleanly() {
     let cases: &[&[u8]] = &[
-        b"",                      // empty
-        b"<a>",                   // unclosed
-        b"</a>",                  // stray end tag
-        b"<a></b>",               // mismatched
-        b"<a><b></a></b>",        // improperly nested
-        b"<a attr>",              // attribute without value
-        b"<a attr=unquoted>",     // unquoted value
-        b"<a attr=\"unterminated",// unterminated value
-        b"<a/><b/>",              // two roots
-        b"<!-- unterminated",     // unterminated comment
-        b"<![CDATA[unterminated", // unterminated CDATA
-        b"<?pi unterminated",     // unterminated PI
-        b"<1nvalid/>",            // name cannot start with a digit
-        b"<!ENTITY x 'y'>",       // markup declaration
+        b"",                       // empty
+        b"<a>",                    // unclosed
+        b"</a>",                   // stray end tag
+        b"<a></b>",                // mismatched
+        b"<a><b></a></b>",         // improperly nested
+        b"<a attr>",               // attribute without value
+        b"<a attr=unquoted>",      // unquoted value
+        b"<a attr=\"unterminated", // unterminated value
+        b"<a/><b/>",               // two roots
+        b"<!-- unterminated",      // unterminated comment
+        b"<![CDATA[unterminated",  // unterminated CDATA
+        b"<?pi unterminated",      // unterminated PI
+        b"<1nvalid/>",             // name cannot start with a digit
+        b"<!ENTITY x 'y'>",        // markup declaration
     ];
     for src in cases {
         assert!(

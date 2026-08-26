@@ -321,7 +321,10 @@ impl std::fmt::Debug for Binary {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Binary")
             .field("flags", &self.flags)
-            .field("data", &format_args!("<{} bytes redacted>", self.data.len()))
+            .field(
+                "data",
+                &format_args!("<{} bytes redacted>", self.data.len()),
+            )
             .finish()
     }
 }

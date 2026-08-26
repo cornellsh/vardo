@@ -88,10 +88,7 @@ impl Document {
     ///
     /// This is the only form in which two KDBX files can meaningfully be
     /// compared; see [`protected::canonical_payload`].
-    pub fn canonical_payload(
-        &self,
-        dom: &xml::Document,
-    ) -> Result<zeroize::Zeroizing<Vec<u8>>> {
+    pub fn canonical_payload(&self, dom: &xml::Document) -> Result<zeroize::Zeroizing<Vec<u8>>> {
         protected::canonical_payload(dom, self.inner.stream_cipher, &self.inner.stream_key)
     }
 

@@ -179,7 +179,10 @@ fn reprotect(
     if ordinal != plain.len() {
         return Err(Error::Malformed {
             what: "protected values",
-            detail: format!("re-encrypted {ordinal} values but decrypted {}", plain.len()),
+            detail: format!(
+                "re-encrypted {ordinal} values but decrypted {}",
+                plain.len()
+            ),
         });
     }
     Ok(out)

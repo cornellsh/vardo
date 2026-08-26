@@ -155,7 +155,11 @@ fn transform_key(
 
         limits.check("Argon2 memory", memory_bytes, limits.max_kdf_memory)?;
         limits.check("Argon2 iterations", iterations, limits.max_kdf_iterations)?;
-        limits.check("Argon2 parallelism", parallelism, limits.max_kdf_parallelism)?;
+        limits.check(
+            "Argon2 parallelism",
+            parallelism,
+            limits.max_kdf_parallelism,
+        )?;
 
         let params = argon2::Params::new(
             u32::try_from(memory_bytes / 1024)

@@ -41,7 +41,10 @@ fn aes_kdbx41_matches_keepassxc() {
 
 #[test]
 fn chacha20_inner_stream_decrypts() {
-    assert_eq!(secrets_of("test_db_kdbx4_with_password_argon2_chacha20.kdbx"), ["test"]);
+    assert_eq!(
+        secrets_of("test_db_kdbx4_with_password_argon2_chacha20.kdbx"),
+        ["test"]
+    );
 }
 
 #[test]
