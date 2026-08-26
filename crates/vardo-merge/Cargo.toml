@@ -1,0 +1,13 @@
+[package]
+name = "vardo-merge"
+description = "Three-way merge for KDBX vaults, with dry-run planning"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+vardo-kdbx = { path = "../vardo-kdbx" }
+vardo-vault = { path = "../vardo-vault" }
+zeroize.workspace = true

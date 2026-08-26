@@ -27,59 +27,119 @@
 pub mod time;
 pub mod uuid;
 
-use std::collections::HashMap;
-
-use vardo_kdbx::protected::{self, ProtectedValues};
+use vardo_kdbx::protected;
 use vardo_kdbx::xml;
 use zeroize::Zeroizing;
 
 pub use time::{Encoding, Timestamp};
 pub use uuid::Uuid;
 
-/// An unlocked vault: the document, its decrypted secrets, and the index that
-/// ties them together.
+/// An unlocked vault.
+///
+/// # Why the DOM holds plaintext
+///
+/// Protected values are decrypted by **position** in one shared keystream. A
+/// document that still holds ciphertext therefore cannot be edited: removing
+/// one entry shifts every later value's position, and the bytes after it
+/// decrypt to garbage. Deleting a single entry corrupts the password of every
+/// entry below it.
+///
+/// So unlocking decrypts *into* the DOM, and encryption happens only at
+/// [`Vault::save_with`]. Inside this window there is no positional coupling at
+/// all, which makes arbitrary mutation safe.
+///
+/// The cost is that plaintext passwords live in an in-memory XML tree rather
+/// than in individually zeroized buffers. That is the same exposure every
+/// KeePass client has while unlocked, it is bounded by [`Vault::lock`], and it
+/// buys the elimination of a silent-corruption class. Given the choice between
+/// a slightly wider memory-disclosure window and a vault that quietly destroys
+/// passwords on save, this is the right trade.
 pub struct Vault {
     /// Boxed so the tree never moves. [`Vault::ordinals`] keys on element
     /// addresses, which is only sound while those addresses are stable.
     /// Addresses are used purely as identity and are never dereferenced.
     dom: Box<xml::Document>,
-    secrets: ProtectedValues,
-    /// Address of each protected `<Value>` element -> its keystream position.
-    ordinals: HashMap<usize, usize>,
+    /// Format settings to preserve on save.
+    save_options: vardo_kdbx::write::SaveOptions,
+    binaries: Vec<vardo_kdbx::header::Binary>,
+    limits: vardo_kdbx::Limits,
 }
 
+/// Redacting: the DOM is plaintext while unlocked.
 impl std::fmt::Debug for Vault {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Vault")
-            .field("secrets", &self.secrets)
-            .field("protected_values", &self.ordinals.len())
+            .field("database_name", &self.database_name())
+            .field("contents", &format_args!("<redacted>"))
             .finish()
     }
 }
 
 impl Vault {
-    /// Unlocks a parsed document.
+    /// Unlocks a parsed document, decrypting protected values into the DOM.
     pub fn open(doc: &vardo_kdbx::Document) -> vardo_kdbx::Result<Self> {
-        let dom = Box::new(doc.parse_xml()?);
-        let secrets = doc.protected_values(&dom)?;
-        Ok(Self::from_parts(dom, secrets))
-    }
-
-    fn from_parts(dom: Box<xml::Document>, secrets: ProtectedValues) -> Self {
-        let ordinals = protected::protected_ordinals(&dom)
-            .into_iter()
-            .enumerate()
-            .map(|(ordinal, element)| (element as *const xml::Element as usize, ordinal))
-            .collect();
-        Self {
+        let ciphertext_dom = doc.parse_xml()?;
+        let dom = Box::new(protected::plaintext_document(
+            &ciphertext_dom,
+            doc.inner.stream_cipher,
+            &doc.inner.stream_key,
+        )?);
+        Ok(Self {
             dom,
-            secrets,
-            ordinals,
-        }
+            save_options: vardo_kdbx::write::SaveOptions::preserving(doc)?,
+            binaries: doc.inner.binaries.clone(),
+            limits: vardo_kdbx::Limits::default(),
+        })
     }
 
+    /// The plaintext DOM. Contains every password in the clear.
     pub fn document(&self) -> &xml::Document {
         &self.dom
+    }
+
+    /// Mutable access to the plaintext DOM.
+    ///
+    /// Safe to restructure freely: while unlocked there is no positional
+    /// coupling between protected values.
+    pub fn document_mut(&mut self) -> &mut xml::Document {
+        &mut self.dom
+    }
+
+    /// Re-encrypts and encodes, preserving the original format settings.
+    pub fn save_with(
+        &self,
+        creds: &vardo_kdbx::Credentials,
+        rng: &mut dyn vardo_kdbx::write::Rng,
+    ) -> vardo_kdbx::Result<Vec<u8>> {
+        vardo_kdbx::write::save_plaintext(
+            &self.dom,
+            &self.binaries,
+            creds,
+            &self.save_options,
+            &self.limits,
+            rng,
+        )
+    }
+
+    /// Overwrites every plaintext secret in the DOM.
+    ///
+    /// Bounds how long decrypted passwords sit in memory. The vault is unusable
+    /// afterwards and must be reopened.
+    pub fn lock(&mut self) {
+        fn scrub(e: &mut xml::Element) {
+            if protected::is_protected(e) {
+                let len = e.text().len();
+                e.set_text(&"\0".repeat(len));
+                e.set_text("");
+                return;
+            }
+            for child in e.children.iter_mut() {
+                if let xml::Node::Element(child) = child {
+                    scrub(child);
+                }
+            }
+        }
+        scrub(&mut self.dom.root);
     }
 
     /// The `<Meta>` element, or `None` in a structurally invalid document.
@@ -144,7 +204,9 @@ impl Vault {
             .filter_map(|e| {
                 Some(DeletedObject {
                     uuid: Uuid::parse(&e.child("UUID")?.text())?,
-                    deleted_at: e.child("DeletionTime").and_then(|t| Timestamp::parse(&t.text())),
+                    deleted_at: e
+                        .child("DeletionTime")
+                        .and_then(|t| Timestamp::parse(&t.text())),
                 })
             })
             .collect()
@@ -157,11 +219,6 @@ impl Vault {
             root.walk_entries(&mut out);
         }
         out
-    }
-
-    fn secret_for(&self, element: &xml::Element) -> Option<Zeroizing<String>> {
-        let ordinal = *self.ordinals.get(&(element as *const xml::Element as usize))?;
-        self.secrets.get_str(ordinal)
     }
 }
 
@@ -352,22 +409,12 @@ impl<'a> Entry<'a> {
             .find(|s| s.child("Key").map(|k| k.text()).as_deref() == Some(key))?
             .child("Value")?;
 
-        if protected::is_protected(value) {
-            // An empty protected value is legal and holds no keystream slot.
-            let plain = self
-                .vault
-                .secret_for(value)
-                .unwrap_or_else(|| Zeroizing::new(String::new()));
-            Some(FieldValue {
-                value: plain,
-                protected: true,
-            })
-        } else {
-            Some(FieldValue {
-                value: Zeroizing::new(value.text()),
-                protected: false,
-            })
-        }
+        // The DOM holds plaintext while unlocked, so this is a plain read for
+        // both kinds of field; only the flag differs.
+        Some(FieldValue {
+            value: Zeroizing::new(value.text()),
+            protected: protected::is_protected(value),
+        })
     }
 
     /// Every field, in document order.

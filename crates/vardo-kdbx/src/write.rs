@@ -91,10 +91,83 @@ impl SaveOptions {
     }
 }
 
-/// Encodes a document.
+/// Encodes a document whose protected values are **already plaintext**.
 ///
-/// `dom` supplies the content; `old_inner` supplies the inner key currently
-/// protecting the values in `dom`, so they can be re-encrypted under a new one.
+/// This is the correct entry point for anything that has been edited. See the
+/// warning on [`save`] for why.
+#[allow(clippy::too_many_arguments)]
+pub fn save_plaintext(
+    dom: &xml::Document,
+    binaries: &[Binary],
+    creds: &Credentials,
+    opts: &SaveOptions,
+    limits: &Limits,
+    rng: &mut dyn Rng,
+) -> Result<Vec<u8>> {
+    if opts.version.major != 4 {
+        return Err(Error::UnsupportedVersion {
+            major: opts.version.major,
+            minor: opts.version.minor,
+        });
+    }
+
+    let mut inner_key = Zeroizing::new(vec![0u8; 64]);
+    rng.fill(&mut inner_key)?;
+    let dom = encrypt_protected(dom, opts.inner_cipher, &inner_key)?;
+
+    let mut payload = Vec::new();
+    write_inner_header(&mut payload, opts.inner_cipher, &inner_key, binaries);
+    payload.extend_from_slice(&dom.to_bytes());
+
+    let plaintext = if opts.compress {
+        let mut enc = GzEncoder::new(Vec::new(), Compression::default());
+        enc.write_all(&payload)?;
+        enc.finish()?
+    } else {
+        payload
+    };
+
+    let mut master_seed = vec![0u8; 32];
+    rng.fill(&mut master_seed)?;
+
+    let iv_len = if opts.cipher == header::CIPHER_CHACHA20 {
+        12
+    } else {
+        16
+    };
+    let mut iv = vec![0u8; iv_len];
+    rng.fill(&mut iv)?;
+
+    let mut kdf = opts.kdf.clone();
+    randomize_kdf_salt(&mut kdf, rng)?;
+
+    let header_raw = build_outer_header(opts, &master_seed, &iv, &kdf)?;
+    let keys = crypto::MasterKeys::derive(creds, &master_seed, &kdf, limits)?;
+    let ciphertext = crypto::encrypt(opts.cipher, &keys.cipher_key, &iv, &plaintext)?;
+
+    let mut out = header_raw.clone();
+    out.extend_from_slice(&Sha256::digest(&header_raw));
+    out.extend_from_slice(&keys.header_hmac(&header_raw));
+    crypto::write_hmac_block_stream(&keys, &ciphertext, &mut out);
+    Ok(out)
+}
+
+/// Encodes a document whose protected values are still ciphertext.
+///
+/// # This is only valid for an **unmodified** document
+///
+/// Protected values share one keystream and are decrypted by **position**. This
+/// function decrypts them from `dom` at save time, which silently produces
+/// garbage if any protected element was added, removed or reordered since the
+/// document was opened: the ciphertext is keyed to the old positions, and the
+/// ordinals are computed from the new ones.
+///
+/// Deleting one entry therefore corrupts the password of every entry after it.
+/// That is not hypothetical — it is what this function did until a merge test
+/// caught three untouched entries decrypting to garbage.
+///
+/// **Anything that edits a document must hold plaintext while unlocked and use
+/// [`save_plaintext`].** `vardo_vault::Vault` does exactly that.
 pub fn save(
     dom: &xml::Document,
     old_inner: &InnerHeader,
@@ -111,111 +184,42 @@ pub fn save(
         });
     }
 
-    // 1. Re-protect values under a fresh inner key. See the module note on
-    //    keystream reuse; this step is mandatory, not opportunistic.
-    let mut inner_key = Zeroizing::new(vec![0u8; 64]);
-    rng.fill(&mut inner_key)?;
-    let dom = reprotect(dom, old_inner, opts.inner_cipher, &inner_key)?;
-
-    // 2. Inner header, then the XML payload.
-    let mut payload = Vec::new();
-    write_inner_header(&mut payload, opts.inner_cipher, &inner_key, binaries);
-    payload.extend_from_slice(&dom.to_bytes());
-
-    // 3. Compress.
-    let plaintext = if opts.compress {
-        let mut enc = GzEncoder::new(Vec::new(), Compression::default());
-        enc.write_all(&payload)?;
-        enc.finish()?
-    } else {
-        payload
-    };
-
-    // 4. Fresh seed, salt and IV for this save.
-    let mut master_seed = vec![0u8; 32];
-    rng.fill(&mut master_seed)?;
-
-    let iv_len = if opts.cipher == header::CIPHER_CHACHA20 {
-        12
-    } else {
-        16
-    };
-    let mut iv = vec![0u8; iv_len];
-    rng.fill(&mut iv)?;
-
-    let mut kdf = opts.kdf.clone();
-    randomize_kdf_salt(&mut kdf, rng)?;
-
-    // 5. Outer header.
-    let header_raw = build_outer_header(opts, &master_seed, &iv, &kdf)?;
-
-    // 6. Derive keys and authenticate.
-    let keys = crypto::MasterKeys::derive(creds, &master_seed, &kdf, limits)?;
-    let ciphertext = crypto::encrypt(opts.cipher, &keys.cipher_key, &iv, &plaintext)?;
-
-    let mut out = header_raw.clone();
-    out.extend_from_slice(&Sha256::digest(&header_raw));
-    out.extend_from_slice(&keys.header_hmac(&header_raw));
-    crypto::write_hmac_block_stream(&keys, &ciphertext, &mut out);
-    Ok(out)
+    // Decrypt from the (assumed unmodified) document, then hand the plaintext
+    // form to the safe path.
+    let plain = protected::plaintext_document(dom, old_inner.stream_cipher, &old_inner.stream_key)?;
+    save_plaintext(&plain, binaries, creds, opts, limits, rng)
 }
 
-/// Decrypts every protected value under `old` and re-encrypts under `new`.
-fn reprotect(
+/// Encrypts every protected value in document order under a fresh keystream.
+fn encrypt_protected(
     dom: &xml::Document,
-    old_inner: &InnerHeader,
-    new_cipher: InnerStreamCipher,
-    new_key: &[u8],
+    cipher: InnerStreamCipher,
+    key: &[u8],
 ) -> Result<xml::Document> {
-    let plain = protected::decrypt_all(dom, old_inner.stream_cipher, &old_inner.stream_key)?;
     let mut out = dom.clone();
-    let mut stream = protected::InnerStream::new(new_cipher, new_key)?;
-
-    // Traversal order must match `protected_ordinals`, which is a depth-first
-    // walk. Any divergence silently scrambles every value after the first.
-    let mut ordinal = 0usize;
-    reprotect_element(&mut out.root, &plain, &mut stream, &mut ordinal)?;
-
-    if ordinal != plain.len() {
-        return Err(Error::Malformed {
-            what: "protected values",
-            detail: format!(
-                "re-encrypted {ordinal} values but decrypted {}",
-                plain.len()
-            ),
-        });
-    }
+    let mut stream = protected::InnerStream::new(cipher, key)?;
+    encrypt_element(&mut out.root, &mut stream);
     Ok(out)
 }
 
-fn reprotect_element(
-    e: &mut xml::Element,
-    plain: &protected::ProtectedValues,
-    stream: &mut protected::InnerStream,
-    ordinal: &mut usize,
-) -> Result<()> {
+fn encrypt_element(e: &mut xml::Element, stream: &mut protected::InnerStream) {
     if protected::is_protected(e) {
-        let value = plain.get(*ordinal).ok_or_else(|| Error::Malformed {
-            what: "protected values",
-            detail: format!("no plaintext for ordinal {ordinal}"),
-        })?;
-        if value.is_empty() {
-            // Empty values consume no keystream, matching `decrypt_all`.
+        let text = e.text();
+        // Empty values consume no keystream, matching `decrypt_all`.
+        if text.is_empty() {
             e.set_text("");
         } else {
-            let mut buf = Zeroizing::new(value.to_vec());
+            let mut buf = Zeroizing::new(text.into_bytes());
             stream.apply(&mut buf);
             e.set_text(&base64_encode(&buf));
         }
-        *ordinal += 1;
-        return Ok(());
+        return;
     }
     for child in e.children.iter_mut() {
         if let xml::Node::Element(child) = child {
-            reprotect_element(child, plain, stream, ordinal)?;
+            encrypt_element(child, stream);
         }
     }
-    Ok(())
 }
 
 fn randomize_kdf_salt(kdf: &mut VariantDictionary, rng: &mut dyn Rng) -> Result<()> {
@@ -321,7 +325,6 @@ pub fn base64_encode(data: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn variant_dictionary_survives_a_round_trip() {

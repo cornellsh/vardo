@@ -256,3 +256,103 @@ fn saved_files_are_accepted_by_keepassxc() {
         );
     }
 }
+
+#[test]
+fn editing_a_ciphertext_document_is_documented_as_unsafe() {
+    // `save` decrypts protected values from the document at save time, so it
+    // is only valid for an UNMODIFIED document. Removing a protected element
+    // shifts every later keystream position, and everything after the edit
+    // decrypts to garbage.
+    //
+    // This is not theoretical: it silently corrupted three untouched entries
+    // until a merge test caught it. `vardo_vault::Vault` holds plaintext while
+    // unlocked and calls `save_plaintext` instead.
+    //
+    // Here we prove the hazard is real, so nobody "simplifies" the vault layer
+    // back into using `save` after an edit.
+    let bytes = fixture("test_db_kdbx41_with_password_aes.kdbx");
+    let doc = open(&bytes, &creds()).unwrap();
+    let mut dom = doc.parse_xml().unwrap();
+
+    let before: Vec<String> = {
+        let v = doc.protected_values(&dom).unwrap();
+        (0..v.len()).map(|i| v.get_str(i).unwrap().to_string()).collect()
+    };
+    assert!(before.len() > 3, "need several protected values");
+
+    // Remove the first entry, ciphertext and all.
+    let root = dom.root.child_mut("Root").unwrap().child_mut("Group").unwrap();
+    let at = root
+        .children
+        .iter()
+        .position(|c| matches!(c, vardo_kdbx::xml::Node::Element(e) if e.name == "Entry"))
+        .unwrap();
+    root.children.remove(at);
+
+    let saved = doc.save_with(&dom, &creds(), &mut TestRng(11)).unwrap();
+    let reopened = open(&saved, &creds()).unwrap();
+    let dom2 = reopened.parse_xml().unwrap();
+    let after = reopened.protected_values(&dom2).unwrap();
+
+    // Every surviving value is now garbage: the ciphertext was keyed to the
+    // old positions. The tail of `before` should have matched.
+    let survivors: Vec<String> = (0..after.len())
+        .map(|i| after.get_str(i).unwrap().to_string())
+        .collect();
+    assert_ne!(
+        survivors,
+        before[before.len() - survivors.len()..].to_vec(),
+        "if this now passes, `save` became safe for edited documents and this \
+         test plus the warnings on it should be revisited"
+    );
+}
+
+#[test]
+fn the_vault_layer_survives_the_same_edit() {
+    // The same deletion, done through the plaintext path, preserves every
+    // remaining password exactly.
+    use vardo_kdbx::write::save_plaintext;
+
+    let bytes = fixture("test_db_kdbx41_with_password_aes.kdbx");
+    let doc = open(&bytes, &creds()).unwrap();
+    let cipher_dom = doc.parse_xml().unwrap();
+    let mut dom = vardo_kdbx::protected::plaintext_document(
+        &cipher_dom,
+        doc.inner.stream_cipher,
+        &doc.inner.stream_key,
+    )
+    .unwrap();
+
+    let root = dom.root.child_mut("Root").unwrap().child_mut("Group").unwrap();
+    let at = root
+        .children
+        .iter()
+        .position(|c| matches!(c, vardo_kdbx::xml::Node::Element(e) if e.name == "Entry"))
+        .unwrap();
+    root.children.remove(at);
+
+    let expected: Vec<String> = vardo_kdbx::protected::protected_ordinals(&dom)
+        .into_iter()
+        .map(|e| e.text())
+        .collect();
+
+    let opts = vardo_kdbx::write::SaveOptions::preserving(&doc).unwrap();
+    let saved = save_plaintext(
+        &dom,
+        &doc.inner.binaries,
+        &creds(),
+        &opts,
+        &vardo_kdbx::Limits::default(),
+        &mut TestRng(12),
+    )
+    .unwrap();
+
+    let reopened = open(&saved, &creds()).unwrap();
+    let dom2 = reopened.parse_xml().unwrap();
+    let after = reopened.protected_values(&dom2).unwrap();
+    let got: Vec<String> = (0..after.len())
+        .map(|i| after.get_str(i).unwrap().to_string())
+        .collect();
+
+    assert_eq!(got, expected, "plaintext path must preserve every password");
+}

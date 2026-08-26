@@ -108,7 +108,9 @@ fn parse_base64_seconds(text: &str) -> Option<i64> {
     // `"not a date"` decoded to six bytes and became a timestamp in the year
     // 30,000. Strictness here is what keeps a corrupt field an error rather
     // than a plausible-looking wrong answer.
-    Some(i64::from_le_bytes(<[u8; 8]>::try_from(bytes.as_slice()).ok()?))
+    Some(i64::from_le_bytes(
+        <[u8; 8]>::try_from(bytes.as_slice()).ok()?,
+    ))
 }
 
 /// Parses `YYYY-MM-DDTHH:MM:SSZ`.
@@ -121,9 +123,8 @@ fn parse_iso8601(text: &str) -> Option<i64> {
     if b.len() < 19 {
         return None;
     }
-    let num = |range: std::ops::Range<usize>| -> Option<i64> {
-        text.get(range)?.parse::<i64>().ok()
-    };
+    let num =
+        |range: std::ops::Range<usize>| -> Option<i64> { text.get(range)?.parse::<i64>().ok() };
     if b[4] != b'-' || b[7] != b'-' || b[10] != b'T' || b[13] != b':' || b[16] != b':' {
         return None;
     }
