@@ -5,6 +5,10 @@
 //! decode. A merge test that used hand-built objects could pass while the file
 //! on disk said something else.
 
+// Each integration test binary compiles its own copy of this module, so any
+// helper used by only one of them looks unused in the other.
+#![allow(dead_code)]
+
 use vardo_kdbx::xml::{self, Element, Node};
 use vardo_kdbx::{open, Credentials, Document};
 use vardo_vault::{Encoding, Timestamp, Vault};
