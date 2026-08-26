@@ -17,6 +17,7 @@ conflicts that do not exist.
 65 tests · clippy clean · ~14.9M fuzz executions, zero failures · no `unsafe`
 
 - [`STATUS.md`](STATUS.md) — what works, and the three decisions that shaped it
+- [`UI-PLAN.md`](UI-PLAN.md) — what the app looks like and the order it gets built
 - [`RESEARCH.md`](RESEARCH.md) — landscape and initial architecture
 - [`CRITIQUE.md`](CRITIQUE.md) — red team of the above; corrections and arguments
 - [`ADR-001-sync.md`](ADR-001-sync.md) — sync architecture (supersedes CRITIQUE §3.1)
