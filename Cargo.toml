@@ -1,0 +1,21 @@
+[workspace]
+resolver = "2"
+members = ["crates/bolthole-kdbx", "crates/bolthole-conformance"]
+
+[workspace.package]
+version = "0.0.1"
+edition = "2021"
+rust-version = "1.82"
+license = "Apache-2.0 OR MIT"
+repository = "https://github.com/bolthole/bolthole"
+
+[workspace.dependencies]
+aes = "0.8"
+cbc = "0.1"
+chacha20 = "0.9"
+argon2 = "0.5"
+sha2 = "0.10"
+hmac = "0.12"
+flate2 = "1"
+thiserror = "2"
+zeroize = { version = "1", features = ["derive"] }
