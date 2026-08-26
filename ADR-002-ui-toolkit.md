@@ -3,8 +3,9 @@
 **Status:** Accepted — Tauri v2. Supersedes the one-line dismissal of Flutter in
 `RESEARCH.md` §4, which was under-researched.
 
-**Decision is coupled to ADR-003 (no mobile app).** If that reverses, this one
-should too.
+**Decision is coupled to the no-mobile-app decision (`CRITIQUE.md` §3.5).** If
+that reverses, this one should too. The frontend framework is a separate
+decision, in `ADR-003`.
 
 ---
 
