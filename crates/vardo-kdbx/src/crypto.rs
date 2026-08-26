@@ -11,6 +11,7 @@ use zeroize::{Zeroize, Zeroizing};
 use crate::cursor::Cursor;
 use crate::error::{Error, Result};
 use crate::header::{self, VariantDictionary};
+use crate::limits::Limits;
 
 type HmacSha256 = Hmac<Sha256>;
 type Aes256CbcDec = cbc::Decryptor<aes::Aes256>;
@@ -60,9 +61,10 @@ impl MasterKeys {
         creds: &Credentials,
         master_seed: &[u8],
         kdf_params: &VariantDictionary,
+        limits: &Limits,
     ) -> Result<Self> {
         let composite = creds.composite_key();
-        let transformed = transform_key(&composite, kdf_params)?;
+        let transformed = transform_key(&composite, kdf_params, limits)?;
 
         // cipher key = SHA256(masterSeed || transformedKey)
         let mut h = Sha256::new();
@@ -103,7 +105,16 @@ impl MasterKeys {
     }
 }
 
-fn transform_key(composite: &[u8; 32], params: &VariantDictionary) -> Result<Zeroizing<Vec<u8>>> {
+/// Runs the KDF.
+///
+/// Every parameter here is attacker-controlled and, by the structure of the
+/// format, cannot be authenticated before use — see [`crate::limits`]. The
+/// bounds checks below are load-bearing security controls, not tidiness.
+fn transform_key(
+    composite: &[u8; 32],
+    params: &VariantDictionary,
+    limits: &Limits,
+) -> Result<Zeroizing<Vec<u8>>> {
     let uuid = params
         .get_bytes("$UUID")
         .ok_or(Error::MissingHeaderField("KdfParameters.$UUID"))?;
@@ -133,6 +144,10 @@ fn transform_key(composite: &[u8; 32], params: &VariantDictionary) -> Result<Zer
             other => return Err(Error::Kdf(format!("unsupported Argon2 version {other:#x}"))),
         };
 
+        limits.check("Argon2 memory", memory_bytes, limits.max_kdf_memory)?;
+        limits.check("Argon2 iterations", iterations, limits.max_kdf_iterations)?;
+        limits.check("Argon2 parallelism", parallelism, limits.max_kdf_parallelism)?;
+
         let params = argon2::Params::new(
             u32::try_from(memory_bytes / 1024)
                 .map_err(|_| Error::Kdf("memory too large".into()))?,
@@ -156,7 +171,8 @@ fn transform_key(composite: &[u8; 32], params: &VariantDictionary) -> Result<Zer
         let rounds = params
             .get_u64("R")
             .ok_or(Error::MissingHeaderField("KdfParameters.R"))?;
-        return Ok(aes_kdf(composite, seed, rounds)?);
+        limits.check("AES-KDF rounds", rounds, limits.max_aes_kdf_rounds)?;
+        return aes_kdf(composite, seed, rounds);
     }
 
     Err(Error::UnknownKdf(hex(uuid)))
