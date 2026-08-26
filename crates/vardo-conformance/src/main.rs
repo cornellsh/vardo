@@ -54,10 +54,14 @@ fn secrets(path: &str, pw: &str) {
     let bytes = std::fs::read(path).expect("read file");
     let doc = open(&bytes, &Credentials::with_password(pw)).expect("open");
     let xml = doc.parse_xml().expect("xml");
-    let vals = vardo_kdbx::protected::decrypt_all(&xml, doc.inner.stream_cipher, &doc.inner.stream_key)
-        .expect("decrypt protected");
+    let vals =
+        vardo_kdbx::protected::decrypt_all(&xml, doc.inner.stream_cipher, &doc.inner.stream_key)
+            .expect("decrypt protected");
     println!("{path}: {} protected values", vals.len());
-    for (i, e) in vardo_kdbx::protected::protected_ordinals(&xml).into_iter().enumerate() {
+    for (i, e) in vardo_kdbx::protected::protected_ordinals(&xml)
+        .into_iter()
+        .enumerate()
+    {
         let v = vals.get_str(i).unwrap();
         println!("  [{i}] <{}> = {:?}", e.name, &*v);
     }
