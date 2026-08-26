@@ -81,9 +81,7 @@ impl Timestamp {
     /// Renders in this timestamp's original encoding.
     pub fn to_text(self) -> String {
         match self.encoding {
-            Encoding::Base64Seconds => {
-                vardo_kdbx::write::base64_encode(&self.seconds.to_le_bytes())
-            }
+            Encoding::Base64Seconds => vardo_kdbx::base64::encode(&self.seconds.to_le_bytes()),
             Encoding::Iso8601 => format_iso8601(self.seconds),
         }
     }
@@ -103,14 +101,14 @@ impl Timestamp {
 
 fn parse_base64_seconds(text: &str) -> Option<i64> {
     let bytes = base64_decode(text)?;
-    // KeePass writes 8 bytes; tolerate shorter by zero-extending, since some
-    // writers trim trailing zero bytes.
-    if bytes.is_empty() || bytes.len() > 8 {
-        return None;
-    }
-    let mut buf = [0u8; 8];
-    buf[..bytes.len()].copy_from_slice(&bytes);
-    Some(i64::from_le_bytes(buf))
+    // Exactly eight bytes: this encoding is a little-endian i64 and nothing
+    // else. An earlier version zero-extended shorter values "in case a writer
+    // trims trailing zeroes", which no writer does — and which made any
+    // arbitrary string that happened to be valid base64 parse as a date.
+    // `"not a date"` decoded to six bytes and became a timestamp in the year
+    // 30,000. Strictness here is what keeps a corrupt field an error rather
+    // than a plausible-looking wrong answer.
+    Some(i64::from_le_bytes(<[u8; 8]>::try_from(bytes.as_slice()).ok()?))
 }
 
 /// Parses `YYYY-MM-DDTHH:MM:SSZ`.
@@ -152,9 +150,18 @@ fn format_iso8601(seconds: i64) -> String {
     )
 }
 
-/// Days from `0001-01-01` to `y-mo-d`, proleptic Gregorian.
+/// Days between `0001-01-01` and `1970-01-01`.
 ///
-/// Howard Hinnant's civil-date algorithm, rebased from 1970 to year 1.
+/// 1969 years x 365, plus 477 leap days (`1969/4 - 1969/100 + 1969/400`).
+const YEAR1_TO_UNIX_DAYS: i64 = 719_162;
+
+/// Hinnant's shift constant, which rebases to `0000-03-01`.
+const HINNANT_SHIFT: i64 = 719_468;
+
+/// Days from `0001-01-01` to `y-m-d`, proleptic Gregorian.
+///
+/// Howard Hinnant's civil-date algorithm, rebased from the Unix epoch to
+/// year 1 because that is where KDBX counts from.
 fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
     let y = if m <= 2 { y - 1 } else { y };
     let era = if y >= 0 { y } else { y - 399 } / 400;
@@ -162,12 +169,11 @@ fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
     let mp = (m + 9) % 12;
     let doy = (153 * mp + 2) / 5 + d - 1;
     let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-    // 719468 shifts the 1970 epoch to 0000-03-01; 719162 shifts to 0001-01-01.
-    era * 146097 + doe - 719_162 + 719_162 - 719_162 + 719_162 - 719_162
+    era * 146_097 + doe - HINNANT_SHIFT + YEAR1_TO_UNIX_DAYS
 }
 
 fn civil_from_days(z: i64) -> (i64, i64, i64) {
-    let z = z + 719_162;
+    let z = z - YEAR1_TO_UNIX_DAYS + HINNANT_SHIFT;
     let era = if z >= 0 { z } else { z - 146096 } / 146097;
     let doe = z - era * 146097;
     let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
@@ -180,52 +186,13 @@ fn civil_from_days(z: i64) -> (i64, i64, i64) {
 }
 
 fn base64_decode(s: &str) -> Option<Vec<u8>> {
-    const INVALID: u8 = 0xFF;
-    let mut table = [INVALID; 256];
-    for (i, c) in (b'A'..=b'Z')
-        .chain(b'a'..=b'z')
-        .chain(b'0'..=b'9')
-        .chain([b'+', b'/'])
-        .enumerate()
-    {
-        table[c as usize] = i as u8;
+    let out = vardo_kdbx::base64::decode(s)?;
+    // An empty value is not a timestamp, whatever base64 says.
+    if out.is_empty() {
+        None
+    } else {
+        Some(out)
     }
-    let bytes: Vec<u8> = s.bytes().filter(|b| !b.is_ascii_whitespace()).collect();
-    if bytes.is_empty() || bytes.len() % 4 != 0 {
-        return None;
-    }
-    let mut out = Vec::with_capacity(bytes.len() / 4 * 3);
-    let last = bytes.len() / 4;
-    for (ci, chunk) in bytes.chunks(4).enumerate() {
-        let pad = chunk.iter().filter(|&&b| b == b'=').count();
-        if pad > 0 && ci + 1 != last {
-            return None;
-        }
-        if pad > 2 || (pad > 0 && chunk[4 - pad..].iter().any(|&b| b != b'=')) {
-            return None;
-        }
-        let mut acc = 0u32;
-        for (j, &b) in chunk.iter().enumerate() {
-            let v = if b == b'=' {
-                0
-            } else {
-                let v = table[b as usize];
-                if v == INVALID {
-                    return None;
-                }
-                v
-            };
-            acc |= (v as u32) << (18 - 6 * j);
-        }
-        out.push((acc >> 16) as u8);
-        if pad < 2 {
-            out.push((acc >> 8) as u8);
-        }
-        if pad < 1 {
-            out.push(acc as u8);
-        }
-    }
-    Some(out)
 }
 
 #[cfg(test)]
@@ -280,7 +247,16 @@ mod tests {
     fn missing_or_malformed_values_are_none_not_epoch() {
         // Defaulting to the epoch would make merge treat the entry as ancient
         // and silently discard the newer side.
-        for bad in ["", "   ", "not a date", "2026-13-45T99:99:99Z", "!!!!", "="] {
+        for bad in [
+            "",
+            "   ",
+            "not a date", // valid base64, wrong length
+            "Zm9v",       // valid base64, three bytes
+            "2026-13-45T99:99:99Z",
+            "2026-02-30", // too short for the ISO grammar
+            "!!!!",
+            "=",
+        ] {
             assert!(Timestamp::parse(bad).is_none(), "should reject {bad:?}");
         }
     }

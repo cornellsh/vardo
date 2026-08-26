@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/vardo-kdbx", "crates/vardo-conformance"]
+members = ["crates/vardo-kdbx", "crates/vardo-vault", "crates/vardo-conformance"]
 exclude = ["fuzz"]
 
 [workspace.package]

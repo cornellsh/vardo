@@ -1,0 +1,12 @@
+[package]
+name = "vardo-vault"
+description = "Typed view over a KDBX document, preserving the DOM as source of truth"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+vardo-kdbx = { path = "../vardo-kdbx" }
+zeroize.workspace = true
