@@ -11,3 +11,6 @@ repository.workspace = true
 vardo-kdbx = { path = "../vardo-kdbx" }
 vardo-vault = { path = "../vardo-vault" }
 vardo-merge = { path = "../vardo-merge" }
+
+[dev-dependencies]
+vardo-merge = { path = "../vardo-merge" }
