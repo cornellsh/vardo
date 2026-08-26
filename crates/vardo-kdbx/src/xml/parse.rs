@@ -45,6 +45,9 @@ struct Parser<'a> {
     pos: usize,
     limits: ParseLimits,
     elements_seen: usize,
+    /// Whitespace seen before a start tag's `>`, handed to the element once
+    /// its children have been parsed.
+    trailing_space: String,
 }
 
 pub fn parse(bytes: &[u8], limits: ParseLimits) -> Result<Document> {
@@ -57,6 +60,7 @@ pub fn parse(bytes: &[u8], limits: ParseLimits) -> Result<Document> {
         pos: 0,
         limits,
         elements_seen: 0,
+        trailing_space: String::new(),
     }
     .document()
 }
@@ -230,7 +234,10 @@ impl<'a> Parser<'a> {
         let mut attributes = Vec::new();
 
         loop {
+            let ws_start = self.pos;
             self.skip_whitespace();
+            let trailing_space = self.src[ws_start..self.pos].to_string();
+
             if self.starts_with("/>") {
                 self.bump(2);
                 return Ok(Element {
@@ -238,10 +245,12 @@ impl<'a> Parser<'a> {
                     attributes,
                     children: Vec::new(),
                     self_closing: true,
+                    trailing_space,
                 });
             }
             if self.starts_with(">") {
                 self.bump(1);
+                self.trailing_space = trailing_space;
                 break;
             }
             if self.pos >= self.src.len() {
@@ -283,6 +292,7 @@ impl<'a> Parser<'a> {
             children,
             // `<Foo></Foo>` round-trips as written, not collapsed to `<Foo/>`.
             self_closing: false,
+            trailing_space: std::mem::take(&mut self.trailing_space),
         })
     }
 

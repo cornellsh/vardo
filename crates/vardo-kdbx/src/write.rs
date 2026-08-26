@@ -73,6 +73,14 @@ pub struct SaveOptions {
 impl SaveOptions {
     /// Derives options from an opened document, preserving its format exactly.
     pub fn preserving(doc: &crate::Document) -> Result<Self> {
+        // Check the version first: a KDBX 3.1 document has no KdfParameters
+        // field, and reporting that as the error would be misleading.
+        if doc.outer.version.major != 4 {
+            return Err(Error::UnsupportedVersion {
+                major: doc.outer.version.major,
+                minor: doc.outer.version.minor,
+            });
+        }
         Ok(Self {
             version: doc.outer.version,
             cipher: doc.outer.cipher()?,

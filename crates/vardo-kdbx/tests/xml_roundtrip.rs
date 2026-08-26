@@ -135,3 +135,26 @@ fn descendants_walks_in_document_order() {
     let names: Vec<_> = doc.root.descendants().map(|e| e.name.clone()).collect();
     assert_eq!(names, ["r", "a", "b", "c", "d"]);
 }
+
+#[test]
+fn preserves_whitespace_before_the_tag_close() {
+    // Regression: KeePassXC writes `<Tags/>`, IntelliJ's KeePass library writes
+    // `<Tags />`. Normalising either way rewrites every empty element in a file
+    // produced by the other tool, which is a phantom diff on every sync.
+    // Caught by the fixture corpus, not by hand.
+    for src in [
+        &b"<r><a /><b/></r>"[..],
+        &b"<r><a  /><b\n/></r>"[..],
+        &b"<r><a x=\"1\" /></r>"[..],
+        &b"<r><a >text</a></r>"[..],
+        &b"<r><a\t>text</a></r>"[..],
+    ] {
+        let doc = xml::parse(src, ParseLimits::default()).unwrap();
+        assert_eq!(
+            doc.to_bytes(),
+            src,
+            "lost whitespace in {:?}",
+            String::from_utf8_lossy(src)
+        );
+    }
+}

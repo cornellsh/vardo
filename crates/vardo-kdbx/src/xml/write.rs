@@ -60,6 +60,8 @@ fn write_element(e: &Element, out: &mut Vec<u8>) {
         out.push(q);
     }
 
+    out.extend_from_slice(e.trailing_space.as_bytes());
+
     // An element with children is never written self-closing, whatever the
     // flag says; the flag only decides the form of an *empty* element.
     if e.children.is_empty() && e.self_closing {
