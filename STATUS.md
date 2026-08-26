@@ -11,8 +11,9 @@ version of that command did.
 |---|---|
 | `vardo-kdbx` | complete, fuzzed |
 | `vardo-vault` | typed view + safe editing |
-| `vardo-merge` | three-way planning; application not yet written |
-| `vardo-sync` | not started |
+| `vardo-merge` | planning and application, chaos-tested |
+| `vardo-sync` | backends, fake Drive, race protocol |
+| UI | not started |
 
 ## What works
 
@@ -41,7 +42,7 @@ reads 3.1 also reads 4.x), ARC4 inner streams (broken since 2014).
 
 | | |
 |---|---|
-| Tests | 118, all passing |
+| Tests | 152, all passing (~46 s) |
 | Clippy | clean at `-D warnings`, `--all-targets` |
 | Fuzz executions | ~14.9M across four targets, zero failures |
 | `unsafe` | none — `#![forbid(unsafe_code)]` |
@@ -141,13 +142,46 @@ first. KeePassXC added a preview dialog in PR #10173; here it is the only way in
 The load-bearing test is `identical_vaults_produce_no_changes`: two saves of the
 same data share no ciphertext at all, and merge must still see nothing.
 
+## Sync
+
+Drive has no compare-and-swap, so two devices *will* overwrite each other and
+no care in the transport layer prevents it. What makes that survivable is that
+every write leaves a revision, so nothing is ever actually destroyed.
+
+The dangerous direction is not obvious, and I got it wrong first: it is **not**
+"did somebody overwrite us afterwards" — that costs nothing, since our write is
+still a revision and they merged on top of it. It is **"did somebody write
+between our read and our write, so we buried a version we never saw?"**
+
+Detection: the revision directly beneath ours must be what was head when we
+wrote. Anything else means an unseen write went under us; fold it in and retry.
+This check is what every other KeePass client omits.
+
+`FakeDrive` models Drive *including its flaws* — clobbering writes, revision
+history, losable file identity, injectable faults — because a fake offering
+atomic CAS would let a broken protocol pass here and lose data in production.
+Its `race_before_write` lands another device's write inside ours, which is the
+one thing a real API cannot be asked to do on demand.
+
+`LocalFile` is for genuinely local disks only, and `looks_cloud_synced()` flags
+the paths behind KeePassXC issues #9140, #8790, #2066, #11969 and #13050 so the
+app can offer to migrate — a fix they proposed and never shipped.
+
+## Chaos testing
+
+`crates/vardo-sync/tests/chaos.rs` runs randomised two-device interleavings and
+asserts three things every time: the devices **converge**, committed passwords
+stay **reachable**, and the remote is a **readable vault at every instant**.
+Seeded, so a failure reproduces exactly. 60 scenarios plus a 120-step run, in
+about four seconds.
+
 ## Next
 
-1. **Apply** a `MergePlan` to a vault (planning is done; mutation is not).
-2. **`vardo-sync`** — `StorageBackend` trait, `FakeDrive` with fault injection,
-   then the real Google Drive backend. See `ADR-001-sync.md`.
-3. **UI** — Tauri v2 (see `ADR-002-ui-toolkit.md`). Only after the above are
-   boring.
+1. **Real Google Drive backend** — OAuth installed-app flow with loopback +
+   PKCE, desktop Picker (`trigger_onepick=true`), `files.update` media upload.
+   Plus the ~20 contract tests whose only job is proving `FakeDrive` does not
+   lie. See `ADR-001-sync.md`.
+2. **UI** — Tauri v2 (see `ADR-002-ui-toolkit.md`).
 
 ## Reading order
 
