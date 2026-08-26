@@ -168,6 +168,11 @@ copy it would undo the whole arrangement for no benefit.
 
 ## 4. What "Signal-like" actually means here
 
+> Tokens, type scale, icons and motion are specified in [`DESIGN.md`](DESIGN.md).
+> The short version: Radix Colors on a sand/bronze pairing, Inter with tabular
+> numerals and slashed zero, Geist Mono for anything secret, Lucide icons, and
+> CSS transitions before reaching for an animation library.
+
 Not the layout — a vault is a tree, a list and a detail pane, not a
 conversation list. Copying Signal's shape would be cargo-culting. What is worth
 copying is the restraint:

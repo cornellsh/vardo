@@ -18,6 +18,7 @@ conflicts that do not exist.
 
 - [`STATUS.md`](STATUS.md) — what works, and the three decisions that shaped it
 - [`UI-PLAN.md`](UI-PLAN.md) — what the app looks like and the order it gets built
+- [`DESIGN.md`](DESIGN.md) — colour, type, icons, motion, and the constraint list
 - [`RESEARCH.md`](RESEARCH.md) — landscape and initial architecture
 - [`CRITIQUE.md`](CRITIQUE.md) — red team of the above; corrections and arguments
 - [`ADR-001-sync.md`](ADR-001-sync.md) — sync architecture (supersedes CRITIQUE §3.1)
