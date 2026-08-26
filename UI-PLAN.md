@@ -166,29 +166,27 @@ copy it would undo the whole arrangement for no benefit.
 
 ---
 
-## 4. What "Signal-like" actually means here
+## 4. Visual language
 
-> Tokens, type scale, icons and motion are specified in [`DESIGN.md`](DESIGN.md).
-> The short version: Radix Colors on a slate/blue pairing, Inter with tabular
-> numerals and slashed zero, Geist Mono for anything secret, Lucide icons, and
-> CSS transitions before reaching for an animation library.
+> **Superseded by [`DESIGN.md`](DESIGN.md).** The visual language is a direct
+> port of Telegram Desktop — its palette, its 13px base size, its 62px row
+> height, its column rules — taken from tdesktop source rather than designed.
+> Telegram's rail / list / detail layout maps one-to-one onto groups / entries /
+> entry detail, which is why it ports rather than merely resembling.
 
-Not the layout — a vault is a tree, a list and a detail pane, not a
-conversation list. Copying Signal's shape would be cargo-culting. What is worth
-copying is the restraint:
+Telegram Desktop, ported. Full token set and provenance in
+[`DESIGN.md`](DESIGN.md); the properties that shape this document:
 
-- **One accent colour**, used for exactly one thing at a time.
-- **No decoration.** No gradients, no drop shadows beyond a hairline, no
-  rounded-everything. Borders and spacing do the work.
-- **Animation only where it explains a state change** — locking, unlocking,
-  sync — and never on hover.
-- **Dark mode designed first**, because this is a tool people open at 2am.
-- **Density that suits scanning.** A vault is a list you sweep with your eyes;
-  airy spacing makes that worse, not better.
-- **Empty states that say something useful**, not illustrations.
-
-The measurable goal: the app should look like it has been maintained for ten
-years, not like it launched last week.
+- **13px base size.** Denser than a typical web app, and the main reason
+  Telegram reads as a desktop application rather than a website.
+- **62px list rows** (`dialogsRowHeight`), sized for an icon plus two lines of
+  text — the same shape as an entry.
+- **One accent** (`windowBgActive`): selection, badges, primary buttons, focus.
+  Nothing else is coloured.
+- **Two weights**, regular and semibold. Hierarchy comes from colour.
+- **Hairlines and flat fills**, not shadows.
+- **Selected rows take a solid accent fill**, not a tint or a left border.
+- **The rail is darker than the list.** Depth runs one direction.
 
 ---
 
