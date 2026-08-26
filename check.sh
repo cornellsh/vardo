@@ -12,6 +12,11 @@ cargo fmt --all --check
 echo "== clippy =="
 cargo clippy --all-targets --all-features -- -D warnings
 
+# The network feature is not exercised by the test suite, so without this it
+# could rot unnoticed until someone tries to ship.
+echo "== network feature builds =="
+cargo build -p vardo-drive --features network --quiet
+
 echo "== tests =="
 output=$(cargo test --all 2>&1) || {
 	echo "$output"

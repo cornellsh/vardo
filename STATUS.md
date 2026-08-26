@@ -13,6 +13,7 @@ version of that command did.
 | `vardo-vault` | typed view + safe editing |
 | `vardo-merge` | planning and application, chaos-tested |
 | `vardo-sync` | backends, fake Drive, race protocol |
+| `vardo-drive` | Drive backend + OAuth, tested offline |
 | UI | not started |
 
 ## What works
@@ -42,7 +43,7 @@ reads 3.1 also reads 4.x), ARC4 inner streams (broken since 2014).
 
 | | |
 |---|---|
-| Tests | 152, all passing (~46 s) |
+| Tests | 188, all passing (~50 s) |
 | Clippy | clean at `-D warnings`, `--all-targets` |
 | Fuzz executions | ~14.9M across four targets, zero failures |
 | `unsafe` | none — `#![forbid(unsafe_code)]` |
@@ -175,13 +176,38 @@ stay **reachable**, and the remote is a **readable vault at every instant**.
 Seeded, so a failure reproduces exactly. 60 scenarios plus a 120-step run, in
 about four seconds.
 
+## Google Drive
+
+`drive.file` only — a **non-sensitive** scope, so by Google's own policy an app
+using only non-sensitive scopes need not complete verification. No review, no
+security assessment, no user cap. Requesting the broad `drive` scope instead
+would make it *restricted* and trigger a paid third-party security assessment.
+
+The file picker runs in the **system browser** via `trigger_onepick=true` on the
+authorization request. The JavaScript Picker cannot work inside a desktop
+WebView: the origin is `file://` or `localhost`, `postMessage` fails the origin
+check, and it 403s — frequently only once packaged, having worked in dev.
+
+Writes are `PATCH .../files/{id}?uploadType=media`: update in place, never
+create-and-delete, which would mint a new file id and kill every other client's
+per-file grant. That is precisely how KeePassXC's safe save breaks mobile.
+
+All of it is tested through an `HttpTransport` seam, offline. Code that can only
+be run with a Google account is code nobody tests.
+
+**`crates/vardo-drive/tests/contract_notes.md`** lists the eight assumptions that
+still need confirming once against live Drive — chief among them that
+`If-Match` really is ignored, and that `files.update` really does preserve the
+file id. They are stated assumptions, not verified facts, and that file exists
+so the distinction stays visible.
+
 ## Next
 
-1. **Real Google Drive backend** — OAuth installed-app flow with loopback +
-   PKCE, desktop Picker (`trigger_onepick=true`), `files.update` media upload.
-   Plus the ~20 contract tests whose only job is proving `FakeDrive` does not
-   lie. See `ADR-001-sync.md`.
-2. **UI** — Tauri v2 (see `ADR-002-ui-toolkit.md`).
+1. **UI** — Tauri v2 (see `ADR-002-ui-toolkit.md`). Everything below it is now
+   boring, which was the point.
+2. Run the contract tests once a throwaway Google account exists.
+3. Distribution: Ed25519 updater signing, Apple notarisation, Azure Trusted
+   Signing.
 
 ## Reading order
 
