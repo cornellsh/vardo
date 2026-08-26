@@ -158,3 +158,96 @@ fn preserves_whitespace_before_the_tag_close() {
         );
     }
 }
+
+#[test]
+fn preserves_inter_attribute_whitespace() {
+    // Regression, found by cargo-fuzz (minimised to 19 bytes). Attribute
+    // separators were normalised to a single space, so any writer using two
+    // spaces or a newline had its file rewritten on save.
+    for src in [
+        &b"<r><a  x=\"1\"   y=\"2\"/></r>"[..],
+        &b"<r><a\nx=\"1\"\n\ty=\"2\"\n/></r>"[..],
+        &b"<r><a\tx=\"1\"/></r>"[..],
+    ] {
+        let doc = xml::parse(src, ParseLimits::default()).unwrap();
+        assert_eq!(doc.to_bytes(), src, "{:?}", String::from_utf8_lossy(src));
+    }
+}
+
+#[test]
+fn whitespace_is_the_xml_set_and_nothing_wider() {
+    // `str::trim_start` also strips vertical tab, form feed and Unicode
+    // spaces. Accepting those would make us more permissive than every other
+    // XML reader, so the same file would mean different things to different
+    // clients — a parser-differential hazard.
+    for bad in [
+        &b"<r><a\x0bx=\"1\"/></r>"[..],   // vertical tab
+        &b"<r><a\x0cx=\"1\"/></r>"[..],   // form feed
+        "<r><a\u{a0}x=\"1\"/></r>".as_bytes(), // non-breaking space
+    ] {
+        assert!(
+            xml::parse(bad, ParseLimits::default()).is_err(),
+            "should reject {:?}",
+            String::from_utf8_lossy(bad)
+        );
+    }
+}
+
+#[test]
+fn nested_elements_do_not_steal_each_others_whitespace() {
+    // Regression, found by cargo-fuzz. The parser held a start tag's pending
+    // whitespace in a field on `self`; because parsing children recurses
+    // through the same function, a nested element consumed its parent's copy
+    // and the parent was written without it.
+    for src in [
+        &b"<b ><b></b>>t</b>"[..],
+        &b"<a ><b ></b ></a >"[..],
+        &b"<a ><b><c ></c></b></a>"[..],
+        &b"<a\n><b\t><c /></b\n></a >"[..],
+    ] {
+        let doc = xml::parse(src, ParseLimits::default()).unwrap();
+        assert_eq!(doc.to_bytes(), src, "{:?}", String::from_utf8_lossy(src));
+    }
+}
+
+#[test]
+fn preserves_whitespace_in_end_tags() {
+    let src = b"<b></b\n>";
+    let doc = xml::parse(src, ParseLimits::default()).unwrap();
+    assert_eq!(doc.to_bytes(), src);
+}
+
+/// Every position in the start-tag grammar where XML permits whitespace.
+///
+/// Enumerated exhaustively rather than discovered one fuzz crash at a time:
+///
+/// ```text
+///   <name WS1 attr WS2 = WS3 "value" WS1 attr ... WS4 >
+///   </name WS5 >
+/// ```
+///
+/// All five must round-trip, because a writer using anything other than our
+/// preferred spelling would otherwise have its file rewritten on every save.
+#[test]
+fn every_whitespace_position_in_the_grammar_round_trips() {
+    let cases: &[&[u8]] = &[
+        b"<a x=\"1\"/>",              // none anywhere
+        b"<a  x=\"1\"/>",             // WS1 doubled
+        b"<a x =\"1\"/>",             // WS2
+        b"<a x= \"1\"/>",             // WS3
+        b"<a x=\"1\" />",             // WS4
+        b"<a x=\"1\"></a >",          // WS5
+        b"<a\tx\n=\r\"1\"\t/>",       // all four kinds of XML whitespace
+        b"<a  x =  \"1\"   y = \"2\"  ></a  >", // everything at once
+    ];
+    for src in cases {
+        let doc = xml::parse(src, ParseLimits::default())
+            .unwrap_or_else(|e| panic!("{:?}: {e}", String::from_utf8_lossy(src)));
+        assert_eq!(
+            doc.to_bytes(),
+            *src,
+            "lost whitespace in {:?}",
+            String::from_utf8_lossy(src)
+        );
+    }
+}

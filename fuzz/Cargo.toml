@@ -1,0 +1,40 @@
+[package]
+name = "vardo-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+vardo-kdbx = { path = "../crates/vardo-kdbx" }
+
+[[bin]]
+name = "xml_parse"
+path = "fuzz_targets/xml_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "xml_roundtrip"
+path = "fuzz_targets/xml_roundtrip.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "container"
+path = "fuzz_targets/container.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "header"
+path = "fuzz_targets/header.rs"
+test = false
+doc = false
+bench = false
