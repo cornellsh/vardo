@@ -1,0 +1,138 @@
+/*
+ * Telegram Desktop palette, ported.
+ *
+ * Values come from tdesktop source — day-blue.tdesktop-theme and
+ * night-custom-base.tdesktop-theme. Constant names are kept so any value can be
+ * traced back. See DESIGN.md.
+ *
+ * Do not add a colour that is not in the source palette. If something needs a
+ * colour Telegram does not have, that is a design decision and belongs in
+ * DESIGN.md first.
+ *
+ * Every `-- deviation:` comment below is checked by `scripts/contrast.mjs`,
+ * which runs in CI. The numbers are computed, not claimed.
+ */
+
+:root {
+  /* --- day-blue.tdesktop-theme, verbatim --- */
+  --window-bg: #ffffff;
+  --window-fg: #000000;
+  --window-bg-over: #f1f1f1;
+  --window-bg-ripple: #e5e5e5;
+  --window-bold-fg: #222222;
+  --window-fg-active: #ffffff;
+  --light-button-bg-over: #e3f1fa;
+  --shadow-fg: #00000018;
+
+  /* deviation: Telegram's #40a7e3 is only 2.67:1 on white and 2.37:1 on the
+     hover grey, so it fails even the 3:1 floor for non-text UI (WCAG 1.4.11) —
+     a focus ring drawn in it is genuinely hard to see. Darkened just far enough
+     to clear 3:1 on both. Still the Telegram accent, one notch down. */
+  --window-bg-active: #1f92d5;
+
+  /* deviation: #999999 on #ffffff = 2.85:1, fails AA. Entry-list subtitles are
+     13px body text, so 4.5:1 applies. Solved against the hover background too,
+     which is the worse case at #f1f1f1. */
+  --window-sub-text-fg: #6a6e74;
+
+  /* deviation: #168acd on #ffffff = 3.78:1, fails AA. */
+  --window-active-text-fg: #147cb9;
+
+  /* deviation: #d14e4e on #ffffff = 4.28:1, fails AA. */
+  --attention-button-fg: #cf4747;
+
+  /* deviation: white on Telegram's #40a7e3 is 2.67:1 — the primary button and
+     the selected row both fail badly. This is the accent darkened until white
+     text passes, hue and saturation preserved. Used ONLY behind text; the
+     undarkened accent above is still used for textless fills, so the colour of
+     the app is Telegram's and only the legibility is ours. */
+  --accent-behind-text: #1b7db7;
+  --active-button-bg: var(--accent-behind-text);
+  /* deviation: Telegram brightens on hover (activeButtonBgOver #39a5db), which
+     drops white text below AA. Inverted to darken instead — the affordance is
+     identical and the text stays legible. */
+  --active-button-bg-over: #176c9e;
+  --active-button-bg-ripple: #145e89;
+
+  --dialogs-bg: var(--window-bg);
+  --dialogs-bg-over: #f1f1f1;
+  /* deviation: Telegram #419fd9 with white = 2.92:1. */
+  --dialogs-bg-active: var(--accent-behind-text);
+  --dialogs-name-fg: var(--window-bold-fg);
+  --dialogs-text-fg: var(--window-sub-text-fg);
+  --dialogs-unread-bg: var(--accent-behind-text);
+
+  --side-bar-bg: #f1f1f1;
+  --filter-input-active-bg: #ffffff;
+  --searched-bar-bg: var(--window-bg-over);
+  --title-bg: var(--window-bg-over);
+  --box-bg: var(--window-bg);
+
+  /* --- metrics, from window.style / dialogs.style / basic.style --- */
+  --fsize: 13px;              /* basic.style  fsize */
+  --box-font-size: 14px;      /* basic.style  boxFontSize */
+  --dialogs-row-height: 62px; /* dialogs.style dialogsRowHeight */
+  --dialogs-padding-x: 10px;
+  --dialogs-padding-y: 8px;
+  --dialogs-filter-padding: 7px;
+  --dialogs-unread-height: 19px;
+  --dialogs-photo-size: 46px;
+
+  --column-min-left: 260px;
+  --column-max-left: 540px;
+  --column-min-main: 380px;
+  --column-min-third: 292px;
+  --column-max-third: 392px;
+
+  /* Named `-stack` so they never collide with Tailwind's own --font-* theme
+     namespace. `@theme { --font-mono: var(--font-mono) }` is circular, which
+     silently drops the whole font-family to the serif default. */
+  --font-ui-stack: "Open Sans Variable", "Open Sans", "Segoe UI", -apple-system, system-ui, sans-serif;
+  --font-mono-stack: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", monospace;
+}
+
+.dark {
+  /* --- night-custom-base.tdesktop-theme, verbatim --- */
+  --window-bg: #17212b;
+  --window-fg: #f5f5f5;
+  --window-bg-over: #232e3c;
+  --window-bg-ripple: #2b3846;
+  --window-bold-fg: #e9e8e8;
+  --window-fg-active: #ffffff;
+  --window-active-text-fg: #6ab3f3; /* 7.26:1, passes as-is */
+  --light-button-bg-over: #232e3c;
+  --shadow-fg: #04080e56;
+
+  --window-bg-active: #5288c1; /* 4.38:1 on windowBg — passes non-text as-is */
+
+  /* deviation: #708499 on #17212b = 4.23:1, and 3.81:1 on the hover background,
+     which is the case that actually matters. */
+  --window-sub-text-fg: #8496a8;
+
+  /* deviation: #ec3942 on #17212b = 4.06:1. */
+  --attention-button-fg: #ee4d55;
+
+  /* deviation: white on #5288c1 = 3.72:1. */
+  --accent-behind-text: #4179b5;
+  --active-button-bg: var(--accent-behind-text);
+  /* deviation: darkens on hover rather than brightening, same as day. */
+  --active-button-bg-over: #386ca4;
+  --active-button-bg-ripple: #315f90;
+
+  --dialogs-bg: var(--window-bg);
+  --dialogs-bg-over: #202b36;
+  /* Night's selected row is Telegram's own #2b5278 with #f5f5f5 text = 7.46:1.
+     No deviation needed — the night theme was designed more carefully. */
+  --dialogs-bg-active: #2b5278;
+  --dialogs-name-fg: #f5f5f5;
+  /* deviation: #7f91a4 on #202b36 = 4.44:1. */
+  --dialogs-text-fg: #8092a5;
+  /* deviation: #4082bc with white = 4.09:1. Badges carry small digits. */
+  --dialogs-unread-bg: #3c7bb1;
+
+  --side-bar-bg: #0e1621; /* darker than the list — Telegram's depth runs one way */
+  --filter-input-active-bg: #242f3d;
+  --searched-bar-bg: #202b38;
+  --title-bg: #1f2936;
+  --box-bg: var(--window-bg);
+}
