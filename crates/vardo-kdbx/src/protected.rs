@@ -161,15 +161,14 @@ pub fn decrypt_all(
             values.push(Zeroizing::new(Vec::new()));
             continue;
         }
-        let mut raw = Zeroizing::new(base64_decode(text.trim()).ok_or_else(|| {
-            Error::Malformed {
+        let mut raw =
+            Zeroizing::new(base64_decode(text.trim()).ok_or_else(|| Error::Malformed {
                 what: "protected value",
                 detail: format!(
                     "<{}> at ordinal {ordinal} is not valid base64",
                     element.name
                 ),
-            }
-        })?);
+            })?);
         stream.apply(&mut raw);
         values.push(raw);
     }

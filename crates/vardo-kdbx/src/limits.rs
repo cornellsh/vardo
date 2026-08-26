@@ -107,7 +107,9 @@ mod tests {
     fn defaults_admit_a_real_world_vault() {
         // Parameters measured from an actual KeePassXC-generated vault.
         let l = Limits::default();
-        assert!(l.check("memory", 64 * 1024 * 1024, l.max_kdf_memory).is_ok());
+        assert!(l
+            .check("memory", 64 * 1024 * 1024, l.max_kdf_memory)
+            .is_ok());
         assert!(l.check("iterations", 14, l.max_kdf_iterations).is_ok());
         assert!(l.check("parallelism", 2, l.max_kdf_parallelism).is_ok());
     }
@@ -120,9 +122,7 @@ mod tests {
         assert!(l
             .check("iterations", 0xFFFF_FFFF, l.max_kdf_iterations)
             .is_err());
-        assert!(l
-            .check("rounds", u64::MAX, l.max_aes_kdf_rounds)
-            .is_err());
+        assert!(l.check("rounds", u64::MAX, l.max_aes_kdf_rounds).is_err());
     }
 
     #[test]

@@ -158,14 +158,21 @@ fn an_edit_is_visible_and_nothing_else_moves() {
     let mut dom = doc.parse_xml().unwrap();
 
     let meta = dom.root.child_mut("Meta").expect("Meta");
-    meta.child_mut("Generator").expect("Generator").set_text("Vardo");
+    meta.child_mut("Generator")
+        .expect("Generator")
+        .set_text("Vardo");
 
     let saved = doc.save_with(&dom, &creds(), &mut TestRng(4)).unwrap();
     let reopened = open(&saved, &creds()).unwrap();
     let dom2 = reopened.parse_xml().unwrap();
 
     assert_eq!(
-        dom2.root.child("Meta").unwrap().child("Generator").unwrap().text(),
+        dom2.root
+            .child("Meta")
+            .unwrap()
+            .child("Generator")
+            .unwrap()
+            .text(),
         "Vardo"
     );
 
@@ -191,7 +198,10 @@ fn saving_with_the_wrong_password_still_produces_a_readable_file() {
     let new_creds = Credentials::with_password("a different password");
     let saved = doc.save_with(&dom, &new_creds, &mut TestRng(5)).unwrap();
 
-    assert!(open(&saved, &creds()).is_err(), "old password must not work");
+    assert!(
+        open(&saved, &creds()).is_err(),
+        "old password must not work"
+    );
     let reopened = open(&saved, &new_creds).expect("new password must work");
     let dom2 = reopened.parse_xml().unwrap();
     assert_eq!(
@@ -204,7 +214,10 @@ fn saving_with_the_wrong_password_still_produces_a_readable_file() {
 fn saved_files_are_accepted_by_keepassxc() {
     // Cross-implementation check: writing something only we can read would be
     // worthless. Skipped silently when keepassxc-cli is unavailable.
-    let Ok(out) = std::process::Command::new("keepassxc-cli").arg("--version").output() else {
+    let Ok(out) = std::process::Command::new("keepassxc-cli")
+        .arg("--version")
+        .output()
+    else {
         eprintln!("keepassxc-cli not installed; skipping interop check");
         return;
     };

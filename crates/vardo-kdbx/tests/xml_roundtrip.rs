@@ -72,7 +72,10 @@ fn xml_roundtrip_is_byte_identical() {
         checked += 1;
     }
 
-    assert!(checked >= 8, "expected to check >=8 fixtures, got {checked}");
+    assert!(
+        checked >= 8,
+        "expected to check >=8 fixtures, got {checked}"
+    );
     eprintln!("byte-identical XML round-trip across {checked} fixtures");
 }
 
@@ -94,7 +97,12 @@ fn preserves_attribute_order_and_quotes() {
     let src = br#"<r z="1" a='2' m="3"/>"#;
     let doc = xml::parse(src, ParseLimits::default()).unwrap();
     assert_eq!(doc.to_bytes(), src);
-    let names: Vec<_> = doc.root.attributes.iter().map(|a| a.name.as_str()).collect();
+    let names: Vec<_> = doc
+        .root
+        .attributes
+        .iter()
+        .map(|a| a.name.as_str())
+        .collect();
     assert_eq!(names, ["z", "a", "m"]);
 }
 
@@ -181,8 +189,8 @@ fn whitespace_is_the_xml_set_and_nothing_wider() {
     // XML reader, so the same file would mean different things to different
     // clients — a parser-differential hazard.
     for bad in [
-        &b"<r><a\x0bx=\"1\"/></r>"[..],   // vertical tab
-        &b"<r><a\x0cx=\"1\"/></r>"[..],   // form feed
+        &b"<r><a\x0bx=\"1\"/></r>"[..],        // vertical tab
+        &b"<r><a\x0cx=\"1\"/></r>"[..],        // form feed
         "<r><a\u{a0}x=\"1\"/></r>".as_bytes(), // non-breaking space
     ] {
         assert!(
@@ -231,13 +239,13 @@ fn preserves_whitespace_in_end_tags() {
 #[test]
 fn every_whitespace_position_in_the_grammar_round_trips() {
     let cases: &[&[u8]] = &[
-        b"<a x=\"1\"/>",              // none anywhere
-        b"<a  x=\"1\"/>",             // WS1 doubled
-        b"<a x =\"1\"/>",             // WS2
-        b"<a x= \"1\"/>",             // WS3
-        b"<a x=\"1\" />",             // WS4
-        b"<a x=\"1\"></a >",          // WS5
-        b"<a\tx\n=\r\"1\"\t/>",       // all four kinds of XML whitespace
+        b"<a x=\"1\"/>",                        // none anywhere
+        b"<a  x=\"1\"/>",                       // WS1 doubled
+        b"<a x =\"1\"/>",                       // WS2
+        b"<a x= \"1\"/>",                       // WS3
+        b"<a x=\"1\" />",                       // WS4
+        b"<a x=\"1\"></a >",                    // WS5
+        b"<a\tx\n=\r\"1\"\t/>",                 // all four kinds of XML whitespace
         b"<a  x =  \"1\"   y = \"2\"  ></a  >", // everything at once
     ];
     for src in cases {
