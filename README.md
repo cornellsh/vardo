@@ -22,7 +22,8 @@ conflicts that do not exist.
 - [`CRITIQUE.md`](CRITIQUE.md) — red team of the above; corrections and arguments
 - [`ADR-001-sync.md`](ADR-001-sync.md) — sync architecture (supersedes CRITIQUE §3.1)
 - [`ADR-002-ui-toolkit.md`](ADR-002-ui-toolkit.md) — Tauri vs Flutter (supersedes RESEARCH §4)
-- [`ADR-003-frontend-framework.md`](ADR-003-frontend-framework.md) — Svelte vs React, and two wrong reasons retracted
+- [`ADR-003-frontend-framework.md`](ADR-003-frontend-framework.md) — Svelte vs React, two wrong reasons retracted (superseded)
+- [`ADR-004-base-ui-reversal.md`](ADR-004-base-ui-reversal.md) — reversed to React 19 + Base UI, and why
 - [`PHASE0-FINDINGS.md`](PHASE0-FINDINGS.md) — library decision, with evidence
 - [`fuzz/README.md`](fuzz/README.md) — what fuzzing found
 
