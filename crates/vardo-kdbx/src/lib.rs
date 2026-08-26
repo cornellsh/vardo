@@ -16,12 +16,16 @@ pub mod crypto;
 pub mod cursor;
 pub mod error;
 pub mod header;
+pub mod limits;
+pub mod protected;
+pub mod xml;
 
 use std::io::Read;
 
 pub use crypto::Credentials;
 pub use error::{Error, Result};
 pub use header::{InnerHeader, OuterHeader, Version};
+pub use limits::Limits;
 
 use sha2::{Digest, Sha256};
 
@@ -31,11 +35,52 @@ pub struct Document {
     pub inner: InnerHeader,
     /// The decrypted, decompressed XML payload, exactly as stored.
     pub xml: Vec<u8>,
+    /// Carried so that later stages (XML parsing) inherit the same ceilings.
+    limits: Limits,
+}
+
+/// Redacting. `xml` is the decrypted vault in plaintext; a derived `Debug`
+/// would put every password into any log line that formats a `Document`.
+impl std::fmt::Debug for Document {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Document")
+            .field("version", &self.outer.version)
+            .field("xml", &format_args!("<{} bytes redacted>", self.xml.len()))
+            .field("inner", &self.inner)
+            .finish()
+    }
+}
+
+/// Inflates gzip data, refusing to expand beyond `max`.
+///
+/// `read_to_end` on a `GzDecoder` will happily turn a few kilobytes into all
+/// available memory. Reading through a `Take` and then checking for one extra
+/// byte distinguishes "exactly at the limit" from "truncated at the limit".
+fn decompress_bounded(compressed: &[u8], max: u64) -> Result<Vec<u8>> {
+    let mut decoder = flate2::read::GzDecoder::new(compressed).take(max.saturating_add(1));
+    let mut out = Vec::new();
+    decoder.read_to_end(&mut out)?;
+    if out.len() as u64 > max {
+        return Err(Error::ResourceLimit(format!(
+            "decompressed payload exceeds {max} bytes (possible decompression bomb)"
+        )));
+    }
+    Ok(out)
 }
 
 impl Document {
     pub fn version(&self) -> Version {
         self.outer.version
+    }
+
+    /// Parses the payload into a round-trippable DOM.
+    pub fn parse_xml(&self) -> Result<xml::Document> {
+        xml::parse(&self.xml, self.limits.xml)
+    }
+
+    /// Decrypts every `Protected="True"` value, in document order.
+    pub fn protected_values(&self, dom: &xml::Document) -> Result<protected::ProtectedValues> {
+        protected::decrypt_all(dom, self.inner.stream_cipher, &self.inner.stream_key)
     }
 }
 
@@ -47,6 +92,17 @@ impl Document {
 /// property of the format rather than a limitation here — KDBX deliberately
 /// gives an attacker no way to distinguish them.
 pub fn open(bytes: &[u8], creds: &Credentials) -> Result<Document> {
+    open_with_limits(bytes, creds, Limits::default())
+}
+
+/// As [`open`], with explicit resource ceilings.
+///
+/// Use this when a file legitimately exceeds the defaults and the user has
+/// confirmed they want it opened anyway. See [`crate::limits`] for why the
+/// ceilings cannot simply be removed.
+pub fn open_with_limits(bytes: &[u8], creds: &Credentials, limits: Limits) -> Result<Document> {
+    limits.check("file size", bytes.len() as u64, limits.max_file_size)?;
+
     let outer = OuterHeader::parse(bytes)?;
     if !outer.version.is_kdbx4() {
         // KDBX 3.1 uses a different integrity scheme (StreamStartBytes and a
@@ -74,7 +130,9 @@ pub fn open(bytes: &[u8], creds: &Credentials) -> Result<Document> {
 
     let kdf_params = outer.kdf_parameters()?;
     let master_seed = outer.master_seed()?;
-    let keys = crypto::MasterKeys::derive(creds, master_seed, &kdf_params)?;
+    // Bounded inside `derive`: these parameters are attacker-controlled and
+    // are consumed before the HMAC below can vouch for them.
+    let keys = crypto::MasterKeys::derive(creds, master_seed, &kdf_params, &limits)?;
     keys.verify_header_hmac(&outer.raw, header_hmac)?;
 
     // Past this point the credentials are known-good, so any further failure is
@@ -88,9 +146,7 @@ pub fn open(bytes: &[u8], creds: &Credentials) -> Result<Document> {
     )?;
 
     let payload = if outer.compressed()? {
-        let mut out = Vec::with_capacity(plaintext.len() * 3);
-        flate2::read::GzDecoder::new(plaintext.as_slice()).read_to_end(&mut out)?;
-        out
+        decompress_bounded(&plaintext, limits.max_decompressed_size)?
     } else {
         plaintext
     };
@@ -99,6 +155,7 @@ pub fn open(bytes: &[u8], creds: &Credentials) -> Result<Document> {
     Ok(Document {
         outer,
         inner,
+        limits,
         xml: xml.to_vec(),
     })
 }

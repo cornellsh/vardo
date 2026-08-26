@@ -40,6 +40,14 @@ pub enum Error {
 
     #[error("decompression failed: {0}")]
     Decompress(#[from] std::io::Error),
+
+    #[error("malformed XML at byte {offset}: {detail}")]
+    Xml { offset: usize, detail: String },
+
+    /// A resource ceiling was hit. Distinct from `Malformed` because the file
+    /// may be perfectly well-formed and simply hostile, or enormous.
+    #[error("refusing to process: {0}")]
+    ResourceLimit(String),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

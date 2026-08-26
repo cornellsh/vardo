@@ -248,7 +248,7 @@ impl OuterHeader {
             return Err(Error::UnsupportedVersion { major, minor });
         }
 
-        let mut fields = Vec::new();
+        let mut fields: Vec<OuterField> = Vec::new();
         loop {
             let id = c.u8()?;
             // KDBX3 uses a u16 length; KDBX4 widened it to u32.
@@ -259,6 +259,17 @@ impl OuterHeader {
             };
             let data = c.take(len)?.to_vec();
             let end = id == 0;
+
+            // Repeated fields are a parser-differential hazard: one reader
+            // takes the first, another the last, and a file can then mean two
+            // different things. No legitimate writer emits them.
+            if !end && fields.iter().any(|f| f.id == id) {
+                return Err(Error::Malformed {
+                    what: "outer header",
+                    detail: format!("duplicate header field id {id}"),
+                });
+            }
+
             fields.push(OuterField { id, data });
             if end {
                 break;
@@ -298,20 +309,46 @@ impl From<i32> for InnerStreamCipher {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Binary {
     /// Bit 0 set means "protected"; other bits are undefined and preserved.
     pub flags: u8,
     pub data: Vec<u8>,
 }
 
-#[derive(Debug, Clone)]
+// Attachments are user data — a bank statement, an SSH key. Never render them.
+impl std::fmt::Debug for Binary {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Binary")
+            .field("flags", &self.flags)
+            .field("data", &format_args!("<{} bytes redacted>", self.data.len()))
+            .finish()
+    }
+}
+
+#[derive(Clone)]
 pub struct InnerHeader {
     pub stream_cipher: InnerStreamCipher,
     pub stream_key: Vec<u8>,
     pub binaries: Vec<Binary>,
     /// Field ids we did not recognise, kept in order for round-tripping.
     pub unknown: Vec<(u8, Vec<u8>)>,
+}
+
+/// Redacting. `stream_key` decrypts every password in the vault, so a derived
+/// `Debug` would put the entire vault into any log line that formats a header.
+impl std::fmt::Debug for InnerHeader {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("InnerHeader")
+            .field("stream_cipher", &self.stream_cipher)
+            .field(
+                "stream_key",
+                &format_args!("<{} bytes redacted>", self.stream_key.len()),
+            )
+            .field("binaries", &self.binaries.len())
+            .field("unknown", &self.unknown.len())
+            .finish()
+    }
 }
 
 impl InnerHeader {
