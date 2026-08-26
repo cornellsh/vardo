@@ -923,6 +923,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "vardo-vault"
+version = "0.0.1"
+dependencies = [
+ "vardo-kdbx",
+ "zeroize",
+]
+
+[[package]]
 name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"

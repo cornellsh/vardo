@@ -313,47 +313,15 @@ fn write_inner_header(
     field(0, &[], out);
 }
 
-pub(crate) fn base64_encode(data: &[u8]) -> String {
-    const T: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut out = String::with_capacity(data.len().div_ceil(3) * 4);
-    for chunk in data.chunks(3) {
-        let b = [
-            chunk[0],
-            *chunk.get(1).unwrap_or(&0),
-            *chunk.get(2).unwrap_or(&0),
-        ];
-        let n = u32::from_be_bytes([0, b[0], b[1], b[2]]);
-        out.push(T[(n >> 18) as usize & 63] as char);
-        out.push(T[(n >> 12) as usize & 63] as char);
-        out.push(if chunk.len() > 1 {
-            T[(n >> 6) as usize & 63] as char
-        } else {
-            '='
-        });
-        out.push(if chunk.len() > 2 {
-            T[n as usize & 63] as char
-        } else {
-            '='
-        });
-    }
-    out
+/// Re-exported for callers that need to encode KDBX values.
+pub fn base64_encode(data: &[u8]) -> String {
+    crate::base64::encode(data)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn base64_roundtrips_against_the_decoder() {
-        for len in 0..64 {
-            let data: Vec<u8> = (0..len).map(|i| (i * 37 + 11) as u8).collect();
-            let encoded = base64_encode(&data);
-            assert_eq!(encoded.len() % 4, 0, "len {len} must be padded");
-            let decoded = crate::protected::base64_decode_for_test(&encoded)
-                .unwrap_or_else(|| panic!("failed to decode {encoded:?}"));
-            assert_eq!(decoded, data, "len {len}");
-        }
-    }
 
     #[test]
     fn variant_dictionary_survives_a_round_trip() {

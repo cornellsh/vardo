@@ -162,7 +162,7 @@ pub fn decrypt_all(
             continue;
         }
         let mut raw =
-            Zeroizing::new(base64_decode(text.trim()).ok_or_else(|| Error::Malformed {
+            Zeroizing::new(crate::base64::decode(text.trim()).ok_or_else(|| Error::Malformed {
                 what: "protected value",
                 detail: format!(
                     "<{}> at ordinal {ordinal} is not valid base64",
@@ -219,100 +219,10 @@ fn canonicalize(e: &mut xml::Element, values: &ProtectedValues, ordinal: &mut us
 }
 
 #[cfg(test)]
-pub(crate) fn base64_decode_for_test(s: &str) -> Option<Vec<u8>> {
-    base64_decode(s)
-}
-
-/// Standard base64 with padding. Returns `None` on any invalid input.
-fn base64_decode(s: &str) -> Option<Vec<u8>> {
-    const INVALID: u8 = 0xFF;
-    let mut table = [INVALID; 256];
-    let mut i = 0u8;
-    for c in b'A'..=b'Z' {
-        table[c as usize] = i;
-        i += 1;
-    }
-    for c in b'a'..=b'z' {
-        table[c as usize] = i;
-        i += 1;
-    }
-    for c in b'0'..=b'9' {
-        table[c as usize] = i;
-        i += 1;
-    }
-    table[b'+' as usize] = 62;
-    table[b'/' as usize] = 63;
-
-    let bytes: Vec<u8> = s
-        .bytes()
-        .filter(|b| !matches!(b, b'\n' | b'\r' | b' ' | b'\t'))
-        .collect();
-    if bytes.len() % 4 != 0 {
-        return None;
-    }
-
-    let mut out = Vec::with_capacity(bytes.len() / 4 * 3);
-    let last_chunk = bytes.len() / 4;
-    for (ci, chunk) in bytes.chunks(4).enumerate() {
-        let pad = chunk.iter().filter(|&&b| b == b'=').count();
-        // Padding is only ever the final one or two characters of the final
-        // chunk. Interior padding means two concatenated base64 strings, which
-        // some decoders silently accept and thereby lose data.
-        if pad > 0 && ci + 1 != last_chunk {
-            return None;
-        }
-        if pad > 2 || (pad > 0 && chunk[4 - pad..].iter().any(|&b| b != b'=')) {
-            return None;
-        }
-        let mut acc = 0u32;
-        for (j, &b) in chunk.iter().enumerate() {
-            let v = if b == b'=' {
-                0
-            } else {
-                let v = table[b as usize];
-                if v == INVALID {
-                    return None;
-                }
-                v
-            };
-            acc |= (v as u32) << (18 - 6 * j);
-        }
-        out.push((acc >> 16) as u8);
-        if pad < 2 {
-            out.push((acc >> 8) as u8);
-        }
-        if pad < 1 {
-            out.push(acc as u8);
-        }
-    }
-    Some(out)
-}
-
-#[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn base64_matches_reference_vectors() {
-        assert_eq!(base64_decode("").unwrap(), b"");
-        assert_eq!(base64_decode("Zg==").unwrap(), b"f");
-        assert_eq!(base64_decode("Zm8=").unwrap(), b"fo");
-        assert_eq!(base64_decode("Zm9v").unwrap(), b"foo");
-        assert_eq!(base64_decode("Zm9vYg==").unwrap(), b"foob");
-        assert_eq!(base64_decode("Zm9vYmE=").unwrap(), b"fooba");
-        assert_eq!(base64_decode("Zm9vYmFy").unwrap(), b"foobar");
-        // Whitespace inside base64 is tolerated; some writers wrap lines.
-        assert_eq!(base64_decode("Zm9v\nYmFy").unwrap(), b"foobar");
-    }
 
-    #[test]
-    fn base64_rejects_malformed_input() {
-        assert!(base64_decode("Zg=").is_none()); // wrong length
-        assert!(base64_decode("Zm9!").is_none()); // invalid char
-        assert!(base64_decode("=Zm9").is_none()); // padding not at end
-        assert!(base64_decode("Z===").is_none()); // too much padding
-        assert!(base64_decode("Zm==Zm9v").is_none()); // interior padding
-    }
 
     #[test]
     fn arc4_and_unknown_streams_are_refused() {

@@ -12,6 +12,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod base64;
 pub mod crypto;
 pub mod cursor;
 pub mod error;
