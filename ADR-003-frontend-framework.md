@@ -1,7 +1,15 @@
 # ADR-003: Frontend framework
 
-**Status:** Accepted — Svelte 5. But **both reasons I originally gave were
-wrong**, and the real decision is much closer than `RESEARCH.md` implied.
+**Status:** SUPERSEDED by `ADR-004`, which reverses the outcome to React 19 +
+Base UI. The flip condition written at the bottom of this document — "Bits UI
+stalls and no replacement appears" — turned out to be observable already; I had
+not looked hard enough at either side of it.
+
+Kept because the two retractions below still stand, and because the reasoning
+is worth being able to re-read.
+
+**Original status:** Accepted — Svelte 5. But **both reasons I originally gave
+were wrong**, and the real decision is much closer than `RESEARCH.md` implied.
 
 ---
 

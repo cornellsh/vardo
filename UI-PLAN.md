@@ -1,8 +1,9 @@
 # UI plan
 
-Toolkit decided in `ADR-002`: Tauri v2, Svelte 5, TypeScript strict, Tailwind,
-hand-rolled components. This is the layer above it — what gets built, in what
-order, and why it is shaped this way.
+Toolkit decided in `ADR-002` (Tauri v2) and `ADR-004` (React 19 + Base UI,
+TypeScript strict, Tailwind, hand-built design system on unstyled primitives).
+This is the layer above them — what gets built, in what order, and why it is
+shaped this way.
 
 ---
 
@@ -188,6 +189,9 @@ years, not like it launched last week.
 
 ## 5. Interaction rules
 
+- **Base UI for every interactive primitive.** Combobox for search, Dialog for
+  merge review, Menu for context actions. Hand-rolling any of these means
+  owning focus management and ARIA composition forever.
 - **Keyboard-first.** Every action reachable without the mouse. `⌘K` command
   palette, `/` to search, `⌘C` copies the password of the selected entry,
   `⌘⇧C` the username, `Esc` locks the quick-access overlay.
