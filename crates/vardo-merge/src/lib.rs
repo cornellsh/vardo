@@ -41,9 +41,13 @@
 
 #![forbid(unsafe_code)]
 
+pub mod apply;
+pub mod dom;
 pub mod index;
 
 use std::collections::BTreeSet;
+
+pub use apply::{apply, Applied, ConflictPolicy};
 
 use index::{changed_fields, same_content, Index};
 use vardo_vault::{Timestamp, Uuid, Vault};
