@@ -28,7 +28,9 @@ mod clipboard;
 mod commands;
 mod generate;
 mod model;
+mod review;
 mod save;
+mod sync;
 
 use model::VaultInfo;
 
@@ -134,6 +136,9 @@ pub fn run() {
             commands::save_vault,
             commands::is_dirty,
             commands::generate_password,
+            commands::sync_preview,
+            commands::sync_apply,
+            commands::vault_info,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Vardo");

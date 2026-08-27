@@ -8,6 +8,8 @@ interface Props {
 	totalEntries: number;
 	vaultName: string;
 	onLock: () => void;
+	/** Absent on a read-only database, so no button that always fails. */
+	onSync?: () => void;
 }
 
 /**
@@ -22,6 +24,7 @@ export function GroupRail({
 	totalEntries,
 	vaultName,
 	onLock,
+	onSync,
 }: Props) {
 	return (
 		<nav
@@ -43,28 +46,55 @@ export function GroupRail({
 				>
 					{vaultName}
 				</span>
-				<button
-					type="button"
-					onClick={onLock}
-					title="Lock (Ctrl+L)"
-					aria-label="Lock vault"
-					className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-[6px]"
-					style={{ color: "var(--window-sub-text-fg)" }}
-				>
-					<svg
-						width="16"
-						height="16"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						strokeWidth="2"
-						strokeLinecap="round"
-						aria-hidden
+				<div className="flex shrink-0 items-center gap-0.5">
+					{onSync && (
+						<button
+							type="button"
+							onClick={onSync}
+							title="Review and sync"
+							aria-label="Review and sync"
+							className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-[6px]"
+							style={{ color: "var(--window-sub-text-fg)" }}
+						>
+							<svg
+								width="16"
+								height="16"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								strokeWidth="2"
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								aria-hidden
+							>
+								<path d="M21 12a9 9 0 0 1-9 9 9 9 0 0 1-7.5-4M3 12a9 9 0 0 1 9-9 9 9 0 0 1 7.5 4" />
+								<path d="M20 4v5h-5M4 20v-5h5" />
+							</svg>
+						</button>
+					)}
+					<button
+						type="button"
+						onClick={onLock}
+						title="Lock (Ctrl+L)"
+						aria-label="Lock vault"
+						className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-[6px]"
+						style={{ color: "var(--window-sub-text-fg)" }}
 					>
-						<rect x="4" y="10" width="16" height="10" rx="2" />
-						<path d="M8 10V7a4 4 0 0 1 8 0v3" />
-					</svg>
-				</button>
+						<svg
+							width="16"
+							height="16"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							strokeWidth="2"
+							strokeLinecap="round"
+							aria-hidden
+						>
+							<rect x="4" y="10" width="16" height="10" rx="2" />
+							<path d="M8 10V7a4 4 0 0 1 8 0v3" />
+						</svg>
+					</button>
+				</div>
 			</header>
 
 			<ul className="flex-1 overflow-y-auto py-1">

@@ -4,6 +4,7 @@ import { EntryDetailPane } from "../components/EntryDetail";
 import { EntryList } from "../components/EntryList";
 import { GroupRail } from "../components/GroupRail";
 import { useAutoLock } from "../hooks/useAutoLock";
+import { MergeReview } from "./MergeReview";
 import { errorText } from "../ipc/error";
 import { ipc } from "../ipc";
 import type { EntrySummary, GroupNode, Uuid, VaultInfo } from "../ipc";
@@ -29,6 +30,10 @@ export function Vault({ info, onLock }: Props) {
 	const [saveError, setSaveError] = useState<string | null>(null);
 	const [editing, setEditing] = useState(false);
 	const [reload, setReload] = useState(0);
+	const [reviewing, setReviewing] = useState(false);
+	// Starts as what unlock reported and is refreshed after anything that can
+	// change the vault's shape.
+	const [live, setLive] = useState<VaultInfo>(info);
 
 	const save = useCallback(async () => {
 		setSaving(true);
@@ -41,9 +46,7 @@ export function Vault({ info, onLock }: Props) {
 			// The core verifies its own output before replacing anything, so a
 			// failed save means the file on disk is untouched. Say so, because
 			// "save failed" otherwise reads as "your vault may be broken".
-			setSaveError(
-				`${errorText(err)} — the file on disk is unchanged.`,
-			);
+			setSaveError(`${errorText(err)} — the file on disk is unchanged.`);
 			return false;
 		} finally {
 			setSaving(false);
@@ -73,7 +76,17 @@ export function Vault({ info, onLock }: Props) {
 
 	const refresh = useCallback(() => {
 		setReload((n) => n + 1);
-		void (async () => setDirty(await (await ipc()).isDirty()))();
+		void (async () => {
+			const api = await ipc();
+			setDirty(await api.isDirty());
+			// A merge rewrites the vault in place, so the count handed out at
+			// unlock is no longer true.
+			try {
+				setLive(await api.vaultInfo());
+			} catch {
+				/* locked; the unlock screen takes over anyway */
+			}
+		})();
 	}, []);
 
 	const addEntry = useCallback(async () => {
@@ -203,34 +216,52 @@ export function Vault({ info, onLock }: Props) {
 				className="flex min-h-0 flex-1"
 				style={{ background: "var(--window-bg)" }}
 			>
-			<GroupRail
-				root={groups}
-				selected={group}
-				onSelect={setGroup}
-				// The vault's own count, not the root group's direct children:
-				// entries almost always live in subgroups, so root's own count is
-				// usually 0 and "All entries" would read as empty.
-				totalEntries={info.entryCount}
-				vaultName={info.name}
-				onLock={() => onLock("manual")}
-			/>
-			<EntryList
-				rows={rows}
-				loading={loading}
-				error={error}
-				query={query}
-				onQuery={setQuery}
-				selected={selected}
-				onSelect={setSelected}
-				{...(info.writable ? { onAdd: () => void addEntry() } : {})}
-			/>
-			<EntryDetailPane
-				uuid={selected}
-				writable={info.writable}
-				onChanged={refresh}
-				editing={editing}
-				onEditing={setEditing}
-			/>
+				<GroupRail
+					root={groups}
+					selected={group}
+					onSelect={setGroup}
+					// The vault's own count, not the root group's direct children:
+					// entries almost always live in subgroups, so root's own count is
+					// usually 0 and "All entries" would read as empty.
+					totalEntries={live.entryCount}
+					vaultName={live.name}
+					onLock={() => onLock("manual")}
+					{...(info.writable ? { onSync: () => setReviewing(true) } : {})}
+				/>
+				<EntryList
+					rows={rows}
+					loading={loading}
+					error={error}
+					query={query}
+					onQuery={setQuery}
+					selected={selected}
+					onSelect={setSelected}
+					{...(info.writable ? { onAdd: () => void addEntry() } : {})}
+				/>
+			{reviewing ? (
+				<div
+					className="flex min-w-0 flex-1 flex-col"
+					style={{ minWidth: "var(--column-min-third)" }}
+				>
+					<MergeReview
+						onClose={() => setReviewing(false)}
+						onMerged={() => {
+							// The merge rewrote the vault in place, so everything on
+							// screen is stale.
+							setSelected(null);
+							refresh();
+						}}
+					/>
+				</div>
+			) : (
+				<EntryDetailPane
+					uuid={selected}
+					writable={info.writable}
+					onChanged={refresh}
+					editing={editing}
+					onEditing={setEditing}
+				/>
+			)}
 			</div>
 		</div>
 	);

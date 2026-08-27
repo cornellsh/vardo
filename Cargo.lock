@@ -4537,6 +4537,8 @@ dependencies = [
  "tauri-plugin-clipboard-manager",
  "tauri-plugin-dialog",
  "vardo-kdbx",
+ "vardo-merge",
+ "vardo-sync",
  "vardo-vault",
  "zeroize",
 ]

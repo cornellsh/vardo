@@ -76,7 +76,10 @@ export function PasswordGenerator({ onUse, onClose }: Props) {
 			</div>
 
 			<div className="mb-2 flex items-center gap-2">
-				<label htmlFor="gen-length" className="text-[var(--window-sub-text-fg)]">
+				<label
+					htmlFor="gen-length"
+					className="text-[var(--window-sub-text-fg)]"
+				>
 					Length
 				</label>
 				<input

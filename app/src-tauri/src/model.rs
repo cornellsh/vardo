@@ -142,3 +142,51 @@ pub struct SaveResult {
     /// Filename of the rotated backup, if one was made.
     pub backup: Option<String>,
 }
+
+/// One line in the merge review.
+///
+/// The prose lives in Rust rather than the UI so that adding a `Change` variant
+/// is a compile error here, not a silently blank row on screen.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChangeView {
+    /// Machine-readable, for grouping and icon choice.
+    pub kind: String,
+    pub title: String,
+    /// Human sentence describing exactly what will happen.
+    pub detail: String,
+    /// "local", "remote", or absent when the change has no side.
+    pub side: Option<String>,
+}
+
+/// One thing the merge refuses to decide.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConflictView {
+    pub kind: String,
+    pub title: String,
+    pub detail: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncPreview {
+    pub remote: String,
+    /// Remote is byte-identical to our sync point: nothing to fold in.
+    pub remote_unchanged: bool,
+    /// True when we have no merge base, in which case nothing can be deleted.
+    pub first_sync: bool,
+    pub changes: Vec<ChangeView>,
+    pub conflicts: Vec<ConflictView>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncOutcome {
+    /// up-to-date | pushed | merged | needs-review | created
+    pub kind: String,
+    pub detail: String,
+    /// Non-zero means another writer beat us and the merge was redone.
+    pub races_lost: u32,
+    pub retries: u32,
+}
