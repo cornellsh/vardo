@@ -19,6 +19,7 @@ import type {
 	SaveResult,
 	SyncOutcome,
 	SyncPreview,
+	TotpCode,
 	UnlockPhase,
 	Uuid,
 	VaultInfo,
@@ -622,15 +623,17 @@ export class MockIpc implements Ipc {
 		).join("");
 	}
 
-	async totp(): Promise<{
-		code: string;
-		secondsRemaining: number;
-		period: number;
-	}> {
+	async totp(uuid: Uuid): Promise<TotpCode | null> {
 		this.assertUnlocked();
+		const e = ENTRIES.find((x) => x.summary.uuid === uuid);
+		if (!e?.summary.hasTotp) return null;
+
 		const period = 30;
 		const secondsRemaining = period - (Math.floor(Date.now() / 1000) % period);
-		const code = String(Math.floor(rand() * 1_000_000)).padStart(6, "0");
+		// Derived from the counter so it actually changes on the boundary, which
+		// is the behaviour the countdown ring is there to show.
+		const counter = Math.floor(Date.now() / 1000 / period);
+		const code = String((counter * 7919 + 13) % 1_000_000).padStart(6, "0");
 		return { code, secondsRemaining, period };
 	}
 

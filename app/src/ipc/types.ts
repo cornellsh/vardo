@@ -132,6 +132,12 @@ export interface GeneratorOptions {
 	excludeAmbiguous: boolean;
 }
 
+export interface TotpCode {
+	code: string;
+	secondsRemaining: number;
+	period: number;
+}
+
 export interface SaveResult {
 	bytesWritten: number;
 	/** Filename of the rotated backup, if one was made. */
@@ -184,10 +190,14 @@ export interface Ipc {
 	 */
 	revealField(uuid: Uuid, key: string): Promise<string>;
 
-	/** Current TOTP code plus seconds remaining in the window. */
-	totp(
-		uuid: Uuid,
-	): Promise<{ code: string; secondsRemaining: number; period: number }>;
+	/**
+	 * The current one-time code, or `null` when the entry has no seed.
+	 *
+	 * Only the derived code crosses the boundary. The seed is a long-lived
+	 * shared secret — strictly more valuable than any single code, because it
+	 * generates every future one — and stays in the core.
+	 */
+	totp(uuid: Uuid): Promise<TotpCode | null>;
 
 	/** Ask the OS for a file, since the WebView cannot see the filesystem. */
 	pickVaultFile(): Promise<string | null>;

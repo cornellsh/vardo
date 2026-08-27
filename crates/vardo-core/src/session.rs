@@ -248,6 +248,36 @@ impl Session {
         Ok(Zeroizing::new(value.expose().to_string()))
     }
 
+    /// The current one-time code, if the entry carries a seed.
+    ///
+    /// Only the derived code leaves this crate. The seed itself is a
+    /// long-lived shared secret — strictly more valuable than any single code,
+    /// because it generates every future one — so it is read here and never
+    /// returned.
+    pub fn totp(&self, uuid: &str) -> Result<Option<crate::model::TotpCode>, CoreError> {
+        let entry = entries::find(&self.vault, uuid).ok_or(CoreError::NotFound {
+            path: uuid.to_string(),
+        })?;
+
+        let read = |key: &str| entry.field(key).map(|f| f.expose().to_string());
+        let otp = read("otp");
+        let seed = read("TOTP Seed");
+        let settings = read("TOTP Settings");
+
+        let Some(totp) =
+            crate::totp::Totp::from_fields(otp.as_deref(), seed.as_deref(), settings.as_deref())
+        else {
+            return Ok(None);
+        };
+
+        let code = totp.now();
+        Ok(Some(crate::model::TotpCode {
+            code: code.code,
+            seconds_remaining: code.seconds_remaining,
+            period: code.period,
+        }))
+    }
+
     // --- writing ---
 
     pub fn update_entry(&mut self, uuid: &str, fields: &[FieldEdit]) -> Result<bool, CoreError> {

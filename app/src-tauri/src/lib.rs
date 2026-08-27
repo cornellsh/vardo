@@ -64,6 +64,7 @@ pub fn run() {
             commands::generate_password,
             commands::sync_preview,
             commands::sync_apply,
+            commands::totp,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Vardo");

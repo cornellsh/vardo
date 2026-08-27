@@ -1,4 +1,5 @@
 import type { GroupNode, Uuid } from "../ipc";
+import { useRipple } from "./Ripple";
 
 interface Props {
 	root: GroupNode | null;
@@ -129,25 +130,29 @@ function GroupItem({
 	active: boolean;
 	onClick: () => void;
 }) {
+	const ripple = useRipple();
 	return (
 		<li>
 			<button
 				type="button"
 				onClick={onClick}
 				aria-current={active ? "true" : undefined}
-				className="flex w-full cursor-pointer items-center gap-2 px-3 text-left"
+				{...ripple.handlers}
+				className="relative flex w-full cursor-pointer items-center gap-2 overflow-hidden px-3 text-left"
 				style={{
 					height: "34px",
 					background: active ? "var(--dialogs-bg-active)" : "transparent",
 					color: active ? "var(--window-fg-active)" : "var(--window-bold-fg)",
+					transition: "background-color var(--duration-universal) linear",
 				}}
 			>
-				<span className="flex-1 truncate">{name}</span>
+				{ripple.layer}
+				<span className="relative flex-1 truncate">{name}</span>
 				{/* Empty groups show nothing rather than a zero — a "0" reads as a
             broken count, and an empty group is not an error. */}
 				{count > 0 && (
 					<span
-						className="tabular-nums"
+						className="relative tabular-nums"
 						style={{
 							color: active
 								? "var(--window-fg-active)"

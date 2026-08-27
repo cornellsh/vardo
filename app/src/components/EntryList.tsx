@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 
 import type { EntrySummary, Uuid } from "../ipc";
+import { useRipple } from "./Ripple";
 
 interface Props {
 	rows: EntrySummary[];
@@ -239,6 +240,7 @@ function Row({
 	ambiguous: boolean;
 	onClick: () => void;
 }) {
+	const ripple = useRipple();
 	const name = active ? "var(--window-fg-active)" : "var(--dialogs-name-fg)";
 	const sub = active ? "var(--window-fg-active)" : "var(--dialogs-text-fg)";
 
@@ -248,16 +250,23 @@ function Row({
 				type="button"
 				onClick={onClick}
 				aria-current={active ? "true" : undefined}
-				className="flex w-full cursor-pointer items-center gap-3 text-left"
+				{...ripple.handlers}
+				className="relative flex w-full cursor-pointer items-center gap-3 overflow-hidden text-left"
 				style={{
 					height: "var(--dialogs-row-height)",
 					padding: "0 var(--dialogs-padding-x)",
 					background: active ? "var(--dialogs-bg-active)" : "transparent",
+					// Telegram transitions the row background rather than snapping
+					// it, at the universal tempo.
+					transition: "background-color var(--duration-universal) linear",
 				}}
 			>
+				{ripple.layer}
+				{/* `relative` on the content, so it paints above the absolutely
+				    positioned ripple layer rather than under it. */}
 				<span
 					aria-hidden
-					className="flex shrink-0 items-center justify-center rounded-full font-semibold"
+					className="relative flex shrink-0 items-center justify-center rounded-full font-semibold"
 					style={{
 						width: "var(--dialogs-photo-size)",
 						height: "var(--dialogs-photo-size)",
@@ -269,7 +278,7 @@ function Row({
 					{initials(row.title)}
 				</span>
 
-				<span className="flex min-w-0 flex-1 flex-col gap-[3px]">
+				<span className="relative flex min-w-0 flex-1 flex-col gap-[3px]">
 					<span className="flex items-baseline gap-2">
 						<span
 							className="min-w-0 flex-1 truncate font-semibold"

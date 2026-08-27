@@ -205,6 +205,60 @@ shape, so keep 62px rather than compressing.
 
 ---
 
+## 4a. Motion
+
+Also ported, from `lib_ui/ui/basic.style` and `ui/widgets/widgets.style`.
+
+```
+universalDuration     120ms   the base tempo for nearly everything
+slideDuration         240ms
+slideWrapDuration     150ms
+fadeWrapDuration      200ms
+radialDuration        350ms
+shakeDuration         300ms   shakeShift: 4px
+
+defaultRippleAnimation
+  color               windowBgRipple
+  showDuration        650ms
+  hideDuration        200ms
+```
+
+**120ms is the number that matters.** Telegram's base tempo is roughly half
+what web UI conventionally uses, and that is most of why it feels immediate
+rather than animated. The temptation is always to slow these down so the work
+is visible; being barely noticed is the point.
+
+Easing is the Penner set. `easeOutCirc`
+(`cubic-bezier(0, 0.55, 0.45, 1)`) does almost all appearances, and its
+near-instant start is what makes a panel feel attached to the click rather than
+trailing it.
+
+### The ripple
+
+Telegram's most recognisable interaction, and the one part of the port that was
+missing for a long time — `windowBgRipple` was carried over as a colour and
+never drawn.
+
+The asymmetry is the effect: **650ms to expand, 200ms to fade.** The circle
+keeps growing while the pointer is held, so a long press feels heavier than a
+tap, then leaves quickly so it never delays the result. Unlike Material's, it
+is not centred and does not bounce — it starts exactly where the pointer landed.
+
+### Correction to an earlier rule
+
+An earlier draft of this file said *"nothing animates on hover"* and treated
+animation as something to ration. That was a guess dressed as restraint, and
+the source disagrees: Telegram transitions row and button backgrounds on hover
+at `universalDuration`, and ripples every press.
+
+The real rule is narrower and better: **motion is either feedback or
+explanation.** A ripple confirms a press landed. A background transition shows
+what is under the pointer. A countdown ring shows a deadline. A shake says the
+password was wrong. Nothing moves to be decorative, and nothing moves for
+longer than it takes to be understood.
+
+---
+
 ## 5. Where the port must be extended
 
 Three screens have no Telegram counterpart. Build them in the same language —

@@ -13,6 +13,9 @@ vardo-vault = { path = "../vardo-vault" }
 vardo-merge = { path = "../vardo-merge" }
 vardo-sync = { path = "../vardo-sync" }
 serde = { version = "1", features = ["derive"] }
+hmac.workspace = true
+sha2.workspace = true
+sha1 = "0.10"
 getrandom.workspace = true
 zeroize.workspace = true
 

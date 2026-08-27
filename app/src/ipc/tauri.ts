@@ -22,6 +22,7 @@ import type {
 	SaveResult,
 	SyncOutcome,
 	SyncPreview,
+	TotpCode,
 	UnlockPhase,
 	Uuid,
 	VaultInfo,
@@ -81,9 +82,7 @@ export class TauriIpc implements Ipc {
 		return invoke("reveal_field", { uuid, key });
 	}
 
-	totp(
-		uuid: Uuid,
-	): Promise<{ code: string; secondsRemaining: number; period: number }> {
+	totp(uuid: Uuid): Promise<TotpCode | null> {
 		return invoke("totp", { uuid });
 	}
 

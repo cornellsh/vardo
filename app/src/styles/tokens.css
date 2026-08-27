@@ -84,6 +84,35 @@
 	--column-min-third: 292px;
 	--column-max-third: 392px;
 
+	/* --- motion, from lib_ui/ui/basic.style and ui/widgets/widgets.style ---
+
+     `universalDuration: 120` is the number that matters. Telegram's base tempo
+     is roughly half what web UI conventionally uses, and that is most of why
+     it feels immediate rather than animated. Do not slow these down to make
+     them "visible": being barely noticed is the point. */
+	--duration-universal: 120ms; /* universalDuration */
+	--duration-slide: 240ms; /* slideDuration */
+	--duration-slide-wrap: 150ms; /* slideWrapDuration */
+	--duration-fade-wrap: 200ms; /* fadeWrapDuration */
+	--duration-radial: 350ms; /* radialDuration */
+	--duration-shake: 300ms; /* shakeDuration */
+	--shake-shift: 4px; /* shakeShift */
+
+	/* defaultRippleAnimation. The long expand and short fade are deliberate:
+     the circle keeps growing while the pointer is down, then leaves quickly. */
+	--ripple-show: 650ms;
+	--ripple-hide: 200ms;
+
+	/* Telegram's transitions are the Penner curves; these are their standard
+     cubic-bezier equivalents. easeOutCirc is used for almost every appearance,
+     and its very fast start is what makes a panel feel attached to the click
+     rather than trailing after it. */
+	--ease-out-circ: cubic-bezier(0, 0.55, 0.45, 1);
+	--ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+	--ease-sine-in-out: cubic-bezier(0.37, 0, 0.63, 1);
+
+	--button-radius: 4px; /* buttonRadius */
+
 	/* Named `-stack` so they never collide with Tailwind's own --font-* theme
      namespace. `@theme { --font-mono: var(--font-mono) }` is circular, which
      silently drops the whole font-family to the serif default. */

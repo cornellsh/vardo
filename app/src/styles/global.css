@@ -101,6 +101,68 @@ body {
   background: transparent;
 }
 
+/* Telegram's press ripple. See components/Ripple.tsx for why the expand and
+   fade durations are so different. */
+@keyframes ripple-in {
+  from {
+    transform: scale(0);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes ripple-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* A rejected password. `shakeShift: 4px`, `shakeDuration: 300` from
+   lib_ui/ui/basic.style. Decaying rather than uniform, so it reads as a
+   physical rebuff rather than a wobble. */
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(calc(var(--shake-shift) * -1));
+  }
+  40% {
+    transform: translateX(var(--shake-shift));
+  }
+  60% {
+    transform: translateX(calc(var(--shake-shift) * -0.6));
+  }
+  80% {
+    transform: translateX(calc(var(--shake-shift) * 0.6));
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Panels arrive from slightly below over `slideWrapDuration` on easeOutCirc —
+   the curve's near-instant start is what makes them feel attached to the
+   action rather than trailing it. */
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
