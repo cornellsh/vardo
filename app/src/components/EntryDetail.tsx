@@ -2,14 +2,28 @@ import { useEffect, useState } from "react";
 
 import { ipc } from "../ipc";
 import type { EntryDetail, Uuid } from "../ipc";
+import { EntryEditor } from "./EntryEditor";
 
 interface Props {
 	uuid: Uuid | null;
 	writable: boolean;
+	/** Called after any change, so the list and dirty state refresh. */
+	onChanged: () => void;
+	/** Opened straight into edit mode, for a freshly created entry. */
+	editing: boolean;
+	onEditing: (editing: boolean) => void;
 }
 
-export function EntryDetailPane({ uuid, writable }: Props) {
+export function EntryDetailPane({
+	uuid,
+	writable,
+	onChanged,
+	editing,
+	onEditing,
+}: Props) {
 	const [entry, setEntry] = useState<EntryDetail | null>(null);
+	const [reload, setReload] = useState(0);
+	const [confirmingDelete, setConfirmingDelete] = useState(false);
 
 	useEffect(() => {
 		if (!uuid) {
@@ -24,7 +38,16 @@ export function EntryDetailPane({ uuid, writable }: Props) {
 		return () => {
 			cancelled = true;
 		};
-	}, [uuid]);
+	}, [uuid, reload]);
+
+	useEffect(() => setConfirmingDelete(false), [uuid]);
+
+	async function remove() {
+		if (!uuid) return;
+		await (await ipc()).deleteEntry(uuid);
+		setConfirmingDelete(false);
+		onChanged();
+	}
 
 	return (
 		<section
@@ -46,17 +69,76 @@ export function EntryDetailPane({ uuid, writable }: Props) {
 							borderBottom: "1px solid var(--shadow-fg)",
 						}}
 					>
-						<div className="min-w-0">
-							<h2 className="truncate font-semibold text-[var(--window-bold-fg)] text-[15px]">
-								{entry.title}
+						<div className="min-w-0 flex-1">
+							<h2
+								className="truncate font-semibold text-[var(--window-bold-fg)] text-[15px]"
+								style={{ fontStyle: entry.title ? undefined : "italic" }}
+							>
+								{entry.title || "Untitled"}
 							</h2>
 							<p className="truncate text-[var(--window-sub-text-fg)] text-[12px]">
 								{entry.groupPath.join(" / ")}
 							</p>
 						</div>
+
+						{writable && !editing && (
+							<div className="flex shrink-0 items-center gap-1">
+								<button
+									type="button"
+									onClick={() => onEditing(true)}
+									className="cursor-pointer rounded-[6px] px-2 py-1"
+									style={{ color: "var(--window-active-text-fg)" }}
+								>
+									Edit
+								</button>
+								{confirmingDelete ? (
+									<>
+										{/* Inline confirmation rather than a modal: it keeps the
+										    entry visible while deciding, which a dialog covering
+										    it does not. */}
+										<button
+											type="button"
+											onClick={() => void remove()}
+											className="cursor-pointer rounded-[6px] px-2 py-1 font-semibold"
+											style={{ color: "var(--attention-button-fg)" }}
+										>
+											Confirm
+										</button>
+										<button
+											type="button"
+											onClick={() => setConfirmingDelete(false)}
+											className="cursor-pointer rounded-[6px] px-2 py-1"
+											style={{ color: "var(--window-sub-text-fg)" }}
+										>
+											Keep
+										</button>
+									</>
+								) : (
+									<button
+										type="button"
+										onClick={() => setConfirmingDelete(true)}
+										className="cursor-pointer rounded-[6px] px-2 py-1"
+										style={{ color: "var(--attention-button-fg)" }}
+									>
+										Delete
+									</button>
+								)}
+							</div>
+						)}
 					</header>
 
-					<div className="flex-1 overflow-y-auto p-4">
+					{editing ? (
+						<EntryEditor
+							entry={entry}
+							onSaved={() => {
+								onEditing(false);
+								setReload((n) => n + 1);
+								onChanged();
+							}}
+							onCancel={() => onEditing(false)}
+						/>
+					) : (
+						<div className="flex-1 overflow-y-auto p-4">
 						{entry.fields.map((f) => (
 							<FieldRow key={f.key} uuid={entry.uuid} field={f} />
 						))}
@@ -86,12 +168,14 @@ export function EntryDetailPane({ uuid, writable }: Props) {
 							</p>
 						</div>
 
-						{!writable && (
-							<p className="mt-5 text-[var(--window-sub-text-fg)]">
-								This database is KDBX 3.1, which Vardo can read but not write.
-							</p>
-						)}
-					</div>
+							{!writable && (
+								<p className="mt-5 text-[var(--window-sub-text-fg)]">
+									This database is KDBX 3.1, which Vardo can read but not
+									write.
+								</p>
+							)}
+						</div>
+					)}
 				</>
 			)}
 		</section>

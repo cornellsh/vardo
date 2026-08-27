@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
+import { errorText } from "../ipc/error";
 import { ipc } from "../ipc";
 import type { UnlockPhase, VaultInfo } from "../ipc";
 
@@ -61,18 +62,17 @@ export function Unlock({ onUnlocked, lockedReason }: Props) {
 			// field value. Without this an unrecognised kind is indistinguishable
 			// from a wrong password, which makes a bridge bug look like user error.
 			console.error("unlock failed", JSON.stringify(err));
-			const detail = (err as { detail?: string })?.detail;
 			setError(
 				kind === "wrong-password"
 					? "Wrong password."
 					: kind === "not-found"
 						? "That file no longer exists."
 						: kind === "unsupported"
-							? `Vardo cannot read this database yet: ${detail ?? "unknown feature"}`
+							? `Vardo cannot read this database yet: ${errorText(err)}`
 							: // An unrecognised failure shows its reason rather than a
 								// generic sentence. "Could not open the database" on its own
 								// is untriageable for the user and for us.
-								`Could not open the database: ${detail ?? kind ?? String(err)}`,
+								`Could not open the database: ${errorText(err)}`,
 			);
 			setPassword("");
 			setPhase(null);
