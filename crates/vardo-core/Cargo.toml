@@ -1,0 +1,21 @@
+[package]
+name = "vardo-core"
+description = "Everything the desktop app does, with no dependency on the UI toolkit"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+vardo-kdbx = { path = "../vardo-kdbx" }
+vardo-vault = { path = "../vardo-vault" }
+vardo-merge = { path = "../vardo-merge" }
+vardo-sync = { path = "../vardo-sync" }
+serde = { version = "1", features = ["derive"] }
+getrandom.workspace = true
+zeroize.workspace = true
+
+[dev-dependencies]
+# Only for asserting that no secret reaches the serialised form.
+serde_json = "1"

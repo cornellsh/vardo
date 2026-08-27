@@ -1,5 +1,12 @@
 # What to do next, and why
 
+> **Progress.** 1.1 (merge identity guard), 1.2 (async save) and 2 (extract
+> `vardo-core`) are done. The extraction turned out to fix 1.2 as a side
+> effect: once saving moved behind a plain `Session::save`, the command became
+> a `spawn_blocking` wrapper and stopped freezing the window. Remaining:
+> 1.3 (conditional write in the trait), 3 (non-happy-path messages),
+> 4.1/4.2/4.3 (end-to-end and frontend tests), 5 (polish).
+
 Written after Phase D, when the app can read, edit, save and sync real vaults.
 Ordered by what gets **more expensive the longer it waits**, not by what is
 most visible.
@@ -69,9 +76,9 @@ written against the wrong shape and the migration cost doubles.
 
 ---
 
-## 2. The structural problem underneath
+## 2. The structural problem underneath — **done**
 
-**Real logic lives inside the Tauri crate, where it cannot be tested.**
+**Real logic lived inside the Tauri crate, where it could not be tested.**
 
 ```
 commands.rs  797 lines
@@ -100,6 +107,14 @@ mismatch. None of those need a window.
 
 Do this **before** adding features, because every new command written in the
 old shape is another thing to move.
+
+**Outcome.** `crates/vardo-core` now holds `Session`, entry listing, the save
+path, sync orchestration, the review view models and the generator.
+`app/src-tauri` is down to a window, thin command wrappers and the clipboard.
+18 new tests cover paths that previously had none — including one that
+serialises an `EntryDetail` and greps the JSON for a known password, which
+turns the no-secrets rule from a convention about type shape into something
+that fails loudly.
 
 ---
 

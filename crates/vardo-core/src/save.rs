@@ -24,7 +24,7 @@ use std::path::{Path, PathBuf};
 use vardo_kdbx::Credentials;
 use vardo_vault::Vault;
 
-use crate::UiError;
+use crate::session::CoreError as UiError;
 
 /// How many previous versions to keep beside the vault.
 const KEEP_BACKUPS: usize = 5;
