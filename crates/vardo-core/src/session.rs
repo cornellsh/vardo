@@ -24,11 +24,32 @@ use crate::model::{
 #[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum CoreError {
     WrongPassword,
-    NotFound { path: String },
-    Corrupt { detail: String },
-    Unsupported { detail: String },
-    Io { detail: String },
+    NotFound {
+        path: String,
+    },
+    Corrupt {
+        detail: String,
+    },
+    Unsupported {
+        detail: String,
+    },
+    Io {
+        detail: String,
+    },
     Locked,
+    /// The file we sync against is gone. Distinct from [`CoreError::NotFound`]
+    /// so the UI can offer to re-create or re-point rather than saying the
+    /// vault is missing, which it is not.
+    RemoteMissing {
+        path: String,
+    },
+    /// The other copy opens with a different password than this one. Reporting
+    /// it as a wrong password would send the user to re-check the one that is
+    /// working.
+    RemotePassword,
+    /// Ran out of space. Called out separately because the answer is different
+    /// from every other IO failure, and because the vault on disk is intact.
+    OutOfSpace,
 }
 
 impl std::fmt::Display for CoreError {
@@ -40,6 +61,16 @@ impl std::fmt::Display for CoreError {
             | CoreError::Unsupported { detail }
             | CoreError::Io { detail } => write!(f, "{detail}"),
             CoreError::Locked => write!(f, "the vault is locked"),
+            CoreError::RemoteMissing { path } => {
+                write!(f, "the copy at {path} is no longer there")
+            }
+            CoreError::RemotePassword => {
+                write!(f, "the other copy uses a different password than this one")
+            }
+            CoreError::OutOfSpace => write!(
+                f,
+                "not enough space to save. The vault on disk is unchanged."
+            ),
         }
     }
 }
@@ -298,6 +329,7 @@ impl Session {
             first_sync: point.is_none(),
             changes: crate::review::changes(&preview.plan),
             conflicts: crate::review::conflicts(&preview.plan),
+            warnings: preview.warnings,
         })
     }
 

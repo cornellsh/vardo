@@ -190,6 +190,8 @@ pub struct SyncPreview {
     pub first_sync: bool,
     pub changes: Vec<ChangeView>,
     pub conflicts: Vec<ConflictView>,
+    /// Non-fatal things that change what the sync will do.
+    pub warnings: Vec<SyncWarning>,
 }
 
 #[derive(Debug, Serialize)]
@@ -201,4 +203,17 @@ pub struct SyncOutcome {
     /// Non-zero means another writer beat us and the merge was redone.
     pub races_lost: u32,
     pub retries: u32,
+}
+
+/// Something the user should know about a sync that does not stop it.
+///
+/// Distinct from an error: every one of these describes a sync that will still
+/// happen, but will do something different from what the user expects unless
+/// they are told.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncWarning {
+    /// no-base | remote-read-only | clock-skew
+    pub kind: String,
+    pub detail: String,
 }

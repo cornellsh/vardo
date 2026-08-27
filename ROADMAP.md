@@ -4,8 +4,9 @@
 > `vardo-core`) are done. The extraction turned out to fix 1.2 as a side
 > effect: once saving moved behind a plain `Session::save`, the command became
 > a `spawn_blocking` wrapper and stopped freezing the window. Remaining:
-> 1.3 (conditional write in the trait), 3 (non-happy-path messages),
-> 4.1/4.2/4.3 (end-to-end and frontend tests), 5 (polish).
+> 1.3 (conditional write in the trait) and 3 (non-happy-path messages) are
+> done too. Remaining: 4.1/4.2/4.3 (end-to-end and frontend tests), WebDAV,
+> and 5 (polish).
 
 Written after Phase D, when the app can read, edit, save and sync real vaults.
 Ordered by what gets **more expensive the longer it waits**, not by what is
@@ -124,16 +125,16 @@ Roughly in order of likelihood.
 
 | Case | What happens today | What should happen |
 |---|---|---|
-| Remote is a different vault | Silently merges the two | Refuse; see 1.1 |
-| Password changed on the other device | Sync fails to open the remote; error is a raw string | Detect and say "the other copy uses a different password" |
-| Remote deleted or moved | `NotFound` surfaces as a generic IO error | Offer to re-create or re-pick |
+| Remote is a different vault | **Done** — `Refusal::DifferentVaults` | |
+| Password changed on the other device | **Done** — `RemotePassword`, which does not blame the password that is working | |
+| Remote deleted or moved | **Done** — `RemoteMissing`, distinct from the vault being missing | |
+| Disk full mid-save | **Done** — `OutOfSpace`; every IO failure now states the vault is unchanged, which it is | |
+| Remote is KDBX 3.1 | **Done** — `remote-read-only` warning, and the identity guard fires first | |
+| Clock skew between devices | **Done** — `clock-skew` warning above an hour | |
+| Sync point unreadable | **Done** — `no-base` warning; the two-way fallback is no longer silent | |
 | OAuth token revoked | Fails at the transport layer | Detect 401 and prompt to reconnect, not "sync failed" |
-| Disk full mid-save | Temp write fails; original intact (good) but message is `ENOSPC` | Say the vault is unchanged, because it is |
 | Two Vardo instances, same vault | Both hold the file; last save wins locally | A lock file, or at minimum detect and warn |
-| Remote is KDBX 3.1, local is 4.x | Merge works, save refuses | Explain before the merge, not after |
-| Clock skew between devices | Merge resolves by timestamp, so a device with a wrong clock always wins | Detect gross skew against the remote's modified time and warn |
 | Vault with large attachments | Whole file re-uploaded per save | Measure it; if it is bad, say so before shipping attachments |
-| Sync point stale after restore-from-backup | Base no longer matches remote; merge is two-way and deletes nothing | Already safe, but should say why |
 
 The pattern in nearly all of these: the failure is handled safely at the data
 layer and then reported as a raw string. **The safety is real; the explanation

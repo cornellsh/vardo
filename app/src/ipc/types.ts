@@ -262,7 +262,20 @@ export interface ConflictView {
 	detail: string;
 }
 
+/**
+ * Something that does not stop the sync but changes what it will do.
+ *
+ * Distinct from a conflict: every one of these describes a sync that will
+ * still happen, but will behave differently from what the user expects unless
+ * they are told.
+ */
+export interface SyncWarning {
+	kind: "no-base" | "remote-read-only" | "clock-skew";
+	detail: string;
+}
+
 export interface SyncPreview {
+	warnings: SyncWarning[];
 	remote: string;
 	/** Remote is byte-identical to our sync point: nothing to fold in. */
 	remoteUnchanged: boolean;
