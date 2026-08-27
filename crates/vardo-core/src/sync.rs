@@ -28,7 +28,7 @@ use vardo_sync::local::LocalFile;
 use vardo_sync::protocol::{self, Outcome, SyncPoint};
 use vardo_vault::Vault;
 
-use crate::UiError;
+use crate::session::CoreError as UiError;
 
 /// Where the sync point for a given vault lives.
 ///

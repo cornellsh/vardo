@@ -185,6 +185,78 @@ fn list(items: &[String]) -> String {
     }
 }
 
+/// What a completed sync did, as a sentence.
+pub fn describe_outcome(outcome: &vardo_sync::protocol::Outcome) -> (&'static str, String) {
+    use vardo_sync::protocol::Outcome as O;
+    match outcome {
+        O::UpToDate => ("up-to-date", "Already in sync.".into()),
+        O::Pushed => ("pushed", "Your changes were uploaded.".into()),
+        O::Created => ("created", "The remote file was created.".into()),
+        O::Merged(applied) => ("merged", describe_applied(applied)),
+        O::NeedsReview(plan) => (
+            "needs-review",
+            format!(
+                "{} item(s) need a decision. Nothing was uploaded.",
+                plan.conflicts.len()
+            ),
+        ),
+    }
+}
+
+/// Prose, not a `Debug` dump.
+///
+/// This string is the only account a user gets of what just happened to their
+/// passwords, and `Applied { entries_added: 1, entries_updated: 0, .. }` is not
+/// an account — it is an internal struct leaking into the one place that most
+/// needs to be legible.
+pub fn describe_applied(a: &vardo_merge::Applied) -> String {
+    let mut parts: Vec<String> = Vec::new();
+    let plural = |n: usize, one: &str, many: &str| {
+        if n == 1 {
+            format!("1 {one}")
+        } else {
+            format!("{n} {many}")
+        }
+    };
+
+    for (n, verb, one, many) in [
+        (a.entries_added, "added", "entry", "entries"),
+        (a.entries_updated, "updated", "entry", "entries"),
+        (a.entries_deleted, "deleted", "entry", "entries"),
+        (a.entries_moved, "moved", "entry", "entries"),
+        (a.entries_resurrected, "restored", "entry", "entries"),
+        (a.groups_added, "added", "group", "groups"),
+        (
+            a.conflicts_duplicated,
+            "kept both versions of",
+            "entry",
+            "entries",
+        ),
+    ] {
+        if n > 0 {
+            parts.push(format!("{verb} {}", plural(n, one, many)));
+        }
+    }
+
+    let summary = match parts.as_slice() {
+        [] => "Merged and uploaded; nothing changed locally.".to_string(),
+        [one] => format!("Merged and uploaded: {one}."),
+        [rest @ .., last] => format!("Merged and uploaded: {} and {last}.", rest.join(", ")),
+    };
+
+    if a.skipped.is_empty() {
+        summary
+    } else {
+        // Never silent: a planned change that could not be carried out is
+        // exactly the thing a user needs to know about.
+        format!(
+            "{summary} {} change(s) could not be applied: {}.",
+            a.skipped.len(),
+            a.skipped.join("; ")
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

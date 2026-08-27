@@ -27,6 +27,7 @@ getrandom = { workspace = true }
 
 vardo-kdbx = { path = "../../crates/vardo-kdbx" }
 vardo-vault = { path = "../../crates/vardo-vault" }
+vardo-core = { path = "../../crates/vardo-core" }
 vardo-merge = { path = "../../crates/vardo-merge" }
 vardo-sync = { path = "../../crates/vardo-sync" }
 zeroize = { workspace = true }
