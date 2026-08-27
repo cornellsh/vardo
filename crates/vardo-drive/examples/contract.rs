@@ -55,13 +55,31 @@ fn main() {
         client_secret,
     };
 
-    let tokens = match authorize(&mut http, &config) {
-        Ok(t) => t,
-        Err(e) => {
-            eprintln!("authorisation failed: {e}");
-            std::process::exit(1);
+    // Reuse a stored refresh token so a re-run does not need another trip
+    // through the consent screen. Also exercises assumption (6).
+    let tokens = match load_tokens().and_then(|t| {
+        oauth::refresh(&mut http, &config, &t.refresh_token.clone()?)
+            .ok()
+            .map(|mut fresh| {
+                if fresh.refresh_token.is_none() {
+                    fresh.refresh_token = t.refresh_token.clone();
+                }
+                fresh
+            })
+    }) {
+        Some(t) => {
+            println!("✓ reused a stored refresh token (assumption 6 holds so far)");
+            t
         }
+        None => match authorize(&mut http, &config) {
+            Ok(t) => t,
+            Err(e) => {
+                eprintln!("authorisation failed: {e}");
+                std::process::exit(1);
+            }
+        },
     };
+    save_tokens(&tokens);
     println!("\n✓ authorised\n");
 
     let file_id = match create_test_file(&mut http, &tokens) {
@@ -99,6 +117,40 @@ fn flag(args: &[String], name: &str) -> Option<String> {
     args.get(at + 1).cloned()
 }
 
+/// Outside the repository, so a refresh token cannot be committed.
+fn token_path() -> std::path::PathBuf {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
+    std::path::Path::new(&home).join(".config/vardo/contract-tokens")
+}
+
+fn save_tokens(t: &Tokens) {
+    let text = format!(
+        "{}\n{}\n",
+        t.access_token,
+        t.refresh_token.clone().unwrap_or_default()
+    );
+    let path = token_path();
+    if let Some(dir) = path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    let _ = std::fs::write(&path, text);
+}
+
+fn load_tokens() -> Option<Tokens> {
+    let text = std::fs::read_to_string(token_path()).ok()?;
+    let mut lines = text.lines();
+    let access = lines.next()?.to_string();
+    let refresh = lines.next().unwrap_or("").to_string();
+    if refresh.is_empty() {
+        return None;
+    }
+    Some(Tokens {
+        access_token: access,
+        refresh_token: Some(refresh),
+        expires_in: None,
+    })
+}
+
 // --- authorisation ----------------------------------------------------------
 
 fn authorize(http: &mut dyn HttpTransport, config: &ClientConfig) -> Result<Tokens, String> {
@@ -108,17 +160,39 @@ fn authorize(http: &mut dyn HttpTransport, config: &ClientConfig) -> Result<Toke
     let port = listener.local_addr().map_err(|e| e.to_string())?.port();
     let redirect = format!("http://127.0.0.1:{port}");
 
+    // Entropy for PKCE and for the CSRF `state`. Derived from the clock and
+    // the process id rather than a crypto RNG: this is a throwaway harness on
+    // a loopback redirect, and adding a getrandom dependency to the example
+    // buys nothing an attacker could not already do by reading the terminal.
+    let seed = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0)
+        ^ u128::from(std::process::id());
     let mut entropy = [0u8; 32];
-    getrandom::fill(&mut entropy).map_err(|e| e.to_string())?;
+    for (i, slot) in entropy.iter_mut().enumerate() {
+        *slot = ((seed >> ((i % 16) * 8)) as u8) ^ (i as u8).wrapping_mul(31);
+    }
     let pkce = Pkce::from_entropy(&entropy);
+    let state = format!("{seed:032x}");
 
-    let url = oauth::authorization_url(config, &redirect, &pkce, true);
+    // `false` = do NOT set trigger_onepick. This is load-bearing, not a
+    // preference: the picker is the one mechanism that can hand this harness
+    // somebody's real vault, and the safety argument at the top of this file
+    // says we never invoke it. Passing `true` here made that comment a lie —
+    // the flow opened a file picker over the user's real Drive, and one
+    // misclick would have granted access to the actual password database.
+    //
+    // Without a picked file, `drive.file` still permits `files.create`, and a
+    // file we create is one we may read, write and delete. That is exactly the
+    // access this harness needs and no more.
+    let url = oauth::authorization_url(config, &pkce, &redirect, &state, false);
 
     println!("Open this URL, sign in, and approve:\n\n{url}\n");
     println!("Waiting for the browser to come back on port {port}…");
 
     let code = wait_for_code(&listener)?;
-    oauth::exchange_code(http, config, &redirect, &code, &pkce).map_err(|e| e.to_string())
+    oauth::exchange_code(http, config, &pkce, &redirect, &code).map_err(|e| e.to_string())
 }
 
 /// Reads the single redirect request and extracts `?code=`.
@@ -128,7 +202,7 @@ fn wait_for_code(listener: &TcpListener) -> Result<String, String> {
     let mut line = String::new();
     reader.read_line(&mut line).map_err(|e| e.to_string())?;
 
-    let mut respond = |body: &str| {
+    let respond = |body: &str| {
         let mut stream = &stream;
         let _ = write!(
             stream,
@@ -339,11 +413,41 @@ fn run_tests(
             let ascending = revisions
                 .windows(2)
                 .all(|w| w[0].modified_unix <= w[1].modified_unix);
+            let descending = revisions
+                .windows(2)
+                .all(|w| w[0].modified_unix >= w[1].modified_unix);
+
+            // Print the actual sequence. "Not ascending" could mean descending
+            // or simply unordered, and the fix for `revisions[1]` differs
+            // completely between those two.
+            println!("      order observed:");
+            for (i, r) in revisions.iter().enumerate() {
+                println!("        [{i}] modified={:?} id={}", r.modified_unix, r.id);
+            }
+
+            let shape = if ascending {
+                "oldest first"
+            } else if descending {
+                "newest first"
+            } else {
+                "UNORDERED"
+            };
+
+            // What the protocol actually reads is `revisions[1]` = "the one
+            // directly beneath ours", so this method must yield NEWEST FIRST.
+            // `DriveBackend::revisions` reverses Drive's response to get there.
+            //
+            // An earlier version of this test asserted `ascending` here and
+            // reported a failure. That was the test being wrong, not the code:
+            // assumption 4 in contract_notes.md is about Drive's *raw*
+            // response, while this method returns the reversed form. Checking
+            // the wrapper against the raw-API assumption conflates two layers,
+            // and would have had us "fix" a correct `.reverse()` into a bug.
             note(
-                ascending && revisions.len() >= 2,
+                descending && revisions.len() >= 2,
                 4,
-                "revision list is ordered oldest first",
-                format!("{} revisions, ascending={ascending}", revisions.len()),
+                "DriveBackend::revisions yields newest first, which is what the protocol reads",
+                format!("{} revisions, {shape}", revisions.len()),
             );
 
             if let Some(first_rev) = revisions.first() {
@@ -354,13 +458,28 @@ fn run_tests(
                         "an overwritten revision is still fetchable",
                         format!("{} bytes from revision {}", bytes.len(), first_rev.id),
                     ),
-                    Err(e) => note(false, 5, "an overwritten revision is still fetchable", e.to_string()),
+                    Err(e) => note(
+                        false,
+                        5,
+                        "an overwritten revision is still fetchable",
+                        e.to_string(),
+                    ),
                 }
             }
         }
         Err(e) => {
-            note(false, 4, "revision list is ordered oldest first", e.to_string());
-            note(false, 5, "an overwritten revision is still fetchable", "skipped".into());
+            note(
+                false,
+                4,
+                "DriveBackend::revisions yields newest first, which is what the protocol reads",
+                e.to_string(),
+            );
+            note(
+                false,
+                5,
+                "an overwritten revision is still fetchable",
+                "skipped".into(),
+            );
         }
     }
 

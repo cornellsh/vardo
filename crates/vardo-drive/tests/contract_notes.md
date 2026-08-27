@@ -10,8 +10,56 @@ re-confirming if Google changes anything. Until then they are stated
 assumptions, not verified facts, and this file exists so that distinction stays
 visible.
 
-Use a **throwaway Google account**, never a personal one. The whole point of
-the fake is that this suite stays tiny.
+## Status: six of eight verified, 2026-08-27
+
+Run with:
+
+```sh
+cargo run -p vardo-drive --features network --example contract -- \
+    --client-id <id> --client-secret <secret>
+```
+
+The harness **creates its own file** and never opens the picker, so with
+`drive.file` no other file in the account is reachable. Every destructive call
+re-reads the name from Drive and aborts unless it starts with
+`vardo-contract-test-`. It deletes the file when it finishes, including after a
+failure.
+
+| # | Result |
+|---|---|
+| 1 | **Confirmed.** `PATCH` with a deliberately wrong `If-Match` returned **200**. The header is ignored, so the race-detection protocol is necessary rather than redundant. |
+| 2 | **Confirmed.** Two `uploadType=media` writes, file id unchanged. |
+| 3 | **Confirmed.** Writing byte-identical content still produced a new `headRevisionId`. |
+| 4 | **Confirmed, with a caveat below.** |
+| 5 | **Confirmed.** An overwritten revision was still fetchable and returned its original 16 bytes. |
+| 6 | **Confirmed.** A stored refresh token was reused on a later run with no consent prompt. |
+| 7 | Not tested — needs a real quota breach. |
+| 8 | Not tested — needs publishing the consent screen. |
+
+### The caveat on assumption 4, which nearly became a false bug report
+
+The first version of the harness asserted that `DriveBackend::revisions()`
+returns **oldest first**, and it failed: the observed timestamps were strictly
+descending.
+
+That was the *test* being wrong. Assumption 4 is about Drive's **raw** API
+response; `DriveBackend::revisions` deliberately calls `.reverse()` because the
+protocol reads `revisions[1]` as "the revision directly beneath ours" and
+therefore needs **newest first**. Asserting the raw-API property against the
+wrapper's output conflates two layers, and acting on it would have meant
+"fixing" a correct `.reverse()` into an actual bug.
+
+The harness now asserts what the protocol actually consumes, and says so.
+
+### One real defect the live run found
+
+The harness originally requested `trigger_onepick=true` while its own safety
+notes claimed it "never opens the picker". Running it opened a Drive file
+picker over a real account — one misclick from handing the app the user's
+actual password database. The picker is the only mechanism that can grant
+access to a file we did not create, so it is now never requested;
+`files.create` alone is enough, because a file we create is one `drive.file`
+lets us read, write and delete.
 
 ## The assumptions
 
