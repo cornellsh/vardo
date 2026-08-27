@@ -57,9 +57,27 @@ export function VaultPicker({ selected, onSelect, disabled }: Props) {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
+	/**
+	 * Everything the user can choose from, including things they have just
+	 * chosen but never opened.
+	 *
+	 * Without this, picking a vault from Drive updated state that had nothing on
+	 * screen to show it: the choice was not in recents, so nothing highlighted
+	 * and the click looked like it had done nothing at all.
+	 */
+	const listed = selected && !recents.some((s) => sourceKey(s) === sourceKey(selected))
+		? [selected, ...recents]
+		: recents;
+
+	/** Picking anything closes the Drive panel, so the choice is visible. */
+	function choose(source: VaultSource) {
+		onSelect(source);
+		setDriveOpen(false);
+	}
+
 	async function browse() {
 		const picked = await (await ipc()).pickVaultFile();
-		if (picked) onSelect({ kind: "file", path: picked });
+		if (picked) choose({ kind: "file", path: picked });
 	}
 
 	async function forget(source: VaultSource) {
@@ -69,7 +87,7 @@ export function VaultPicker({ selected, onSelect, disabled }: Props) {
 
 	return (
 		<div className="flex flex-col gap-1">
-			{recents.map((source) => {
+			{listed.map((source) => {
 				const isSelected =
 					selected && sourceKey(selected) === sourceKey(source);
 				return (
@@ -77,7 +95,7 @@ export function VaultPicker({ selected, onSelect, disabled }: Props) {
 						<button
 							type="button"
 							disabled={disabled}
-							onClick={() => onSelect(source)}
+							onClick={() => choose(source)}
 							className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-[6px] px-3 py-2 text-left transition-colors disabled:cursor-default"
 							style={{
 								background: isSelected
@@ -161,7 +179,7 @@ export function VaultPicker({ selected, onSelect, disabled }: Props) {
 				</button>
 			</div>
 
-			{driveOpen && <DriveList onPick={onSelect} />}
+			{driveOpen && <DriveList onPick={choose} />}
 		</div>
 	);
 }
@@ -201,6 +219,7 @@ function SourceIcon({
 function DriveList({ onPick }: { onPick: (s: VaultSource) => void }) {
 	const [state, setState] = useState<
 		| { phase: "loading" }
+		| { phase: "picking" }
 		| { phase: "disconnected" }
 		| { phase: "ready"; vaults: DriveVault[] }
 		| { phase: "error"; message: string }
@@ -247,6 +266,24 @@ function DriveList({ onPick }: { onPick: (s: VaultSource) => void }) {
 		}
 	}
 
+	/**
+	 * Google's own picker, which is the only way to reach a vault already in
+	 * someone's Drive. Everything else here can only show what Vardo made.
+	 */
+	async function pickFromDrive() {
+		setState({ phase: "picking" });
+		try {
+			const source = await (await ipc()).drivePickVault();
+			if (source) {
+				onPick(source);
+				return;
+			}
+			await load();
+		} catch (err) {
+			setState({ phase: "error", message: errorText(err) });
+		}
+	}
+
 	return (
 		<div
 			className="mt-1 rounded-[6px] p-3"
@@ -257,6 +294,12 @@ function DriveList({ onPick }: { onPick: (s: VaultSource) => void }) {
 		>
 			{state.phase === "loading" && (
 				<p style={{ color: "var(--window-sub-text-fg)" }}>Looking&hellip;</p>
+			)}
+
+			{state.phase === "picking" && (
+				<p style={{ color: "var(--window-active-text-fg)" }}>
+					Choose your vault in the browser.
+				</p>
 			)}
 
 			{state.phase === "disconnected" && (
@@ -292,19 +335,33 @@ function DriveList({ onPick }: { onPick: (s: VaultSource) => void }) {
 				})()}
 
 			{state.phase === "ready" && state.vaults.length === 0 && (
-				<>
-					<p style={{ color: "var(--window-sub-text-fg)" }}>
-						Nothing here yet. Vardo only sees files you give it.
-					</p>
+				<p style={{ color: "var(--window-sub-text-fg)" }}>
+					Vardo only sees vaults you have given it.
+				</p>
+			)}
+
+			{/* Always offered, not just when the list is empty. A vault already in
+			    Drive is invisible here until it is picked, so "my vault is missing"
+			    is the common case even when the list has something in it. */}
+			{state.phase === "ready" && (
+				<div className="mt-2 flex flex-wrap gap-x-4">
+					<button
+						type="button"
+						onClick={() => void pickFromDrive()}
+						className="cursor-pointer font-semibold"
+						style={{ color: "var(--window-active-text-fg)" }}
+					>
+						Choose from Drive&hellip;
+					</button>
 					<button
 						type="button"
 						onClick={() => void uploadExisting()}
-						className="mt-2 cursor-pointer font-semibold"
-						style={{ color: "var(--window-active-text-fg)" }}
+						className="cursor-pointer"
+						style={{ color: "var(--window-sub-text-fg)" }}
 					>
-						Add a vault from this computer&hellip;
+						Upload one from here&hellip;
 					</button>
-				</>
+				</div>
 			)}
 
 			{state.phase === "ready" &&

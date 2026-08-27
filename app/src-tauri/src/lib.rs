@@ -69,6 +69,7 @@ pub fn run() {
             commands::drive_connect,
             commands::drive_disconnect,
             commands::drive_list_vaults,
+            commands::drive_pick_vault,
             commands::drive_upload_vault,
             commands::forget_vault,
         ])

@@ -698,6 +698,24 @@ export class MockIpc implements Ipc {
 		return this.driveVaults;
 	}
 
+	async drivePickVault(): Promise<VaultSource | null> {
+		// Models the real thing: a round trip through the browser, then a file
+		// that was not in the list before because Vardo could not see it.
+		await delay(1800);
+		const source: VaultSource = {
+			kind: "googleDrive",
+			fileId: "picked-1",
+			name: "passwords.kdbx",
+		};
+		this.driveVaults.push({
+			fileId: "picked-1",
+			name: "passwords.kdbx",
+			size: 646_000,
+			modifiedUnix: Math.floor(Date.now() / 1000),
+		});
+		return source;
+	}
+
 	async driveUploadVault(path: string): Promise<VaultSource> {
 		await delay(900);
 		const name = path.split("/").pop() ?? "vault.kdbx";

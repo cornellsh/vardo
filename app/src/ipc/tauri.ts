@@ -164,6 +164,10 @@ export class TauriIpc implements Ipc {
 		return invoke("drive_upload_vault", { path });
 	}
 
+	drivePickVault(): Promise<VaultSource | null> {
+		return invoke("drive_pick_vault");
+	}
+
 	forgetVault(source: VaultSource): Promise<void> {
 		return invoke("forget_vault", { source });
 	}
