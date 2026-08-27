@@ -13,6 +13,13 @@ repository.workspace = true
 default = []
 network = ["dep:ureq"]
 
+# Live contract tests against a real Drive account. Needs a real HTTP client,
+# so it is gated — otherwise a default-feature build of all targets fails on the
+# missing `ureq_transport` module.
+[[example]]
+name = "contract"
+required-features = ["network"]
+
 [dependencies]
 vardo-kdbx = { path = "../vardo-kdbx" }
 vardo-sync = { path = "../vardo-sync" }
