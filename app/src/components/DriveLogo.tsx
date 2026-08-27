@@ -44,7 +44,8 @@ export function DriveLogo({ size = 24, muted = false }: Props) {
 				height: "auto",
 				filter: muted ? "grayscale(1)" : undefined,
 				opacity: muted ? 0.5 : 1,
-				transition: "opacity var(--duration-universal) linear, filter var(--duration-universal) linear",
+				transition:
+					"opacity var(--duration-universal) linear, filter var(--duration-universal) linear",
 			}}
 		/>
 	);

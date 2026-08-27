@@ -49,7 +49,13 @@ fn vault_in(dir: &Path) -> PathBuf {
 }
 
 fn open(path: &Path) -> Session {
-    Session::open(path, PW, |_| {}).expect("unlock")
+    Session::open(
+        &vardo_core::source::VaultSource::file(path),
+        &lctx(),
+        PW,
+        |_| {},
+    )
+    .expect("unlock")
 }
 
 fn set(session: &mut Session, uuid: &str, key: &str, value: &str) {
@@ -107,7 +113,7 @@ fn edit_save_reopen_is_lossless() {
     let mut a = open(&path);
     let uuid = a.list_entries(None, None)[0].uuid.clone();
     set(&mut a, &uuid, "UserName", "first-edit");
-    a.save().expect("save");
+    a.save(&lctx()).expect("save");
 
     let b = open(&path);
     assert_eq!(field(&b, &uuid, "UserName").as_deref(), Some("first-edit"));
@@ -130,20 +136,20 @@ fn a_change_made_by_another_process_is_merged_in() {
         let root = elsewhere.groups().uuid;
         let created = elsewhere.create_entry(&root).expect("create");
         set(&mut elsewhere, &created, "Title", "From Elsewhere");
-        elsewhere.save().expect("their save");
+        elsewhere.save(&lctx()).expect("their save");
     }
 
     // We have not saved yet, so our copy knows nothing about it.
     assert!(!titles(&here).contains(&"From Elsewhere".to_string()));
 
-    let preview = here.sync_preview(&dir).expect("preview");
+    let preview = here.sync_preview(&dir, &lctx()).expect("preview");
     assert!(
         preview.changes.iter().any(|c| c.title == "From Elsewhere"),
         "the other process's entry should appear in the plan: {:?}",
         preview.changes.iter().map(|c| &c.title).collect::<Vec<_>>()
     );
 
-    let outcome = here.sync_apply(&dir, "duplicate").expect("apply");
+    let outcome = here.sync_apply(&dir, &lctx(), "duplicate").expect("apply");
     assert_ne!(outcome.kind, "needs-review");
 
     // Both changes survive.
@@ -175,11 +181,11 @@ fn a_preview_changes_nothing() {
         let root = elsewhere.groups().uuid;
         let created = elsewhere.create_entry(&root).unwrap();
         set(&mut elsewhere, &created, "Title", "Should Not Appear Yet");
-        elsewhere.save().unwrap();
+        elsewhere.save(&lctx()).unwrap();
     }
 
     let before = std::fs::read(&path).unwrap();
-    let preview = here.sync_preview(&dir).expect("preview");
+    let preview = here.sync_preview(&dir, &lctx()).expect("preview");
     assert!(!preview.changes.is_empty());
 
     assert_eq!(
@@ -203,18 +209,19 @@ fn two_devices_converge_when_each_syncs_before_editing() {
 
     let mut a = open(&path);
     set(&mut a, &uuid, "UserName", "from-a");
-    a.save().expect("a save");
-    a.sync_apply(&da, "duplicate").expect("a sync");
+    a.save(&lctx()).expect("a save");
+    a.sync_apply(&da, &lctx(), "duplicate").expect("a sync");
 
     // B picks up A's change *before* editing, which is the ordinary case: a
     // device syncs on open.
     let mut b = open(&path);
-    b.sync_apply(&db, "duplicate").expect("b sync");
+    b.sync_apply(&db, &lctx(), "duplicate").expect("b sync");
     assert_eq!(field(&b, &uuid, "UserName").as_deref(), Some("from-a"));
 
     pause_for_timestamp_resolution();
     set(&mut b, &uuid, "URL", "https://from-b.invalid");
-    b.sync_apply(&db, "duplicate").expect("b sync back");
+    b.sync_apply(&db, &lctx(), "duplicate")
+        .expect("b sync back");
 
     // B has both.
     assert_eq!(field(&b, &uuid, "UserName").as_deref(), Some("from-a"));
@@ -224,7 +231,7 @@ fn two_devices_converge_when_each_syncs_before_editing() {
     );
 
     // And A converges on its next sync.
-    a.sync_apply(&da, "duplicate").expect("a resync");
+    a.sync_apply(&da, &lctx(), "duplicate").expect("a resync");
     assert_eq!(
         field(&a, &uuid, "URL").as_deref(),
         Some("https://from-b.invalid")
@@ -259,14 +266,14 @@ fn editing_a_stale_entry_replaces_the_whole_entry_and_archives_the_loser() {
     let mut b = open(&path);
 
     set(&mut a, &uuid, "UserName", "from-a");
-    a.save().expect("a save");
-    a.sync_apply(&da, "duplicate").expect("a sync");
+    a.save(&lctx()).expect("a save");
+    a.sync_apply(&da, &lctx(), "duplicate").expect("a sync");
 
     // B never saw A's change and now edits a different field of the same
     // entry, strictly later so that B is unambiguously the newer version.
     pause_for_timestamp_resolution();
     set(&mut b, &uuid, "URL", "https://from-b.invalid");
-    b.sync_apply(&db, "duplicate").expect("b sync");
+    b.sync_apply(&db, &lctx(), "duplicate").expect("b sync");
 
     assert_eq!(
         field(&b, &uuid, "URL").as_deref(),
@@ -298,23 +305,25 @@ fn a_deletion_on_one_device_propagates_once_there_is_a_base() {
 
     // Establish a shared base.
     let mut a = open(&path);
-    a.sync_apply(&da, "duplicate").expect("first sync");
+    a.sync_apply(&da, &lctx(), "duplicate").expect("first sync");
 
     let root = a.groups().uuid;
     let doomed = a.create_entry(&root).expect("create");
     set(&mut a, &doomed, "Title", "Doomed");
-    a.save().expect("save");
-    a.sync_apply(&da, "duplicate").expect("sync the addition");
+    a.save(&lctx()).expect("save");
+    a.sync_apply(&da, &lctx(), "duplicate")
+        .expect("sync the addition");
 
     // Another device sees it, then deletes it.
     {
         let mut b = open(&path);
-        b.sync_apply(&db, "duplicate").expect("b sync");
+        b.sync_apply(&db, &lctx(), "duplicate").expect("b sync");
         assert!(titles(&b).contains(&"Doomed".to_string()));
         pause_for_timestamp_resolution();
         b.delete_entry(&doomed).expect("delete");
-        b.save().expect("b save");
-        b.sync_apply(&db, "duplicate").expect("b sync the deletion");
+        b.save(&lctx()).expect("b save");
+        b.sync_apply(&db, &lctx(), "duplicate")
+            .expect("b sync the deletion");
     }
 
     let after = open(&path);
@@ -331,8 +340,11 @@ fn syncing_with_nothing_to_do_is_not_an_error() {
     let path = vault_in(&dir);
 
     let mut a = open(&path);
-    a.sync_apply(&dir, "duplicate").expect("first sync");
-    let outcome = a.sync_apply(&dir, "duplicate").expect("second sync");
+    a.sync_apply(&dir, &lctx(), "duplicate")
+        .expect("first sync");
+    let outcome = a
+        .sync_apply(&dir, &lctx(), "duplicate")
+        .expect("second sync");
     assert!(
         matches!(outcome.kind.as_str(), "up-to-date" | "pushed" | "merged"),
         "unexpected outcome for a no-op sync: {}",
@@ -349,12 +361,12 @@ fn the_sync_point_survives_a_lock_and_reopen() {
 
     {
         let mut a = open(&path);
-        a.sync_apply(&dir, "duplicate").expect("sync");
+        a.sync_apply(&dir, &lctx(), "duplicate").expect("sync");
         a.lock();
     }
 
     let b = open(&path);
-    let preview = b.sync_preview(&dir).expect("preview");
+    let preview = b.sync_preview(&dir, &lctx()).expect("preview");
     assert!(
         !preview.first_sync,
         "a stored sync point must be found again after reopening, otherwise \
@@ -381,17 +393,27 @@ fn a_save_after_a_merge_still_verifies() {
         let root = elsewhere.groups().uuid;
         let created = elsewhere.create_entry(&root).unwrap();
         set(&mut elsewhere, &created, "Title", "Merged In");
-        elsewhere.save().unwrap();
+        elsewhere.save(&lctx()).unwrap();
     }
 
-    here.sync_apply(&dir, "duplicate").expect("merge");
+    here.sync_apply(&dir, &lctx(), "duplicate").expect("merge");
     let root = here.groups().uuid;
     let extra = here.create_entry(&root).expect("create after merge");
     set(&mut here, &extra, "Title", "After Merge");
-    here.save().expect("a post-merge save must verify and land");
+    here.save(&lctx())
+        .expect("a post-merge save must verify and land");
 
     let reopened = open(&path);
     let names = titles(&reopened);
     assert!(names.contains(&"Merged In".to_string()));
     assert!(names.contains(&"After Merge".to_string()));
+}
+
+/// A source context with no Drive client.
+///
+/// Every test here uses a file-backed vault, so the Drive arm must be
+/// unreachable rather than merely unused - if a test ever reaches it, that is
+/// the bug, not a missing fixture.
+fn lctx() -> vardo_core::source::SourceContext {
+    vardo_core::source::SourceContext::local_only(std::env::temp_dir())
 }

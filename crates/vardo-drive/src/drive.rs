@@ -327,3 +327,148 @@ mod tests {
         assert_eq!(oauth::json_string(&objects[1], "id").unwrap(), "c{d");
     }
 }
+
+/// A vault Vardo can see in the user's Drive.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DriveFile {
+    pub id: String,
+    pub name: String,
+    pub size: u64,
+    pub modified_unix: Option<i64>,
+}
+
+/// Lists the `.kdbx` files this app is allowed to see.
+///
+/// The important and unobvious part: under the `drive.file` scope this returns
+/// *only* files Vardo created or that the user explicitly handed to it. A vault
+/// that already exists in someone's Drive will **not** appear here, and that is
+/// the scope working correctly rather than a bug to code around. The
+/// alternative is asking for read access to the user's entire Drive, which for
+/// a password manager is an absurd thing to request in order to populate a
+/// list.
+///
+/// So an empty result is a normal state with a real answer - upload the vault
+/// once, after which it is app-created and visible forever - and the UI has to
+/// say that rather than showing an empty box.
+pub fn list_vaults(
+    http: &mut dyn HttpTransport,
+    config: ClientConfig,
+    tokens: Tokens,
+) -> SyncResult<(Vec<DriveFile>, Tokens, bool)> {
+    let mut backend = DriveBackend::new(http, config, tokens, String::new());
+
+    // `trashed=false` because a vault in the bin is not a vault you want
+    // offered as a sync target, and Drive happily lists them otherwise.
+    let query = crate::http::urlencode(
+        "mimeType != 'application/vnd.google-apps.folder' and trashed = false",
+    );
+    let fields = crate::http::urlencode("files(id,name,size,modifiedTime)");
+    let url = format!("{FILES}?q={query}&fields={fields}&pageSize=100&orderBy=modifiedTime desc");
+
+    let response = backend.send(|token| Request::new(Method::Get, &url).bearer(token))?;
+    let body = response.text();
+
+    let mut files = Vec::new();
+    for chunk in split_objects(&body) {
+        let Some(name) = oauth::json_string(&chunk, "name") else {
+            continue;
+        };
+        // Filtering here rather than in the query: Drive has no reliable MIME
+        // type for KDBX, so the extension is the only honest signal.
+        if !name.to_ascii_lowercase().ends_with(".kdbx") {
+            continue;
+        }
+        let Some(id) = oauth::json_string(&chunk, "id") else {
+            continue;
+        };
+        files.push(DriveFile {
+            id,
+            name,
+            size: oauth::json_string(&chunk, "size")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(0),
+            modified_unix: oauth::json_string(&chunk, "modifiedTime")
+                .as_deref()
+                .and_then(parse_rfc3339),
+        });
+    }
+
+    let updated = backend.tokens_updated;
+    Ok((files, backend.tokens().clone(), updated))
+}
+
+/// Creates a new file in the user's Drive and returns its id.
+///
+/// Only used to put a vault into Drive for the first time. Everything after
+/// that is [`StorageBackend::write`] against this id, because creating a
+/// replacement file would mint a new id and kill every other device's per-file
+/// grant.
+///
+/// A multipart upload rather than two requests, so there is no window in which
+/// an empty file exists under the vault's name. A crash between "create
+/// metadata" and "upload content" would otherwise leave something that looks
+/// like a vault, opens as corrupt, and may already have been synced to the
+/// user's other devices.
+pub fn create(
+    http: &mut dyn HttpTransport,
+    config: ClientConfig,
+    tokens: Tokens,
+    name: &str,
+    bytes: &[u8],
+) -> SyncResult<(String, Tokens, bool)> {
+    let mut backend = DriveBackend::new(http, config, tokens, String::new());
+
+    const BOUNDARY: &str = "vardo-boundary-8f3a1c";
+    let url = format!("{UPLOAD}?uploadType=multipart&fields=id");
+
+    // The name is JSON-escaped rather than interpolated: a vault called
+    // `my "old" vault.kdbx` is perfectly legal on every platform and would
+    // otherwise produce a malformed request that Drive rejects with a message
+    // about JSON, sending the user looking in entirely the wrong place.
+    let metadata = format!(r#"{{"name":{}}}"#, json_escape(name));
+
+    let mut body = Vec::new();
+    body.extend_from_slice(format!("--{BOUNDARY}\r\n").as_bytes());
+    body.extend_from_slice(b"Content-Type: application/json; charset=UTF-8\r\n\r\n");
+    body.extend_from_slice(metadata.as_bytes());
+    body.extend_from_slice(format!("\r\n--{BOUNDARY}\r\n").as_bytes());
+    body.extend_from_slice(b"Content-Type: application/octet-stream\r\n\r\n");
+    body.extend_from_slice(bytes);
+    body.extend_from_slice(format!("\r\n--{BOUNDARY}--\r\n").as_bytes());
+
+    let response = backend.send(move |token| {
+        Request::new(Method::Post, &url)
+            .bearer(token)
+            .header(
+                "Content-Type",
+                &format!("multipart/related; boundary={BOUNDARY}"),
+            )
+            .body(body.clone())
+    })?;
+
+    let text = response.text();
+    let id = oauth::json_string(&text, "id")
+        .ok_or_else(|| SyncError::Other("Drive created the file but returned no id".into()))?;
+
+    let updated = backend.tokens_updated;
+    Ok((id, backend.tokens().clone(), updated))
+}
+
+/// Escapes a string as a JSON value, quotes included.
+fn json_escape(text: &str) -> String {
+    let mut out = String::with_capacity(text.len() + 2);
+    out.push('"');
+    for c in text.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)),
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+    out
+}

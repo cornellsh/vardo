@@ -245,44 +245,44 @@ export function Vault({ info, onLock }: Props) {
 					{...(info.writable ? { onAdd: () => void addEntry() } : {})}
 				/>
 				{settings ? (
-				<section
-					aria-label="Settings"
-					className="flex min-w-0 flex-1 flex-col"
-					style={{
-						minWidth: "var(--column-min-third)",
-						background: "var(--window-bg)",
-					}}
-				>
-					<header
-						className="flex shrink-0 items-center px-4"
+					<section
+						aria-label="Settings"
+						className="flex min-w-0 flex-1 flex-col"
 						style={{
-							height: "54px",
-							borderBottom: "1px solid var(--shadow-fg)",
+							minWidth: "var(--column-min-third)",
+							background: "var(--window-bg)",
 						}}
 					>
-						<h2 className="flex-1 font-semibold text-[15px] text-[var(--window-bold-fg)]">
-							Settings
-						</h2>
-						<button
-							type="button"
-							onClick={() => setSettings(false)}
-							className="cursor-pointer rounded-[var(--button-radius)] px-2 py-1"
-							style={{ color: "var(--window-sub-text-fg)" }}
+						<header
+							className="flex shrink-0 items-center px-4"
+							style={{
+								height: "54px",
+								borderBottom: "1px solid var(--shadow-fg)",
+							}}
 						>
-							Close
-						</button>
-					</header>
-					<div
-						className="min-h-0 flex-1 overflow-y-auto p-4"
-						style={{
-							animation:
-								"slide-up var(--duration-slide-wrap) var(--ease-out-circ)",
-						}}
-					>
-						<DriveConnect />
-					</div>
-				</section>
-			) : reviewing ? (
+							<h2 className="flex-1 font-semibold text-[15px] text-[var(--window-bold-fg)]">
+								Settings
+							</h2>
+							<button
+								type="button"
+								onClick={() => setSettings(false)}
+								className="cursor-pointer rounded-[var(--button-radius)] px-2 py-1"
+								style={{ color: "var(--window-sub-text-fg)" }}
+							>
+								Close
+							</button>
+						</header>
+						<div
+							className="min-h-0 flex-1 overflow-y-auto p-4"
+							style={{
+								animation:
+									"slide-up var(--duration-slide-wrap) var(--ease-out-circ)",
+							}}
+						>
+							<DriveConnect />
+						</div>
+					</section>
+				) : reviewing ? (
 					<div
 						className="flex min-w-0 flex-1 flex-col"
 						style={{ minWidth: "var(--column-min-third)" }}

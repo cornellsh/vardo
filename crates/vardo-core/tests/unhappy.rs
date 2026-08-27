@@ -33,7 +33,13 @@ fn copy_in(dir: &Path, name: &str) -> PathBuf {
 }
 
 fn open(path: &Path) -> Session {
-    Session::open(path, PW, |_| {}).expect("unlock")
+    Session::open(
+        &vardo_core::source::VaultSource::file(path),
+        &lctx(),
+        PW,
+        |_| {},
+    )
+    .expect("unlock")
 }
 
 const KDBX4: &str = "test_db_kdbx4_with_password_argon2id.kdbx";
@@ -50,7 +56,7 @@ fn a_deleted_remote_is_not_reported_as_a_missing_vault() {
 
     std::fs::remove_file(&path).unwrap();
 
-    match session.sync_preview(&dir) {
+    match session.sync_preview(&dir, &lctx()) {
         Err(CoreError::RemoteMissing { .. }) => {}
         other => panic!("expected RemoteMissing, got {:?}", other.err()),
     }
@@ -63,7 +69,7 @@ fn the_remote_missing_message_says_which_copy() {
     let session = open(&path);
     std::fs::remove_file(&path).unwrap();
 
-    let text = session.sync_preview(&dir).unwrap_err().to_string();
+    let text = session.sync_preview(&dir, &lctx()).unwrap_err().to_string();
     assert!(
         text.contains("no longer there"),
         "unhelpful message: {text}"
@@ -88,7 +94,7 @@ fn a_differently_encrypted_remote_does_not_blame_our_password() {
     )
     .unwrap();
 
-    match session.sync_preview(&dir) {
+    match session.sync_preview(&dir, &lctx()) {
         Err(CoreError::RemotePassword) => {}
         other => panic!("expected RemotePassword, got {:?}", other.err()),
     }
@@ -105,7 +111,7 @@ fn the_remote_password_message_points_at_the_other_copy() {
     )
     .unwrap();
 
-    let text = session.sync_preview(&dir).unwrap_err().to_string();
+    let text = session.sync_preview(&dir, &lctx()).unwrap_err().to_string();
     assert!(
         text.contains("other copy") && text.contains("different password"),
         "unhelpful message: {text}"
@@ -129,7 +135,7 @@ fn an_unreadable_sync_point_warns_instead_of_silently_degrading() {
     let key_files: Vec<PathBuf> = {
         // Write a point for this path by running one preview first, then
         // corrupting the stored base.
-        let _ = session.sync_preview(&dir);
+        let _ = session.sync_preview(&dir, &lctx());
         std::fs::read_dir(&point_dir)
             .map(|d| d.flatten().map(|e| e.path()).collect())
             .unwrap_or_default()
@@ -149,7 +155,7 @@ fn an_unreadable_sync_point_warns_instead_of_silently_degrading() {
     }
 
     let preview = session
-        .sync_preview(&dir)
+        .sync_preview(&dir, &lctx())
         .expect("preview should still work");
     assert!(
         preview.warnings.iter().any(|w| w.kind == "no-base"),
@@ -190,7 +196,7 @@ fn a_failed_save_says_the_vault_is_unchanged() {
     }
     std::fs::set_permissions(&dir, perms.clone()).unwrap();
 
-    let result = session.save();
+    let result = session.save(&lctx());
 
     // Restore permissions before asserting, so a failure does not leave an
     // undeletable directory behind.
@@ -211,7 +217,13 @@ fn a_failed_save_says_the_vault_is_unchanged() {
 
     // And it must actually be true.
     assert!(
-        Session::open(&path, PW, |_| {}).is_ok(),
+        Session::open(
+            &vardo_core::source::VaultSource::file(&path),
+            &lctx(),
+            PW,
+            |_| {}
+        )
+        .is_ok(),
         "the original vault must still open after a failed save"
     );
 }
@@ -229,7 +241,7 @@ fn a_kdbx31_remote_is_flagged_before_the_merge_not_after() {
     // precedence: "not your vault" outranks "read-only format".
     std::fs::copy(fixture("test_db_with_password.kdbx"), &path).unwrap();
 
-    match session.sync_preview(&dir) {
+    match session.sync_preview(&dir, &lctx()) {
         Err(CoreError::Unsupported { detail }) => {
             assert!(
                 detail.contains("different databases"),
@@ -241,4 +253,13 @@ fn a_kdbx31_remote_is_flagged_before_the_merge_not_after() {
             other = other.map(|_| ())
         ),
     }
+}
+
+/// A source context with no Drive client.
+///
+/// Every test here uses a file-backed vault, so the Drive arm must be
+/// unreachable rather than merely unused - if a test ever reaches it, that is
+/// the bug, not a missing fixture.
+fn lctx() -> vardo_core::source::SourceContext {
+    vardo_core::source::SourceContext::local_only(std::env::temp_dir())
 }

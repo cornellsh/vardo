@@ -57,6 +57,12 @@ pub enum CoreError {
     DriveAuthExpired {
         detail: String,
     },
+    /// Could not reach the remote at all. Kept apart from every other failure
+    /// because it is the only one where the right advice is "try again later"
+    /// and where nothing is wrong with the vault, the password, or the grant.
+    Offline {
+        detail: String,
+    },
 }
 
 impl std::fmt::Display for CoreError {
@@ -81,10 +87,12 @@ impl std::fmt::Display for CoreError {
             CoreError::DriveNotConnected => {
                 write!(f, "no Google account is connected")
             }
-            CoreError::DriveAuthExpired { .. } => write!(
-                f,
-                "the Google Drive connection expired or was revoked. Reconnect to continue."
-            ),
+            // Shows `detail` rather than a fixed sentence. The generic version
+            // discarded the specific explanation the caller had already
+            // written - including which file it was about and, for a replaced
+            // file, why a vault plainly still sitting in Drive is unreachable.
+            CoreError::DriveAuthExpired { detail } => write!(f, "{detail}"),
+            CoreError::Offline { detail } => write!(f, "{detail}"),
         }
     }
 }
@@ -159,6 +167,8 @@ impl Phase {
 }
 
 /// An unlocked vault.
+use crate::source::VaultSource;
+
 pub struct Session {
     vault: Vault,
     info: VaultInfo,
@@ -167,6 +177,10 @@ pub struct Session {
     /// `Credentials` and dies with the session.
     creds: Credentials,
     dirty: bool,
+    /// Where the bytes came from and where they go back to. Kept on the
+    /// session rather than passed in per call, so there is no way to save a
+    /// vault to somewhere it was not opened from.
+    source: VaultSource,
 }
 
 impl Session {
@@ -175,19 +189,16 @@ impl Session {
     /// `on_phase` is called as each stage begins. The caller decides how to
     /// report it; this function does not know what a progress bar is.
     pub fn open(
-        path: &Path,
+        source: &VaultSource,
+        ctx: &crate::source::SourceContext,
         password: &str,
         mut on_phase: impl FnMut(Phase),
     ) -> Result<Session, CoreError> {
         on_phase(Phase::Reading);
-        let bytes = std::fs::read(path).map_err(|e| match e.kind() {
-            std::io::ErrorKind::NotFound => CoreError::NotFound {
-                path: path.display().to_string(),
-            },
-            _ => CoreError::Io {
-                detail: e.to_string(),
-            },
-        })?;
+        // Reading goes through the source's backend rather than the
+        // filesystem, which is the entire reason a Drive vault can be opened
+        // on a machine that has no Drive folder.
+        let bytes = source.read(ctx)?;
 
         on_phase(Phase::Deriving);
         let creds = Credentials::with_password(password);
@@ -199,11 +210,16 @@ impl Session {
         on_phase(Phase::Parsing);
         let info = VaultInfo {
             name: vault.database_name(),
-            path: path.display().to_string(),
+            path: source.short_name(),
+            location: source.location(),
+            source: source.clone(),
             entry_count: vault.entries().len(),
             format: format!("KDBX {}.{}", doc.version().major, doc.version().minor),
             writable: vault.is_writable(),
-            storage_warning: storage_warning(path),
+            // Only a local file can be on a risky mount. Running the check on a
+            // Drive vault would either warn about nothing or, worse, warn about
+            // whatever mount the config directory happens to be on.
+            storage_warning: source.as_path().and_then(storage_warning),
         };
 
         Ok(Session {
@@ -211,7 +227,12 @@ impl Session {
             info,
             creds,
             dirty: false,
+            source: source.clone(),
         })
+    }
+
+    pub fn source(&self) -> &VaultSource {
+        &self.source
     }
 
     pub fn info(&self) -> &VaultInfo {
@@ -222,8 +243,11 @@ impl Session {
         self.dirty
     }
 
-    pub fn path(&self) -> PathBuf {
-        PathBuf::from(&self.info.path)
+    /// Present only for a vault that is a file on this machine. Callers that
+    /// need somewhere to put a backup have to cope with `None`, which is the
+    /// point: a Drive vault has no directory to write beside.
+    pub fn path(&self) -> Option<PathBuf> {
+        self.source.as_path().map(PathBuf::from)
     }
 
     /// Explicit rather than relying on drop order, so the intent is legible.
@@ -345,9 +369,10 @@ impl Session {
         Ok(())
     }
 
-    /// Encodes, verifies the result re-opens, then replaces the file.
-    pub fn save(&mut self) -> Result<SaveResult, CoreError> {
-        let saved = crate::save::save(&self.vault, &self.creds, &self.path())?;
+    /// Encodes, verifies the result re-opens, then writes it back to wherever
+    /// the vault came from.
+    pub fn save(&mut self, ctx: &crate::source::SourceContext) -> Result<SaveResult, CoreError> {
+        let saved = crate::save::save_to(&self.vault, &self.creds, &self.source, ctx)?;
         self.dirty = false;
         Ok(SaveResult {
             bytes_written: saved.bytes_written,
@@ -362,10 +387,14 @@ impl Session {
 
     // --- sync ---
 
-    pub fn sync_preview(&self, app_dir: &Path) -> Result<SyncPreview, CoreError> {
-        let path = self.path();
-        let point = crate::sync::load_point(app_dir, &path);
-        let preview = crate::sync::preview(&path, &self.vault, &self.creds, point.as_ref())?;
+    pub fn sync_preview(
+        &self,
+        app_dir: &Path,
+        ctx: &crate::source::SourceContext,
+    ) -> Result<SyncPreview, CoreError> {
+        let point = crate::sync::load_point(app_dir, &self.source);
+        let preview =
+            crate::sync::preview(&self.source, ctx, &self.vault, &self.creds, point.as_ref())?;
 
         Ok(SyncPreview {
             remote: preview.remote,
@@ -377,16 +406,26 @@ impl Session {
         })
     }
 
-    pub fn sync_apply(&mut self, app_dir: &Path, policy: &str) -> Result<SyncOutcome, CoreError> {
-        let path = self.path();
-        let point = crate::sync::load_point(app_dir, &path);
+    pub fn sync_apply(
+        &mut self,
+        app_dir: &Path,
+        ctx: &crate::source::SourceContext,
+        policy: &str,
+    ) -> Result<SyncOutcome, CoreError> {
+        let point = crate::sync::load_point(app_dir, &self.source);
         let policy = parse_policy(policy)?;
 
-        let (outcome, new_point) =
-            crate::sync::apply(&path, &mut self.vault, &self.creds, point.as_ref(), policy)?;
+        let (outcome, new_point) = crate::sync::apply(
+            &self.source,
+            ctx,
+            &mut self.vault,
+            &self.creds,
+            point.as_ref(),
+            policy,
+        )?;
 
         if let Some(p) = &new_point {
-            crate::sync::store_point(app_dir, &path, p)?;
+            crate::sync::store_point(app_dir, &self.source, p)?;
         }
 
         let (kind, detail) = crate::review::describe_outcome(&outcome);

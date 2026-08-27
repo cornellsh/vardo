@@ -16,6 +16,12 @@
 //! **3. Keep the previous version.** The prior file is rotated to a timestamped
 //! backup before being replaced, because "verified correct" still assumes our
 //! own reader is right.
+//!
+//! Only the first of these is universal. Two and three are properties of a
+//! filesystem, and a vault in Drive has neither a directory to write a backup
+//! into nor a rename to be atomic about. It does not need them: Drive keeps
+//! every revision itself, which is a strictly better version of point three.
+//! So the verify step runs for every source and the rest is the file case.
 
 use std::fs;
 use std::io::Write as _;
@@ -25,6 +31,7 @@ use vardo_kdbx::Credentials;
 use vardo_vault::Vault;
 
 use crate::session::CoreError as UiError;
+use crate::source::{SourceContext, VaultSource};
 
 /// How many previous versions to keep beside the vault.
 const KEEP_BACKUPS: usize = 5;
@@ -34,15 +41,51 @@ pub struct Saved {
     pub backup: Option<PathBuf>,
 }
 
-pub fn save(vault: &Vault, creds: &Credentials, path: &Path) -> Result<Saved, UiError> {
+/// Saves to wherever the vault came from.
+///
+/// The verification pass is deliberately outside the source match: it is the
+/// one guarantee that must not depend on where the bytes are going.
+pub fn save_to(
+    vault: &Vault,
+    creds: &Credentials,
+    source: &VaultSource,
+    ctx: &SourceContext,
+) -> Result<Saved, UiError> {
     let encoded = vault
         .save_with(creds, &mut vardo_kdbx::write::OsRng)
         .map_err(UiError::from)?;
 
     verify(vault, creds, &encoded)?;
 
+    match source {
+        VaultSource::File { path } => save_file(&encoded, path),
+        VaultSource::GoogleDrive { .. } => {
+            let where_it_is = source.describe_for_error();
+            let bytes_written = encoded.len();
+
+            source.with_backend(ctx, |backend| {
+                // Unconditional: a plain save is "my copy wins", and the user
+                // asked for it. Detecting that the remote moved underneath us
+                // is sync's job, and offering to merge from inside a save
+                // dialog would be the wrong moment to ask.
+                backend
+                    .write(&encoded)
+                    .map_err(|e| crate::sync::map_sync_error(e, &where_it_is))
+            })?;
+
+            Ok(Saved {
+                bytes_written,
+                // No local backup, and saying so honestly rather than
+                // reporting a filename that does not exist.
+                backup: None,
+            })
+        }
+    }
+}
+
+fn save_file(encoded: &[u8], path: &Path) -> Result<Saved, UiError> {
     let backup = rotate_backups(path)?;
-    write_atomically(path, &encoded)?;
+    write_atomically(path, encoded)?;
 
     Ok(Saved {
         bytes_written: encoded.len(),

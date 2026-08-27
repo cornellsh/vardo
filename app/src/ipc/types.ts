@@ -38,7 +38,12 @@ export interface StorageWarning {
 
 export interface VaultInfo {
 	name: string;
+	/** The vault's short name. Not a path: a Drive vault has none. */
 	path: string;
+	/** Where it lives, in words. "Google Drive", or the containing folder. */
+	location: string;
+	source: VaultSource;
+	/** Only ever set for a local file. A Drive vault is on no mount at all. */
 	storageWarning: StorageWarning | null;
 	entryCount: number;
 	/** KDBX 3.1 / 4.0 / 4.1 — shown in the UI because it affects sync behaviour. */
@@ -133,6 +138,24 @@ export interface GeneratorOptions {
 }
 
 /**
+ * Where a vault lives.
+ *
+ * Mirrors the Rust enum, tag and all. A vault is not a path: that assumption is
+ * what made "open from Google Drive" impossible to express in the first place.
+ */
+export type VaultSource =
+	| { kind: "file"; path: string }
+	| { kind: "googleDrive"; fileId: string; name: string };
+
+/** A vault found in the user's Drive. */
+export interface DriveVault {
+	fileId: string;
+	name: string;
+	size: number;
+	modifiedUnix: number | null;
+}
+
+/**
  * Whether Drive can be used at all, and whether it currently is.
  *
  * Two flags rather than one: "this build ships no client id" and "you have not
@@ -164,7 +187,7 @@ export type UnlockError =
 
 export interface Ipc {
 	openVault(
-		path: string,
+		source: VaultSource,
 		password: string,
 		onProgress?: (p: UnlockPhase) => void,
 	): Promise<VaultInfo>;
@@ -214,7 +237,7 @@ export interface Ipc {
 	pickVaultFile(): Promise<string | null>;
 
 	/** Most recently opened vault paths, for the unlock screen. */
-	recentVaults(): Promise<string[]>;
+	recentVaults(): Promise<VaultSource[]>;
 
 	// --- writing ---
 
@@ -278,6 +301,19 @@ export interface Ipc {
 	driveConnect(): Promise<void>;
 
 	driveDisconnect(): Promise<void>;
+
+	/**
+	 * Vaults in Drive that Vardo may see. Empty is a normal answer, not a
+	 * failure, because the `drive.file` scope hides everything Vardo has not
+	 * been given.
+	 */
+	driveListVaults(): Promise<DriveVault[]>;
+
+	/** Copies a local vault into Drive. The original is left alone. */
+	driveUploadVault(path: string): Promise<VaultSource>;
+
+	/** Drops a vault from recents without touching the vault. */
+	forgetVault(source: VaultSource): Promise<void>;
 }
 
 // --- sync ---

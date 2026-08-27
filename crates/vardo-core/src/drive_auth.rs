@@ -42,7 +42,7 @@ pub struct DriveClient {
 }
 
 impl DriveClient {
-    fn config(&self) -> ClientConfig {
+    pub fn config(&self) -> ClientConfig {
         ClientConfig {
             client_id: self.client_id.clone(),
             client_secret: self.client_secret.clone(),
@@ -73,7 +73,7 @@ pub fn is_connected(app_dir: &Path) -> bool {
     stored_tokens(app_dir).is_some()
 }
 
-fn store_tokens(app_dir: &Path, tokens: &Tokens) -> Result<(), CoreError> {
+pub fn store_tokens(app_dir: &Path, tokens: &Tokens) -> Result<(), CoreError> {
     let path = token_path(app_dir);
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(io)?;

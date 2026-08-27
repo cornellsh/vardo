@@ -18,7 +18,9 @@ import type {
 	GeneratorOptions,
 	ConflictPolicy,
 	DriveStatus,
+	DriveVault,
 	GroupNode,
+	VaultSource,
 	Ipc,
 	SaveResult,
 	SyncOutcome,
@@ -31,7 +33,7 @@ import type {
 
 export class TauriIpc implements Ipc {
 	async openVault(
-		path: string,
+		source: VaultSource,
 		password: string,
 		onProgress?: (p: UnlockPhase) => void,
 	): Promise<VaultInfo> {
@@ -44,7 +46,7 @@ export class TauriIpc implements Ipc {
 				)
 			: undefined;
 		try {
-			return await invoke<VaultInfo>("open_vault", { path, password });
+			return await invoke<VaultInfo>("open_vault", { source, password });
 		} finally {
 			unlisten?.();
 		}
@@ -96,7 +98,7 @@ export class TauriIpc implements Ipc {
 		return typeof picked === "string" ? picked : null;
 	}
 
-	recentVaults(): Promise<string[]> {
+	recentVaults(): Promise<VaultSource[]> {
 		return invoke("recent_vaults");
 	}
 
@@ -152,5 +154,17 @@ export class TauriIpc implements Ipc {
 
 	driveDisconnect(): Promise<void> {
 		return invoke("drive_disconnect");
+	}
+
+	driveListVaults(): Promise<DriveVault[]> {
+		return invoke("drive_list_vaults");
+	}
+
+	driveUploadVault(path: string): Promise<VaultSource> {
+		return invoke("drive_upload_vault", { path });
+	}
+
+	forgetVault(source: VaultSource): Promise<void> {
+		return invoke("forget_vault", { source });
 	}
 }

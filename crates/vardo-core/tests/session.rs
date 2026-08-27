@@ -28,7 +28,13 @@ fn scratch(name: &str, tag: &str) -> PathBuf {
 }
 
 fn open(path: &Path) -> Session {
-    Session::open(path, PW, |_| {}).expect("unlock")
+    Session::open(
+        &vardo_core::source::VaultSource::file(path),
+        &lctx(),
+        PW,
+        |_| {},
+    )
+    .expect("unlock")
 }
 
 /// KDBX 4.0, Argon2id, writable.
@@ -45,14 +51,25 @@ fn reports_every_unlock_phase_in_order() {
     // phase is a silently broken unlock screen.
     let path = scratch("test_db_kdbx4_with_password_argon2id.kdbx", "phases");
     let mut seen = Vec::new();
-    Session::open(&path, PW, |p| seen.push(p.as_str())).expect("unlock");
+    Session::open(
+        &vardo_core::source::VaultSource::file(&path),
+        &lctx(),
+        PW,
+        |p: vardo_core::session::Phase| seen.push(p.as_str()),
+    )
+    .expect("unlock");
     assert_eq!(seen, ["reading", "deriving", "decrypting", "parsing"]);
 }
 
 #[test]
 fn a_wrong_password_is_reported_as_a_wrong_password() {
     let path = scratch("test_db_kdbx4_with_password_argon2id.kdbx", "wrongpw");
-    match Session::open(&path, "not the password", |_| {}) {
+    match Session::open(
+        &vardo_core::source::VaultSource::file(&path),
+        &lctx(),
+        "not the password",
+        |_| {},
+    ) {
         Err(CoreError::WrongPassword) => {}
         other => panic!("expected WrongPassword, got {other:?}", other = other.err()),
     }
@@ -60,7 +77,12 @@ fn a_wrong_password_is_reported_as_a_wrong_password() {
 
 #[test]
 fn a_missing_file_is_not_found_rather_than_corrupt() {
-    match Session::open(Path::new("/nonexistent/nope.kdbx"), PW, |_| {}) {
+    match Session::open(
+        &vardo_core::source::VaultSource::file(Path::new("/nonexistent/nope.kdbx")),
+        &lctx(),
+        PW,
+        |_| {},
+    ) {
         Err(CoreError::NotFound { .. }) => {}
         other => panic!("expected NotFound, got {other:?}", other = other.err()),
     }
@@ -154,7 +176,7 @@ fn editing_marks_the_session_dirty_and_saving_clears_it() {
     .expect("update");
     assert!(s.is_dirty());
 
-    s.save().expect("save");
+    s.save(&lctx()).expect("save");
     assert!(!s.is_dirty());
 }
 
@@ -241,7 +263,7 @@ fn a_save_survives_a_reopen() {
         }],
     )
     .expect("update");
-    s.save().expect("save");
+    s.save(&lctx()).expect("save");
 
     let reopened = open(&path);
     let detail = reopened.entry(&uuid).expect("entry");
@@ -267,7 +289,7 @@ fn a_save_leaves_a_backup_of_the_previous_version() {
     )
     .unwrap();
 
-    let result = s.save().expect("save");
+    let result = s.save(&lctx()).expect("save");
     let backup = result.backup.expect("a backup filename");
     let backup_path = path.parent().unwrap().join(&backup);
     assert!(
@@ -277,7 +299,13 @@ fn a_save_leaves_a_backup_of_the_previous_version() {
 
     // And the backup must still open with the same password, or it is not a
     // backup — it is a file that looks like one.
-    let restored = Session::open(&backup_path, PW, |_| {}).expect("backup must open");
+    let restored = Session::open(
+        &vardo_core::source::VaultSource::file(&backup_path),
+        &lctx(),
+        PW,
+        |_| {},
+    )
+    .expect("backup must open");
     assert!(restored.info().entry_count > 0);
 }
 
@@ -295,7 +323,7 @@ fn saving_does_not_change_the_entry_count() {
         }],
     )
     .unwrap();
-    s.save().unwrap();
+    s.save(&lctx()).unwrap();
     assert_eq!(open(&path).info().entry_count, before);
 }
 
@@ -334,4 +362,13 @@ fn an_empty_query_is_treated_as_no_query() {
         s.list_entries(None, Some("   ")).len(),
         s.list_entries(None, None).len()
     );
+}
+
+/// A source context with no Drive client.
+///
+/// Every test here uses a file-backed vault, so the Drive arm must be
+/// unreachable rather than merely unused - if a test ever reaches it, that is
+/// the bug, not a missing fixture.
+fn lctx() -> vardo_core::source::SourceContext {
+    vardo_core::source::SourceContext::local_only(std::env::temp_dir())
 }

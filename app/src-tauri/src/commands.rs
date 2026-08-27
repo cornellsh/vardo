@@ -11,9 +11,10 @@
 
 use tauri::{Emitter, Manager};
 use vardo_core::model::{
-    EntryDetail, EntrySummary, FieldEdit, GeneratorOptions, GroupNode, SaveResult, SyncOutcome,
-    SyncPreview, UnlockPhase, VaultInfo,
+    DriveVault, EntryDetail, EntrySummary, FieldEdit, GeneratorOptions, GroupNode, SaveResult,
+    SyncOutcome, SyncPreview, UnlockPhase, VaultInfo,
 };
+use vardo_core::source::VaultSource;
 use vardo_core::{CoreError, Session};
 
 use crate::AppState;
@@ -45,16 +46,18 @@ fn with_session_mut<T>(
 pub async fn open_vault(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
-    path: String,
+    source: VaultSource,
     password: String,
 ) -> CmdResult<VaultInfo> {
     let handle = app.clone();
+    let ctx = source_context(&app)?;
+    let remembered = source.clone();
     // Argon2d measures 0.871s on the reference vault and closer to 3s on older
     // hardware. On the async runtime's main thread that would freeze the
     // window, which is precisely the behaviour that makes KeePassXC feel
     // broken, so the whole unlock goes to a blocking thread.
     let session = tauri::async_runtime::spawn_blocking(move || {
-        Session::open(std::path::Path::new(&path), &password, |phase| {
+        Session::open(&source, &ctx, &password, |phase| {
             let _ = handle.emit("vault://unlock-progress", UnlockPhase::new(phase.as_str()));
         })
     })
@@ -62,6 +65,12 @@ pub async fn open_vault(
     .map_err(|e| CoreError::Io {
         detail: e.to_string(),
     })??;
+
+    // Recorded only after it opens, so a mistyped path or a vault that no
+    // longer exists never lands in the list the user is offered next time.
+    if let Ok(dir) = app_dir(&app) {
+        let _ = vardo_core::recents::remember(&dir, &remembered);
+    }
 
     let info = session.info().clone();
     *state.session.lock().unwrap() = Some(session);
@@ -172,17 +181,38 @@ pub fn generate_password(length: usize, options: GeneratorOptions) -> CmdResult<
 
 /// Vault paths to offer on the unlock screen.
 ///
-/// Currently just the file named on the command line, so `vardo foo.kdbx`
-/// works and file managers can hand us a path. A persisted recents list lands
-/// later; until then an empty result is the honest answer.
+/// Vaults this user has opened before, most recent first.
+///
+/// A file named on the command line is prepended, so `vardo foo.kdbx` and
+/// file-manager association keep working.
 #[tauri::command]
-pub fn recent_vaults() -> Vec<String> {
-    std::env::args()
+pub fn recent_vaults(app: tauri::AppHandle) -> Vec<VaultSource> {
+    let mut out: Vec<VaultSource> = std::env::args()
         .skip(1)
         .filter(|a| !a.starts_with('-'))
         .filter(|a| std::path::Path::new(a).is_file())
         .take(1)
-        .collect()
+        .map(VaultSource::file)
+        .collect();
+
+    if let Ok(dir) = app_dir(&app) {
+        for source in vardo_core::recents::load(&dir) {
+            if !out.contains(&source) {
+                out.push(source);
+            }
+        }
+    }
+    out
+}
+
+/// Removes a vault from the list without touching the vault itself.
+///
+/// Needed because a recents entry can outlive the thing it points at - an
+/// unplugged drive, a file deleted outside Vardo - and an entry that can only
+/// ever fail must be removable.
+#[tauri::command]
+pub fn forget_vault(app: tauri::AppHandle, source: VaultSource) -> CmdResult<()> {
+    vardo_core::recents::forget(&app_dir(&app)?, &source)
 }
 
 // --- sync -------------------------------------------------------------------
@@ -193,7 +223,8 @@ pub fn sync_preview(
     state: tauri::State<'_, AppState>,
 ) -> CmdResult<SyncPreview> {
     let dir = app_dir(&app)?;
-    with_session(&state, |s| s.sync_preview(&dir))
+    let ctx = source_context(&app)?;
+    with_session(&state, |s| s.sync_preview(&dir, &ctx))
 }
 
 #[tauri::command]
@@ -203,7 +234,8 @@ pub fn sync_apply(
     policy: String,
 ) -> CmdResult<SyncOutcome> {
     let dir = app_dir(&app)?;
-    with_session_mut(&state, |s| s.sync_apply(&dir, &policy))
+    let ctx = source_context(&app)?;
+    with_session_mut(&state, |s| s.sync_apply(&dir, &ctx, &policy))
 }
 
 // --- saving -----------------------------------------------------------------
@@ -215,17 +247,29 @@ pub fn sync_apply(
 /// 1.7s on the reference vault, and doing it on the async runtime's thread
 /// would freeze the window exactly as a synchronous unlock would.
 #[tauri::command]
-pub async fn save_vault(state: tauri::State<'_, AppState>) -> CmdResult<SaveResult> {
+pub async fn save_vault(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> CmdResult<SaveResult> {
     let state = state.inner().clone();
+    let ctx = source_context(&app)?;
     tauri::async_runtime::spawn_blocking(move || {
         let mut guard = state.session.lock().unwrap();
         let session = guard.as_mut().ok_or(CoreError::Locked)?;
-        session.save()
+        session.save(&ctx)
     })
     .await
     .map_err(|e| CoreError::Io {
         detail: e.to_string(),
     })?
+}
+
+/// Everything needed to reach any vault source.
+fn source_context(app: &tauri::AppHandle) -> CmdResult<vardo_core::source::SourceContext> {
+    Ok(vardo_core::source::SourceContext {
+        app_dir: app_dir(app)?,
+        client: drive_client(),
+    })
 }
 
 fn app_dir(app: &tauri::AppHandle) -> CmdResult<std::path::PathBuf> {
@@ -320,4 +364,58 @@ fn open_in_browser(url: &str) -> std::io::Result<()> {
         .arg(url)
         .spawn()
         .map(|_| ())
+}
+
+/// Vaults in Drive that Vardo is allowed to see.
+///
+/// Under the `drive.file` scope this is only what Vardo created or was handed,
+/// so an empty result is a normal state rather than a failure. The UI says so.
+#[tauri::command]
+pub async fn drive_list_vaults(app: tauri::AppHandle) -> CmdResult<Vec<DriveVault>> {
+    let dir = app_dir(&app)?;
+    let client = drive_client().ok_or(CoreError::Unsupported {
+        detail: "this build has no Google client id".into(),
+    })?;
+
+    tauri::async_runtime::spawn_blocking(move || -> CmdResult<Vec<DriveVault>> {
+        vardo_core::drive_vaults::list(&client, &dir).map(|files| {
+            files
+                .into_iter()
+                .map(|f| DriveVault {
+                    file_id: f.id,
+                    name: f.name,
+                    size: f.size,
+                    modified_unix: f.modified_unix,
+                })
+                .collect()
+        })
+    })
+    .await
+    .map_err(|e| CoreError::Io {
+        detail: e.to_string(),
+    })?
+}
+
+/// Copies a local vault into Drive, leaving the original where it is.
+#[tauri::command]
+pub async fn drive_upload_vault(app: tauri::AppHandle, path: String) -> CmdResult<VaultSource> {
+    let dir = app_dir(&app)?;
+    let client = drive_client().ok_or(CoreError::Unsupported {
+        detail: "this build has no Google client id".into(),
+    })?;
+
+    // Blocking: uploading a 646 KB vault over a slow link is seconds, and on
+    // the async runtime's thread that is a frozen window.
+    let source = tauri::async_runtime::spawn_blocking(move || {
+        vardo_core::drive_vaults::upload(&client, &dir, std::path::Path::new(&path))
+    })
+    .await
+    .map_err(|e| CoreError::Io {
+        detail: e.to_string(),
+    })??;
+
+    if let Ok(dir) = app_dir(&app) {
+        let _ = vardo_core::recents::remember(&dir, &source);
+    }
+    Ok(source)
 }
