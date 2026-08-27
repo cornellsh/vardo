@@ -87,6 +87,9 @@ pub enum Error {
     Vault(vardo_kdbx::Error),
     /// Too many concurrent writers; gave up rather than looping forever.
     RaceLimitExceeded(u32),
+    /// The remote is not the same database as the local vault, so merging it
+    /// would fuse two unrelated vaults rather than reconcile one.
+    Refused(vardo_merge::Refusal),
 }
 
 impl std::fmt::Display for Error {
@@ -99,6 +102,7 @@ impl std::fmt::Display for Error {
                 "another device overwrote our upload {n} times running; giving up rather than \
                  looping. Nothing was lost — every attempt is in the revision history."
             ),
+            Self::Refused(r) => write!(f, "refusing to merge: {r}"),
         }
     }
 }
@@ -114,6 +118,12 @@ impl From<SyncError> for Error {
 impl From<vardo_kdbx::Error> for Error {
     fn from(e: vardo_kdbx::Error) -> Self {
         Self::Vault(e)
+    }
+}
+
+impl From<vardo_merge::Refusal> for Error {
+    fn from(e: vardo_merge::Refusal) -> Self {
+        Self::Refused(e)
     }
 }
 
@@ -213,7 +223,9 @@ pub fn sync(
                 None => None,
             };
 
-            let merge_plan = plan(base_vault.as_ref(), local, &remote_vault);
+            // A refusal means the remote is not this vault at all. That stops
+            // the sync rather than degrading to a union of two databases.
+            let merge_plan = plan(base_vault.as_ref(), local, &remote_vault)?;
             if merge_plan.needs_review() && options.policy == ConflictPolicy::Refuse {
                 report.outcome = Outcome::NeedsReview(Box::new(merge_plan));
                 return Ok(report);

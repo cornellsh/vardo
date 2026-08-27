@@ -41,7 +41,8 @@ fn identical_vaults_produce_no_changes() {
     let (base, local, remote) = scenario(|_| {}, |_| {});
     let (bv, lv, rv) = (base.vault(), local.vault(), remote.vault());
 
-    let p = plan(Some(&bv), &lv, &rv);
+    let p = plan(Some(&bv), &lv, &rv)
+        .expect("harness vaults all derive from one fixture, so they share a root");
     assert!(p.is_empty(), "identical vaults produced changes: {:#?}", p);
     assert_eq!(p.summary(), "No changes.");
 }
@@ -50,7 +51,9 @@ fn identical_vaults_produce_no_changes() {
 fn a_vault_merged_with_itself_is_a_no_op() {
     let sealed = Variant::open(FIXTURE).seal(7);
     let v = sealed.vault();
-    assert!(plan(Some(&v), &v, &v).is_empty());
+    assert!(plan(Some(&v), &v, &v)
+        .expect("harness vaults all derive from one fixture, so they share a root")
+        .is_empty());
 }
 
 // ---------------------------------------------------------------------------
@@ -67,7 +70,8 @@ fn newer_remote_edit_wins() {
         },
     );
     let (bv, lv, rv) = (base.vault(), local.vault(), remote.vault());
-    let p = plan(Some(&bv), &lv, &rv);
+    let p = plan(Some(&bv), &lv, &rv)
+        .expect("harness vaults all derive from one fixture, so they share a root");
 
     assert!(p.conflicts.is_empty(), "{:#?}", p.conflicts);
     let updated = p
@@ -94,7 +98,8 @@ fn newer_local_edit_wins() {
         |v| v.set_time(ENTRY, "LastModificationTime", 1_000),
     );
     let (bv, lv, rv) = (base.vault(), local.vault(), remote.vault());
-    let p = plan(Some(&bv), &lv, &rv);
+    let p = plan(Some(&bv), &lv, &rv)
+        .expect("harness vaults all derive from one fixture, so they share a root");
 
     assert!(p.conflicts.is_empty());
     assert!(p.changes.iter().any(|c| matches!(
@@ -121,7 +126,8 @@ fn same_second_edits_are_a_conflict_not_a_coin_flip() {
         },
     );
     let (bv, lv, rv) = (base.vault(), local.vault(), remote.vault());
-    let p = plan(Some(&bv), &lv, &rv);
+    let p = plan(Some(&bv), &lv, &rv)
+        .expect("harness vaults all derive from one fixture, so they share a root");
 
     assert!(
         p.needs_review(),
@@ -152,7 +158,9 @@ fn same_content_at_the_same_second_is_not_a_conflict() {
         },
     );
     let (bv, lv, rv) = (base.vault(), local.vault(), remote.vault());
-    assert!(plan(Some(&bv), &lv, &rv).is_empty());
+    assert!(plan(Some(&bv), &lv, &rv)
+        .expect("harness vaults all derive from one fixture, so they share a root")
+        .is_empty());
 }
 
 #[test]
@@ -205,7 +213,9 @@ fn field_order_is_not_a_change() {
     );
     let (bv, lv, rv) = (base.vault(), local.vault(), remote.vault());
     assert!(
-        plan(Some(&bv), &lv, &rv).is_empty(),
+        plan(Some(&bv), &lv, &rv)
+            .expect("harness vaults all derive from one fixture, so they share a root")
+            .is_empty(),
         "reordering fields must not look like an edit"
     );
 }
@@ -227,7 +237,8 @@ fn an_entry_only_on_the_remote_side_is_added() {
     let remote = base.seal(3);
 
     let (bv, lv, rv) = (base_sealed.vault(), local.vault(), remote.vault());
-    let p = plan(Some(&bv), &lv, &rv);
+    let p = plan(Some(&bv), &lv, &rv)
+        .expect("harness vaults all derive from one fixture, so they share a root");
 
     assert!(
         p.changes.iter().any(|c| matches!(
@@ -250,7 +261,8 @@ fn a_deletion_newer_than_the_edit_is_applied() {
         |v| v.delete_entry(ENTRY, 9_000),
     );
     let (bv, lv, rv) = (base.vault(), local.vault(), remote.vault());
-    let p = plan(Some(&bv), &lv, &rv);
+    let p = plan(Some(&bv), &lv, &rv)
+        .expect("harness vaults all derive from one fixture, so they share a root");
 
     assert!(p.conflicts.is_empty(), "{:#?}", p.conflicts);
     assert!(
@@ -275,7 +287,8 @@ fn an_edit_newer_than_the_deletion_resurrects_the_entry() {
         |v| v.delete_entry(ENTRY, 1_000),
     );
     let (bv, lv, rv) = (base.vault(), local.vault(), remote.vault());
-    let p = plan(Some(&bv), &lv, &rv);
+    let p = plan(Some(&bv), &lv, &rv)
+        .expect("harness vaults all derive from one fixture, so they share a root");
 
     assert!(p.conflicts.is_empty(), "{:#?}", p.conflicts);
     assert!(
@@ -298,7 +311,8 @@ fn delete_and_edit_in_the_same_second_is_a_conflict() {
         |v| v.delete_entry(ENTRY, 7_777),
     );
     let (bv, lv, rv) = (base.vault(), local.vault(), remote.vault());
-    let p = plan(Some(&bv), &lv, &rv);
+    let p = plan(Some(&bv), &lv, &rv)
+        .expect("harness vaults all derive from one fixture, so they share a root");
 
     assert!(
         p.conflicts.iter().any(|c| matches!(
@@ -322,7 +336,8 @@ fn an_untracked_disappearance_keeps_the_entry() {
         |v| v.delete_entry_untracked(ENTRY),
     );
     let (bv, lv, rv) = (base.vault(), local.vault(), remote.vault());
-    let p = plan(Some(&bv), &lv, &rv);
+    let p = plan(Some(&bv), &lv, &rv)
+        .expect("harness vaults all derive from one fixture, so they share a root");
 
     assert!(
         p.changes.iter().any(|c| matches!(
@@ -344,7 +359,8 @@ fn without_a_base_nothing_is_ever_deleted() {
     // Taking the union loses a deletion; guessing loses a password.
     let (_, local, remote) = scenario(|_| {}, |v| v.delete_entry(ENTRY, 9_000));
     let (lv, rv) = (local.vault(), remote.vault());
-    let p = plan(None, &lv, &rv);
+    let p = plan(None, &lv, &rv)
+        .expect("harness vaults all derive from one fixture, so they share a root");
 
     assert!(
         !p.changes
@@ -366,7 +382,8 @@ fn a_newer_remote_move_is_applied() {
         |v| v.move_entry(ENTRY, "Group with tags", 8_000),
     );
     let (bv, lv, rv) = (base.vault(), local.vault(), remote.vault());
-    let p = plan(Some(&bv), &lv, &rv);
+    let p = plan(Some(&bv), &lv, &rv)
+        .expect("harness vaults all derive from one fixture, so they share a root");
 
     assert!(p.changes.iter().any(|c| matches!(
         c,
@@ -381,7 +398,8 @@ fn a_newer_local_move_needs_no_action() {
         |v| v.set_time(ENTRY, "LocationChanged", 1_000),
     );
     let (bv, lv, rv) = (base.vault(), local.vault(), remote.vault());
-    let p = plan(Some(&bv), &lv, &rv);
+    let p = plan(Some(&bv), &lv, &rv)
+        .expect("harness vaults all derive from one fixture, so they share a root");
 
     assert!(!p
         .changes
@@ -397,7 +415,8 @@ fn simultaneous_moves_to_different_groups_conflict() {
         |v| v.move_entry(ENTRY, "Group that was moved", 3_000),
     );
     let (bv, lv, rv) = (base.vault(), local.vault(), remote.vault());
-    let p = plan(Some(&bv), &lv, &rv);
+    let p = plan(Some(&bv), &lv, &rv)
+        .expect("harness vaults all derive from one fixture, so they share a root");
 
     assert!(
         p.conflicts
@@ -429,7 +448,8 @@ fn summary_is_human_readable() {
         },
     );
     let (bv, lv, rv) = (base.vault(), local.vault(), remote.vault());
-    let p = plan(Some(&bv), &lv, &rv);
+    let p = plan(Some(&bv), &lv, &rv)
+        .expect("harness vaults all derive from one fixture, so they share a root");
 
     let summary = p.summary();
     assert!(summary.contains("updated"), "{summary}");
@@ -453,8 +473,10 @@ fn merging_is_symmetric_in_what_it_notices() {
     );
     let (bv, lv, rv) = (base.vault(), local.vault(), remote.vault());
 
-    let forward = plan(Some(&bv), &lv, &rv);
-    let backward = plan(Some(&bv), &rv, &lv);
+    let forward = plan(Some(&bv), &lv, &rv)
+        .expect("harness vaults all derive from one fixture, so they share a root");
+    let backward = plan(Some(&bv), &rv, &lv)
+        .expect("harness vaults all derive from one fixture, so they share a root");
 
     assert_eq!(forward.changes.len(), backward.changes.len());
     assert_eq!(forward.conflicts.len(), backward.conflicts.len());

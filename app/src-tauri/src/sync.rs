@@ -129,8 +129,17 @@ pub fn preview(
         None => None,
     };
 
+    // A refusal means the remote is a different database, not a stale copy of
+    // this one. Surfaced as its own error rather than an empty plan, because
+    // "nothing to merge" and "that is not your vault" must not look alike.
+    let plan = vardo_merge::plan(base_vault.as_ref(), local, &remote_vault).map_err(|r| {
+        UiError::Unsupported {
+            detail: format!("{r}. Check that the sync target is the right file."),
+        }
+    })?;
+
     Ok(Preview {
-        plan: vardo_merge::plan(base_vault.as_ref(), local, &remote_vault),
+        plan,
         remote: remote_description,
         remote_unchanged: false,
     })

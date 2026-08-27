@@ -26,7 +26,8 @@ fn merge(
     let rv = remote.vault();
     let mut lv = local.vault();
 
-    let p = plan(Some(&bv), &lv, &rv);
+    let p = plan(Some(&bv), &lv, &rv)
+        .expect("harness vaults all derive from one fixture, so they share a root");
     let applied = apply(&p, &mut lv, &rv, policy).expect("apply");
 
     let bytes = lv
@@ -327,7 +328,8 @@ fn refuse_policy_declines_to_apply_anything() {
     let bv = base.vault();
     let rv = remote.vault();
     let mut lv = local.vault();
-    let p = plan(Some(&bv), &lv, &rv);
+    let p = plan(Some(&bv), &lv, &rv)
+        .expect("harness vaults all derive from one fixture, so they share a root");
 
     let err = apply(&p, &mut lv, &rv, ConflictPolicy::Refuse).unwrap_err();
     assert!(err.to_string().contains("conflicts"), "{err}");
@@ -352,7 +354,8 @@ fn merging_twice_changes_nothing_the_second_time() {
 
     let mv = merged.vault();
     let rv = remote.vault();
-    let second = plan(Some(&rv), &mv, &rv);
+    let second = plan(Some(&rv), &mv, &rv)
+        .expect("harness vaults all derive from one fixture, so they share a root");
     assert!(
         second.changes.is_empty(),
         "second merge still wants to change things: {:#?}",
