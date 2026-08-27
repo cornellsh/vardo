@@ -319,7 +319,7 @@ function Row({
                 host stands in rather than leaving the line blank. */}
 						{row.username || row.urlHost || "—"}
 						{ambiguous && row.username && row.urlHost && (
-							<span style={{ opacity: 0.75 }}> · {row.urlHost}</span>
+							<span style={{ opacity: 0.75 }}> at {row.urlHost}</span>
 						)}
 					</span>
 				</span>

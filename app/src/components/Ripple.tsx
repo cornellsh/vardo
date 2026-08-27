@@ -57,7 +57,9 @@ export function useRipple() {
 
 	const release = useCallback(() => {
 		setRipples((rs) =>
-			rs.map((r) => (r.releasedAt === null ? { ...r, releasedAt: Date.now() } : r)),
+			rs.map((r) =>
+				r.releasedAt === null ? { ...r, releasedAt: Date.now() } : r,
+			),
 		);
 	}, []);
 

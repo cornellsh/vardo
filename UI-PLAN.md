@@ -62,10 +62,10 @@ worker thread and reports progress.
 ├───────────────┬───────────────────────┬──────────────────────┤
 │               │                       │                      │
 │  All items    │  GitHub               │  GitHub              │
-│  Favourites   │  github.com · andreas │  github.com          │
+│  Favourites   │  github.com  andreas    │  github.com          │
 │  Recent       │ ───────────────────── │                      │
 │               │  Google               │  Username  andreas ⧉ │
-│  ───────────  │  google.com · a@…     │  Password  ••••• 👁⧉ │
+│  ───────────  │  google.com  a@…         │  Password  ••••• 👁⧉ │
 │  Personal     │ ───────────────────── │  TOTP      392 041 ⧉ │
 │    Banking    │  AWS                  │  URL       …       ↗ │
 │    Work       │  console.aws…         │  Notes     —         │
@@ -73,7 +73,7 @@ worker thread and reports progress.
 │  Trash        │                       │  Modified 2 days ago │
 │               │                       │  History  4 versions │
 ├───────────────┴───────────────────────┴──────────────────────┤
-│  ✓  Synced · 2 minutes ago                                   │
+│  ✓  Synced 2 minutes ago                                        │
 └──────────────────────────────────────────────────────────────┘
 ```
 
