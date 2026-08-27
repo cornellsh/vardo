@@ -199,14 +199,87 @@ impl MergePlan {
     }
 }
 
+/// Why a merge was refused before it began.
+///
+/// Distinct from a [`Conflict`], which is a disagreement between two versions
+/// of the same thing. A refusal means the two documents are not versions of
+/// one thing at all, so there is nothing meaningful to merge.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Refusal {
+    /// Different root groups: two different databases, not two copies of one.
+    DifferentVaults { local_root: Uuid, remote_root: Uuid },
+    /// A root group UUID is missing, so identity cannot be established.
+    /// Refusing is the safe default — a merge that cannot verify what it is
+    /// merging is precisely the case this check exists for.
+    NoIdentity { local_has: bool, remote_has: bool },
+}
+
+impl std::fmt::Display for Refusal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Refusal::DifferentVaults { .. } => {
+                write!(
+                    f,
+                    "these are two different databases, not two copies of one"
+                )
+            }
+            Refusal::NoIdentity { .. } => {
+                write!(f, "cannot establish whether these are the same database")
+            }
+        }
+    }
+}
+
+impl std::error::Error for Refusal {}
+
+/// The root group's UUID — this crate's notion of "which database".
+///
+/// Stable across re-encryption: the same vault written with Argon2d and with
+/// Argon2id keeps the same root UUID, while an unrelated vault differs. That
+/// makes it the right identity signal, and the only one KDBX offers.
+fn vault_identity(vault: &Vault) -> Option<Uuid> {
+    vault.root().and_then(|g| g.uuid())
+}
+
 /// Computes what merging `remote` into `local` would do.
+///
+/// Refuses unless both sides are the same database. Pointing sync at the wrong
+/// `.kdbx` would otherwise fuse two unrelated password databases into one with
+/// two histories and no automatic way back. No conflict rule would catch it,
+/// because every entry from the other side looks like a legitimate addition.
+///
+/// Use [`plan_ignoring_identity`] for the one legitimate case: deliberately
+/// importing a vault from somewhere else.
 ///
 /// `base` is the last state both sides agreed on. Without it only a two-way
 /// merge is possible: additions cannot be told apart from deletions, so
 /// nothing is ever deleted and the union is taken instead. That is the correct
 /// conservative behaviour for a first sync — losing a deletion is recoverable,
 /// losing a password is not.
-pub fn plan(base: Option<&Vault>, local: &Vault, remote: &Vault) -> MergePlan {
+pub fn plan(base: Option<&Vault>, local: &Vault, remote: &Vault) -> Result<MergePlan, Refusal> {
+    match (vault_identity(local), vault_identity(remote)) {
+        (Some(l), Some(r)) if l == r => {}
+        (Some(local_root), Some(remote_root)) => {
+            return Err(Refusal::DifferentVaults {
+                local_root,
+                remote_root,
+            })
+        }
+        (l, r) => {
+            return Err(Refusal::NoIdentity {
+                local_has: l.is_some(),
+                remote_has: r.is_some(),
+            })
+        }
+    }
+    Ok(plan_ignoring_identity(base, local, remote))
+}
+
+/// As [`plan`], but skipping the same-database check.
+///
+/// Only for a deliberate import of a foreign vault, where the caller has
+/// already told the user what is about to happen.
+pub fn plan_ignoring_identity(base: Option<&Vault>, local: &Vault, remote: &Vault) -> MergePlan {
     let local_index = Index::build(local);
     let remote_index = Index::build(remote);
     let base_index = base.map(Index::build);
