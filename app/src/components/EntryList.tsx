@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 
 import type { EntrySummary, Uuid } from "../ipc";
 import { useRipple } from "./Ripple";
+import { identityOf, initialOf, tintFor } from "../lib/identity";
 
 interface Props {
 	rows: EntrySummary[];
@@ -195,30 +196,8 @@ export function EntryList({
 	);
 }
 
-/** Deterministic avatar tint, the way Telegram colours contacts without photos. */
-const TINTS = [
-	"#e17076",
-	"#7bc862",
-	"#65aadd",
-	"#a695e7",
-	"#ee7aae",
-	"#6ec9cb",
-	"#faa774",
-];
-function tintFor(uuid: string): string {
-	let h = 0;
-	for (const ch of uuid) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-	return TINTS[h % TINTS.length] as string;
-}
-
 /** Real vaults contain untitled entries; they are not an error. */
 const UNTITLED = "Untitled";
-
-function initials(title: string): string {
-	const t = title.trim();
-	if (!t) return "?";
-	return [...t][0]?.toUpperCase() ?? "?";
-}
 
 function relative(ms: number): string {
 	const days = Math.floor((Date.now() - ms) / 86_400_000);
@@ -266,16 +245,32 @@ function Row({
 				    positioned ripple layer rather than under it. */}
 				<span
 					aria-hidden
-					className="relative flex shrink-0 items-center justify-center rounded-full font-semibold"
+					className="relative flex shrink-0 items-center justify-center overflow-hidden rounded-full font-semibold"
 					style={{
 						width: "var(--dialogs-photo-size)",
 						height: "var(--dialogs-photo-size)",
-						background: active ? "rgba(255,255,255,0.22)" : tintFor(row.uuid),
+						// Tinted by what the entry is *for*, not by its UUID. Keying on
+						// the UUID gave eight Airbnb rows eight different colours,
+						// which made the list read as confetti instead of as a list.
+						background: active
+							? "rgba(255,255,255,0.22)"
+							: tintFor(identityOf({ title: row.title, url: row.urlHost })),
 						color: "#ffffff",
 						fontSize: "17px",
 					}}
 				>
-					{initials(row.title)}
+					{row.iconPng ? (
+						// The vault's own icon, which for a KeePassXC user is often a
+						// real site favicon it downloaded. Shown at 76% so a square
+						// logo does not touch the edge of the circle.
+						<img
+							src={row.iconPng}
+							alt=""
+							style={{ width: "76%", height: "76%", objectFit: "contain" }}
+						/>
+					) : (
+						initialOf(row.title)
+					)}
 				</span>
 
 				<span className="relative flex min-w-0 flex-1 flex-col gap-[3px]">

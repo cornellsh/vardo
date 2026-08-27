@@ -68,25 +68,23 @@ pub enum CoreError {
 impl std::fmt::Display for CoreError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            CoreError::WrongPassword => write!(f, "wrong password"),
-            CoreError::NotFound { path } => write!(f, "not found: {path}"),
+            // Every arm here is one short line. These strings land in banners
+            // and side panels, and anything that wraps to a paragraph there is
+            // a wall of text nobody reads. Longer causes go in a trailing
+            // parenthetical, which the UI folds behind a disclosure.
+            CoreError::WrongPassword => write!(f, "Wrong password"),
+            CoreError::NotFound { path } => write!(f, "Not found: {path}"),
             CoreError::Corrupt { detail }
             | CoreError::Unsupported { detail }
             | CoreError::Io { detail } => write!(f, "{detail}"),
-            CoreError::Locked => write!(f, "the vault is locked"),
-            CoreError::RemoteMissing { path } => {
-                write!(f, "the copy at {path} is no longer there")
-            }
-            CoreError::RemotePassword => {
-                write!(f, "the other copy uses a different password than this one")
-            }
-            CoreError::OutOfSpace => write!(
-                f,
-                "not enough space to save. The vault on disk is unchanged."
-            ),
-            CoreError::DriveNotConnected => {
-                write!(f, "no Google account is connected")
-            }
+            CoreError::Locked => write!(f, "The vault is locked"),
+            // The path is deliberately dropped: whatever screen shows this
+            // already names the vault, and interpolating a long path is what
+            // pushed the sentence onto a second line.
+            CoreError::RemoteMissing { .. } => write!(f, "The other copy is gone"),
+            CoreError::RemotePassword => write!(f, "The other copy has a different password"),
+            CoreError::OutOfSpace => write!(f, "Not enough space to save"),
+            CoreError::DriveNotConnected => write!(f, "No Google account connected"),
             // Shows `detail` rather than a fixed sentence. The generic version
             // discarded the specific explanation the caller had already
             // written - including which file it was about and, for a replaced
@@ -474,5 +472,6 @@ fn storage_warning(path: &Path) -> Option<StorageWarning> {
         kind: kind.into(),
         explanation: risk.explain(),
         remedy: risk.remedy().to_string(),
+        why: risk.why().to_string(),
     })
 }

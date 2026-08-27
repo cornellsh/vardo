@@ -33,10 +33,9 @@ const DEMO_PASSWORD = "demopass";
 /** Matches what `storage_risk::assess` reports for a real rclone mount. */
 const MOCK_STORAGE_WARNING = {
 	kind: "fuse",
-	explanation:
-		'This vault is on a userspace mount (rclone). Saving relies on an atomic rename, which userspace mounts often cannot provide — the usual result is a forked copy like "vault (1).kdbx" or a save that silently lands on a stale version.',
-	remedy:
-		"Move the vault to ordinary local storage and let Vardo sync it through the provider's API instead. Vardo can then merge properly rather than racing a background daemon.",
+	explanation: "Saving here is not atomic (rclone mount)",
+	remedy: "Keep it locally and let Vardo sync it",
+	why: 'A safe save replaces the file by renaming over it, which userspace mounts often cannot do atomically. The usual result is a forked copy such as "vault (1).kdbx", or a save that silently lands on a stale version.',
 } as const;
 
 /**
@@ -177,6 +176,7 @@ function makeEntries(count: number): MockEntry[] {
 						: `${service.toLowerCase().replace(/[^a-z]/g, "")}.com`),
 				modified: NOW - ageDays * 86_400_000,
 				iconId: Math.floor(rand() * 68),
+				iconPng: null,
 				hasTotp: rand() < 0.18,
 				hasAttachments: rand() < 0.08,
 			},
@@ -335,6 +335,7 @@ export class MockIpc implements Ipc {
 		const groupName = GROUPS.find((g) => g.uuid === e.group)?.name ?? "?";
 		return {
 			uuid,
+			iconPng: null,
 			title: e.summary.title,
 			// Note the shape: Password carries no `value`. That is the contract.
 			fields: [
@@ -464,6 +465,7 @@ export class MockIpc implements Ipc {
 				urlHost: "",
 				modified: Date.now(),
 				iconId: 0,
+				iconPng: null,
 				hasTotp: false,
 				hasAttachments: false,
 			},

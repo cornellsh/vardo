@@ -63,16 +63,20 @@ fn a_deleted_remote_is_not_reported_as_a_missing_vault() {
 }
 
 #[test]
-fn the_remote_missing_message_says_which_copy() {
+fn the_remote_missing_message_blames_the_other_copy_not_your_vault() {
     let dir = scratch("gonemsg");
     let path = copy_in(&dir, KDBX4);
     let session = open(&path);
     std::fs::remove_file(&path).unwrap();
 
     let text = session.sync_preview(&dir, &lctx()).unwrap_err().to_string();
+
+    // The point is which thing is gone. Someone reading this has their vault
+    // open in front of them, and a message implying it vanished is alarming
+    // and wrong. The path is deliberately absent: the screen already shows it.
     assert!(
-        text.contains("no longer there"),
-        "unhelpful message: {text}"
+        text.contains("other copy"),
+        "must say it is the other copy that is gone: {text}"
     );
 }
 

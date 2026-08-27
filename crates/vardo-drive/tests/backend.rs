@@ -451,3 +451,51 @@ fn create_reports_a_missing_id_rather_than_inventing_one() {
     );
     assert!(result.is_err());
 }
+
+#[test]
+fn the_listing_url_is_fully_encoded() {
+    // A space in `orderBy=modifiedTime desc` made the HTTP client refuse to
+    // build the request, and the failure reached the user as "check your
+    // connection". Every query component must be encoded, not just the ones
+    // that looked dangerous.
+    let mut http = MockHttp::new(vec![ok(r#"{"files":[]}"#)]);
+    let _ = vardo_drive::drive::list_vaults(&mut http, config(), tokens());
+
+    let url = &http.seen[0].url;
+    assert!(
+        !url.contains(' '),
+        "a URL with a raw space cannot be built: {url}"
+    );
+    assert!(
+        url.contains("orderBy=modifiedTime%20desc") || url.contains("orderBy=modifiedTime+desc"),
+        "ordering must survive encoding: {url}"
+    );
+}
+
+#[test]
+fn a_request_we_could_not_build_is_not_blamed_on_the_network() {
+    // Our own bug and a genuine outage look identical from the transport, but
+    // the advice is opposite: one is worth retrying and one never will be.
+    struct Broken;
+    impl HttpTransport for Broken {
+        fn send(&mut self, _: Request) -> Result<Response, String> {
+            Err(format!(
+                "{}could not build request: invalid uri character",
+                vardo_drive::http::BUG_PREFIX
+            ))
+        }
+    }
+
+    let mut http = Broken;
+    let err = vardo_drive::drive::list_vaults(&mut http, config(), tokens()).unwrap_err();
+    let text = err.to_string();
+
+    assert!(
+        text.contains("Bug in Vardo"),
+        "must own the mistake: {text}"
+    );
+    assert!(
+        !text.to_lowercase().contains("check your connection"),
+        "must not send the user to their router: {text}"
+    );
+}

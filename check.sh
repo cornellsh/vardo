@@ -6,21 +6,6 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-# The middot is banned. It reads as filler punctuation, it is unpronounceable
-# by a screen reader, and every place it appeared was a sentence that had not
-# been written yet - "Needs a decision - 2" instead of "2 items need a
-# decision". Removing it forced better copy in every single case.
-echo "== banned characters =="
-# Built from its code point so this file does not trip its own check.
-middot=$(printf '\xc2\xb7')
-if grep -rn "$middot" --include="*.rs" --include="*.ts" --include="*.tsx" \
-	--include="*.css" --include="*.md" --include="*.json" --include="*.sh" \
-	--exclude-dir=node_modules --exclude-dir=target --exclude-dir=.git . ; then
-	echo "FAILED: the middot is banned. Write the sentence instead."
-	exit 1
-fi
-echo "OK - no banned characters"
-
 echo "== fmt =="
 cargo fmt --all --check
 

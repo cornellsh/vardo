@@ -67,7 +67,7 @@ impl<'a> DriveBackend<'a> {
     /// endpoint while the user waits for an error we already know is coming.
     fn send(&mut self, build: impl Fn(&str) -> Request) -> SyncResult<crate::http::Response> {
         let request = build(&self.tokens.access_token);
-        let response = self.http.send(request).map_err(SyncError::Transport)?;
+        let response = self.http.send(request).map_err(transport_error)?;
 
         if response.status != 401 {
             return classify(response);
@@ -84,7 +84,7 @@ impl<'a> DriveBackend<'a> {
         self.tokens_updated = true;
 
         let retry = build(&self.tokens.access_token);
-        let response = self.http.send(retry).map_err(SyncError::Transport)?;
+        let response = self.http.send(retry).map_err(transport_error)?;
         classify(response)
     }
 
@@ -116,6 +116,19 @@ impl<'a> DriveBackend<'a> {
                 .and_then(parse_rfc3339),
             content_hash: oauth::json_string(&body, "md5Checksum"),
         })
+    }
+}
+
+/// Separates our own mistakes from the network's.
+///
+/// Everything a transport reports looks the same from here, but the advice is
+/// opposite: a network failure is worth retrying and a malformed request never
+/// will be. Collapsing them told a user to check their connection because we
+/// had left a space in a URL.
+fn transport_error(detail: String) -> SyncError {
+    match detail.strip_prefix(crate::http::BUG_PREFIX) {
+        Some(rest) => SyncError::Other(format!("Bug in Vardo, not your connection ({rest})")),
+        None => SyncError::Transport(detail),
     }
 }
 
@@ -363,7 +376,11 @@ pub fn list_vaults(
         "mimeType != 'application/vnd.google-apps.folder' and trashed = false",
     );
     let fields = crate::http::urlencode("files(id,name,size,modifiedTime)");
-    let url = format!("{FILES}?q={query}&fields={fields}&pageSize=100&orderBy=modifiedTime desc");
+    // Encoded like every other component. `modifiedTime desc` contains a
+    // space, and interpolating it raw produced a URL the HTTP client refused to
+    // build - which then reached the user as "check your connection".
+    let order = crate::http::urlencode("modifiedTime desc");
+    let url = format!("{FILES}?q={query}&fields={fields}&pageSize=100&orderBy={order}");
 
     let response = backend.send(|token| Request::new(Method::Get, &url).bearer(token))?;
     let body = response.text();

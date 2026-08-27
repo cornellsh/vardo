@@ -32,6 +32,8 @@ pub struct StorageWarning {
     pub kind: String,
     pub explanation: String,
     pub remedy: String,
+    /// The full reasoning, shown only if the user opens it.
+    pub why: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -52,6 +54,9 @@ pub struct EntrySummary {
     pub url_host: String,
     pub modified: i64,
     pub icon_id: u32,
+    /// A PNG the vault already carries, as a data URL. Costs no network and
+    /// leaks nothing, because it is the user's own data.
+    pub icon_png: Option<String>,
     pub has_totp: bool,
     pub has_attachments: bool,
 }
@@ -92,6 +97,8 @@ pub struct Attachment {
 #[serde(rename_all = "camelCase")]
 pub struct EntryDetail {
     pub uuid: String,
+    /// The vault's own icon for this entry, as a data URL.
+    pub icon_png: Option<String>,
     pub title: String,
     pub fields: Vec<Field>,
     pub tags: Vec<String>,

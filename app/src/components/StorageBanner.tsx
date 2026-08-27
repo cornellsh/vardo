@@ -39,28 +39,26 @@ export function StorageBanner({ warning }: Props) {
 					style={{ background: "var(--attention-button-fg)" }}
 				/>
 				<div className="min-w-0 flex-1">
+					{/* The headline and the remedy are each one short line. The
+					    reasoning is real and worth keeping, but it belongs behind
+					    the disclosure rather than across four lines of banner. */}
 					<div className="text-[var(--window-fg)]">
-						{warning.kind === "fuse"
-							? "This vault is on a userspace mount"
-							: warning.kind === "network"
-								? "This vault is on a network mount"
-								: "This vault is in a synced folder"}
-						{" — "}
+						{warning.explanation}{" "}
 						<button
 							type="button"
 							onClick={() => setOpen((o) => !o)}
-							className="cursor-pointer underline"
+							className="cursor-pointer"
 							style={{ color: "var(--window-active-text-fg)" }}
 							aria-expanded={open}
 						>
-							{open ? "less" : "why this matters"}
+							{open ? "Less" : "Why"}
 						</button>
 					</div>
 
 					{open && (
-						<div className="mt-2 space-y-2 text-[var(--window-sub-text-fg)]">
-							<p>{warning.explanation}</p>
-							<p>{warning.remedy}</p>
+						<div className="mt-1.5 space-y-1.5 text-[var(--window-sub-text-fg)]">
+							<p>{warning.why}</p>
+							<p style={{ color: "var(--window-fg)" }}>{warning.remedy}</p>
 						</div>
 					)}
 				</div>

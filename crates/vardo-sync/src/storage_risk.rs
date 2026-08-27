@@ -40,40 +40,52 @@ impl StorageRisk {
         !matches!(self, StorageRisk::Local)
     }
 
-    /// A sentence for the user, naming the specific hazard rather than saying
-    /// "this may be unsafe", which tells them nothing they can act on.
+    /// One line, short enough not to wrap in the banner it appears in.
+    ///
+    /// The long version of this was a four-line paragraph, which in a banner is
+    /// a wall of text that gets dismissed unread. The reasoning belongs in
+    /// [`Self::why`], behind a disclosure, not in front of someone who only
+    /// wanted to open their vault.
     pub fn explain(&self) -> String {
         match self {
-            StorageRisk::Local => "This vault is on ordinary local storage.".into(),
+            StorageRisk::Local => "Stored on this computer".into(),
             // Phrased to sidestep a/an: the filesystem name is interpolated and
             // "a rclone mount" reads as a bug in the app.
-            StorageRisk::Fuse { fs } => format!(
-                "This vault is on a userspace mount ({fs}). Saving relies on an atomic \
-                 rename, which userspace mounts often cannot provide — the usual result is \
-                 a forked copy like \"vault (1).kdbx\" or a save that silently lands on a \
-                 stale version."
-            ),
-            StorageRisk::Network { fs } => format!(
-                "This vault is on a network mount ({fs}). An atomic rename is not guaranteed \
-                 across a network, so an interrupted save can leave a partial file."
-            ),
-            StorageRisk::NameSuggestsSync { provider } => format!(
-                "This vault looks like it is inside a {provider} folder. A sync daemon \
-                 rewriting the file underneath us is how KeePass databases get forked into \
-                 conflicted copies."
-            ),
+            StorageRisk::Fuse { fs } => format!("Saving here is not atomic ({fs} mount)"),
+            StorageRisk::Network { fs } => {
+                format!("Saving here is not atomic ({fs} network mount)")
+            }
+            StorageRisk::NameSuggestsSync { provider } => {
+                format!("This looks like a {provider} folder")
+            }
         }
     }
 
-    /// What to do about it.
+    /// The full reasoning, for whoever opens the disclosure.
+    pub fn why(&self) -> &'static str {
+        match self {
+            StorageRisk::Local => "",
+            StorageRisk::Fuse { .. } => {
+                "A safe save replaces the file by renaming over it, which userspace mounts \
+                 often cannot do atomically. The usual result is a forked copy such as \
+                 \"vault (1).kdbx\", or a save that silently lands on a stale version."
+            }
+            StorageRisk::Network { .. } => {
+                "An atomic rename is not guaranteed across a network, so a save interrupted \
+                 partway can leave a partial file."
+            }
+            StorageRisk::NameSuggestsSync { .. } => {
+                "A sync daemon rewriting the file underneath Vardo is how KeePass databases \
+                 get forked into conflicted copies."
+            }
+        }
+    }
+
+    /// What to do about it. One line.
     pub fn remedy(&self) -> &'static str {
         match self {
             StorageRisk::Local => "",
-            _ => {
-                "Move the vault to ordinary local storage and let Vardo sync it through the \
-                  provider's API instead. Vardo can then merge properly rather than racing a \
-                  background daemon."
-            }
+            _ => "Keep it locally and let Vardo sync it",
         }
     }
 }
@@ -275,8 +287,13 @@ mod tests {
         );
     }
 
+    /// Wide enough for a banner in a narrow window, narrow enough that the
+    /// text cannot wrap onto a second line. A warning that wraps is a wall,
+    /// and a wall is dismissed unread.
+    const ONE_LINE: usize = 48;
+
     #[test]
-    fn every_risk_names_the_hazard_and_the_fix() {
+    fn every_risk_fits_on_one_line_and_offers_a_fix() {
         for risk in [
             StorageRisk::Fuse {
                 fs: "rclone".into(),
@@ -286,8 +303,25 @@ mod tests {
                 provider: "Dropbox".into(),
             },
         ] {
-            assert!(risk.explain().len() > 40, "explanation too vague: {risk:?}");
+            let explain = risk.explain();
+            assert!(
+                explain.len() <= ONE_LINE,
+                "must fit one line ({} chars): {explain:?}",
+                explain.len()
+            );
+            assert!(
+                risk.remedy().len() <= ONE_LINE,
+                "remedy must fit one line: {:?}",
+                risk.remedy()
+            );
             assert!(!risk.remedy().is_empty(), "no remedy offered for {risk:?}");
+
+            // The reasoning still has to exist - it just belongs behind a
+            // disclosure rather than in front of someone opening their vault.
+            assert!(
+                risk.why().len() > 60,
+                "the explanation must survive somewhere: {risk:?}"
+            );
         }
     }
 }
