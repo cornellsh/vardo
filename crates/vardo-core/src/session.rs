@@ -63,6 +63,16 @@ pub enum CoreError {
     Offline {
         detail: String,
     },
+    /// The stored copy changed since we loaded it, so saving would destroy
+    /// whatever changed it.
+    ///
+    /// Not a failure in any technical sense - the write would succeed. It is
+    /// refused because succeeding is the harm: someone opens the vault on a
+    /// laptop, adds a password on their phone, then saves on the laptop.
+    /// Nothing in that sequence looks dangerous to the person doing it.
+    RemoteChanged {
+        detail: String,
+    },
 }
 
 impl std::fmt::Display for CoreError {
@@ -91,6 +101,7 @@ impl std::fmt::Display for CoreError {
             // file, why a vault plainly still sitting in Drive is unreachable.
             CoreError::DriveAuthExpired { detail } => write!(f, "{detail}"),
             CoreError::Offline { detail } => write!(f, "{detail}"),
+            CoreError::RemoteChanged { .. } => write!(f, "This vault changed elsewhere"),
         }
     }
 }
@@ -179,6 +190,12 @@ pub struct Session {
     /// session rather than passed in per call, so there is no way to save a
     /// vault to somewhere it was not opened from.
     source: VaultSource,
+    /// The stored copy's version when we read it.
+    ///
+    /// Saving compares against this and refuses if it has moved. Without it a
+    /// save is a blind overwrite, which across two devices is not an edge case
+    /// but the ordinary way a synced vault gets used.
+    loaded_version: Option<String>,
 }
 
 impl Session {
@@ -196,7 +213,9 @@ impl Session {
         // Reading goes through the source's backend rather than the
         // filesystem, which is the entire reason a Drive vault can be opened
         // on a machine that has no Drive folder.
-        let bytes = source.read(ctx)?;
+        // The version comes back with the bytes so a later save can tell
+        // whether anything else has written in the meantime.
+        let (bytes, loaded_version) = source.read_versioned(ctx)?;
 
         on_phase(Phase::Deriving);
         let creds = Credentials::with_password(password);
@@ -226,6 +245,7 @@ impl Session {
             creds,
             dirty: false,
             source: source.clone(),
+            loaded_version,
         })
     }
 
@@ -370,7 +390,28 @@ impl Session {
     /// Encodes, verifies the result re-opens, then writes it back to wherever
     /// the vault came from.
     pub fn save(&mut self, ctx: &crate::source::SourceContext) -> Result<SaveResult, CoreError> {
+        // Refuse rather than overwrite when the stored copy has moved. The
+        // write would succeed; that is exactly the problem.
+        if let Some(loaded) = &self.loaded_version {
+            if let Ok(Some(current)) = self.source.current_version(ctx) {
+                if &current != loaded {
+                    return Err(CoreError::RemoteChanged {
+                        detail: self.source.describe_for_display(),
+                    });
+                }
+            }
+            // A failure to *check* is deliberately not a failure to save. Being
+            // unable to reach the remote is common, and refusing to write
+            // someone's password change because of it would be its own kind of
+            // data loss. The write below reports its own failure honestly.
+        }
+
         let saved = crate::save::save_to(&self.vault, &self.creds, &self.source, ctx)?;
+
+        // Our own write moved the version, so the next save must compare
+        // against the new one. Leaving this stale made every save after the
+        // first refuse, which is how a safety check becomes a bug.
+        self.loaded_version = self.source.current_version(ctx).ok().flatten();
         self.dirty = false;
         Ok(SaveResult {
             bytes_written: saved.bytes_written,
@@ -425,6 +466,12 @@ impl Session {
         if let Some(p) = &new_point {
             crate::sync::store_point(app_dir, &self.source, p)?;
         }
+
+        // A sync writes too, so the version we are comparing against has moved
+        // and it moved because of us. Without this the next ordinary save
+        // refuses, and the safety check turns into a bug that only appears
+        // after a successful merge.
+        self.loaded_version = self.source.current_version(ctx).ok().flatten();
 
         let (kind, detail) = crate::review::describe_outcome(&outcome);
         // A merge rewrites the in-memory vault, so anything on screen is stale

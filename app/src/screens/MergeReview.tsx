@@ -8,6 +8,12 @@ interface Props {
 	onClose: () => void;
 	/** Called after a successful sync, so the list reloads from the merged vault. */
 	onMerged: () => void;
+	/**
+	 * Why this opened. A save that was refused needs saying so, because the
+	 * user pressed save and got a different screen, and an unexplained screen
+	 * change reads as a malfunction.
+	 */
+	reason?: "save-blocked" | undefined;
 }
 
 /**
@@ -23,7 +29,7 @@ interface Props {
  * "Conflict" on its own reads as a bug in the merge; "both devices changed this
  * in the same second" reads as the fact of life it actually is.
  */
-export function MergeReview({ onClose, onMerged }: Props) {
+export function MergeReview({ onClose, onMerged, reason }: Props) {
 	const [preview, setPreview] = useState<SyncPreview | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [policy, setPolicy] = useState<ConflictPolicy>("duplicate");
@@ -88,7 +94,7 @@ export function MergeReview({ onClose, onMerged }: Props) {
 			>
 				<div className="min-w-0 flex-1">
 					<h2 className="font-semibold text-[15px] text-[var(--window-bold-fg)]">
-						Review changes
+						{reason === "save-blocked" ? "This changed elsewhere" : "Review changes"}
 					</h2>
 					{preview && (
 						<p className="truncate text-[12px] text-[var(--window-sub-text-fg)]">
