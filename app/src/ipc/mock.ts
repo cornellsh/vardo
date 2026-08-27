@@ -11,8 +11,11 @@
 import type {
 	EntryDetail,
 	EntrySummary,
+	FieldEdit,
+	GeneratorOptions,
 	GroupNode,
 	Ipc,
+	SaveResult,
 	UnlockPhase,
 	Uuid,
 	VaultInfo,
@@ -115,6 +118,9 @@ interface MockEntry {
 	notes: string;
 	totp: boolean;
 	group: Uuid;
+	/** Non-standard fields, so custom-attribute editing is exercised. */
+	custom: Record<string, { value: string; protected: boolean }>;
+	historyCount: number;
 }
 
 const GROUPS: { uuid: Uuid; name: string }[] = [
@@ -165,6 +171,11 @@ function makeEntries(count: number): MockEntry[] {
 					: "",
 			totp: rand() < 0.18,
 			group,
+			custom:
+				rand() < 0.15
+					? { "Security question": { value: "first pet", protected: false } }
+					: {},
+			historyCount: Math.floor(rand() * 6),
 		});
 	}
 	return out;
@@ -176,6 +187,7 @@ const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export class MockIpc implements Ipc {
 	private unlocked = false;
+	private dirty = false;
 
 	async openVault(
 		path: string,
@@ -293,6 +305,12 @@ export class MockIpc implements Ipc {
 					empty: !e.summary.urlHost,
 				},
 				{ key: "Notes", protected: false, value: e.notes, empty: !e.notes },
+				...Object.entries(e.custom).map(([key, f]) => ({
+					key,
+					protected: f.protected,
+					...(f.protected ? {} : { value: f.value }),
+					empty: !f.value,
+				})),
 			],
 			tags: e.group === "g-old" ? ["archive"] : [],
 			times: {
@@ -304,7 +322,9 @@ export class MockIpc implements Ipc {
 			attachments: e.summary.hasAttachments
 				? [{ name: "recovery-codes.txt", size: 412 }]
 				: [],
-			historyCount: Math.floor(rand() * 6),
+			// Stored, not re-rolled: a count that changes on every read would make
+			// the detail pane flicker and hide real history bugs.
+			historyCount: e.historyCount,
 			groupPath: ["passwords", groupName],
 		};
 	}
@@ -320,8 +340,159 @@ export class MockIpc implements Ipc {
 		this.assertUnlocked();
 		const e = ENTRIES.find((x) => x.summary.uuid === uuid);
 		if (!e) throw new Error(`no such entry: ${uuid}`);
-		if (key !== "Password") throw new Error(`not a protected field: ${key}`);
-		return e.password;
+		if (key === "Password") return e.password;
+		const custom = e.custom[key];
+		if (custom?.protected) return custom.value;
+		throw new Error(`not a protected field: ${key}`);
+	}
+
+	// --- writing ---
+
+	async updateEntry(uuid: Uuid, fields: FieldEdit[]): Promise<boolean> {
+		this.assertUnlocked();
+		const e = ENTRIES.find((x) => x.summary.uuid === uuid);
+		if (!e) throw new Error(`no such entry: ${uuid}`);
+
+		let changed = false;
+		const apply = <T>(current: T, next: T): T => {
+			if (current !== next) changed = true;
+			return next;
+		};
+
+		for (const f of fields) {
+			if (f.value === null) {
+				if (f.key in e.custom) {
+					delete e.custom[f.key];
+					changed = true;
+				}
+				continue;
+			}
+			switch (f.key) {
+				case "Title":
+					e.summary.title = apply(e.summary.title, f.value);
+					break;
+				case "UserName":
+					e.summary.username = apply(e.summary.username, f.value);
+					break;
+				case "Password":
+					e.password = apply(e.password, f.value);
+					break;
+				case "URL":
+					e.summary.urlHost = apply(
+						e.summary.urlHost,
+						f.value.replace(/^https?:\/\//, "").split("/")[0] ?? "",
+					);
+					break;
+				case "Notes":
+					e.notes = apply(e.notes, f.value);
+					break;
+				default: {
+					const before = e.custom[f.key];
+					if (before?.value !== f.value || before?.protected !== f.protected) {
+						changed = true;
+					}
+					e.custom[f.key] = { value: f.value, protected: f.protected };
+				}
+			}
+		}
+
+		// Mirrors the core: one history record per edit, and none at all when
+		// nothing actually changed.
+		if (changed) {
+			e.historyCount += 1;
+			e.summary.modified = Date.now();
+			this.dirty = true;
+		}
+		return changed;
+	}
+
+	async createEntry(group: Uuid): Promise<Uuid> {
+		this.assertUnlocked();
+		const uuid = `e-new-${ENTRIES.length}`;
+		ENTRIES.push({
+			summary: {
+				uuid,
+				title: "",
+				username: "",
+				urlHost: "",
+				modified: Date.now(),
+				iconId: 0,
+				hasTotp: false,
+				hasAttachments: false,
+			},
+			password: "",
+			notes: "",
+			totp: false,
+			group: group === "g-root" ? "g-email" : group,
+			custom: {},
+			historyCount: 0,
+		});
+		this.dirty = true;
+		return uuid;
+	}
+
+	async deleteEntry(uuid: Uuid): Promise<"recycled" | "purged"> {
+		this.assertUnlocked();
+		const at = ENTRIES.findIndex((x) => x.summary.uuid === uuid);
+		if (at === -1) throw new Error(`no such entry: ${uuid}`);
+		const entry = ENTRIES[at];
+		if (!entry) throw new Error(`no such entry: ${uuid}`);
+		this.dirty = true;
+
+		// This mock vault has a recycle bin, so a first delete moves the entry
+		// there and only a second one removes it.
+		if (entry.group !== "g-bin") {
+			entry.group = "g-bin";
+			return "recycled";
+		}
+		ENTRIES.splice(at, 1);
+		return "purged";
+	}
+
+	async moveEntry(uuid: Uuid, group: Uuid): Promise<void> {
+		this.assertUnlocked();
+		const e = ENTRIES.find((x) => x.summary.uuid === uuid);
+		if (!e) throw new Error(`no such entry: ${uuid}`);
+		e.group = group;
+		this.dirty = true;
+	}
+
+	async saveVault(): Promise<SaveResult> {
+		this.assertUnlocked();
+		// The real save re-derives the key to verify its own output, so it is not
+		// instant. Modelling that keeps the saving state visible in the UI.
+		await delay(900);
+		this.dirty = false;
+		return { bytesWritten: 646_000, backup: "passwords.kdbx.1787770000.bak" };
+	}
+
+	async isDirty(): Promise<boolean> {
+		return this.dirty;
+	}
+
+	async generatePassword(
+		length: number,
+		options: GeneratorOptions,
+	): Promise<string> {
+		let alphabet = "";
+		if (options.lowercase) alphabet += "abcdefghijklmnopqrstuvwxyz";
+		if (options.uppercase) alphabet += "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+		if (options.digits) alphabet += "0123456789";
+		if (options.symbols) alphabet += "!@#$%^&*()-_=+[]{};:,.?";
+		if (options.excludeAmbiguous) {
+			alphabet = [...alphabet].filter((c) => !`0O1lI|\`'"`.includes(c)).join("");
+		}
+		if (!alphabet) throw new Error("no character classes selected");
+
+		// crypto.getRandomValues, not Math.random. The real generator lives in
+		// Rust; this exists only so the browser build works, and it must not
+		// demonstrate the exact mistake the Rust one was written to avoid.
+		const bytes = new Uint32Array(length);
+		crypto.getRandomValues(bytes);
+		return Array.from(
+			bytes,
+			(b) => alphabet[b % alphabet.length] as string,
+		).join("");
 	}
 
 	async totp(): Promise<{

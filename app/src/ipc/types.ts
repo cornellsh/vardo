@@ -97,6 +97,33 @@ export type UnlockPhase =
 	| { phase: "decrypting" }
 	| { phase: "parsing" };
 
+/**
+ * One field change in an {@link Ipc.updateEntry} call.
+ *
+ * `value: null` removes the field. That is distinct from `""`, which means the
+ * field exists and is empty.
+ */
+export interface FieldEdit {
+	key: string;
+	value: string | null;
+	protected: boolean;
+}
+
+export interface GeneratorOptions {
+	lowercase: boolean;
+	uppercase: boolean;
+	digits: boolean;
+	symbols: boolean;
+	/** Drop characters that are easy to misread when transcribing by hand. */
+	excludeAmbiguous: boolean;
+}
+
+export interface SaveResult {
+	bytesWritten: number;
+	/** Filename of the rotated backup, if one was made. */
+	backup: string | null;
+}
+
 export type UnlockError =
 	| { kind: "wrong-password" }
 	| { kind: "not-found"; path: string }
@@ -147,4 +174,42 @@ export interface Ipc {
 
 	/** Most recently opened vault paths, for the unlock screen. */
 	recentVaults(): Promise<string[]>;
+
+	// --- writing ---
+
+	/**
+	 * Apply a set of field changes to one entry.
+	 *
+	 * The whole edit is one call so the core can push exactly one history
+	 * record; a per-field call would archive a copy per keystroke. Resolves
+	 * with whether anything actually changed.
+	 */
+	updateEntry(uuid: Uuid, fields: FieldEdit[]): Promise<boolean>;
+
+	createEntry(group: Uuid): Promise<Uuid>;
+
+	/** Resolves with what actually happened — recycled or purged. */
+	deleteEntry(uuid: Uuid): Promise<"recycled" | "purged">;
+
+	moveEntry(uuid: Uuid, group: Uuid): Promise<void>;
+
+	/**
+	 * Write the vault to disk.
+	 *
+	 * The core verifies the encoded bytes re-open before replacing anything, so
+	 * a rejected save means the file on disk is untouched.
+	 */
+	saveVault(): Promise<SaveResult>;
+
+	/** Whether there are edits not yet written to disk. */
+	isDirty(): Promise<boolean>;
+
+	/**
+	 * Generate a password.
+	 *
+	 * In the core rather than here: `Math.random()` is not cryptographically
+	 * secure, and browser-side generators have shipped predictable passwords
+	 * because of it.
+	 */
+	generatePassword(length: number, options: GeneratorOptions): Promise<string>;
 }

@@ -114,7 +114,7 @@ pub fn groups(state: tauri::State<'_, AppState>) -> CmdResult<GroupNode> {
 
 fn node_of(g: Group<'_>) -> GroupNode {
     GroupNode {
-        uuid: g.uuid().map(|u| u.to_string()).unwrap_or_default(),
+        uuid: g.uuid().map(uuid_text).unwrap_or_default(),
         name: g.name(),
         // Direct children only; the rail shows per-group counts, not rollups.
         entry_count: g.entries().count(),
@@ -165,7 +165,7 @@ fn collect_entries<'a>(vault: &'a Vault, group: Option<&str>) -> Vec<Entry<'a>> 
             let mut out = Vec::new();
             if let Some(root) = vault.root() {
                 walk_groups(root, &mut |g| {
-                    if g.uuid().map(|u| u.to_string()).as_deref() == Some(want) {
+                    if g.uuid().map(uuid_text).as_deref() == Some(want) {
                         out.extend(g.entries());
                     }
                 });
@@ -185,7 +185,7 @@ fn walk_groups<'a>(g: Group<'a>, f: &mut impl FnMut(&Group<'a>)) {
 fn summary_of(e: Entry<'_>) -> EntrySummary {
     let url = e.url();
     EntrySummary {
-        uuid: e.uuid().map(|u| u.to_string()).unwrap_or_default(),
+        uuid: e.uuid().map(uuid_text).unwrap_or_default(),
         title: e.title(),
         username: e.username(),
         url_host: host_of(&url),
@@ -302,14 +302,14 @@ fn find_entry<'a>(vault: &'a Vault, uuid: &str) -> Option<Entry<'a>> {
     vault
         .entries()
         .into_iter()
-        .find(|e| e.uuid().map(|u| u.to_string()).as_deref() == Some(uuid))
+        .find(|e| e.uuid().map(uuid_text).as_deref() == Some(uuid))
 }
 
 fn path_to(vault: &Vault, uuid: &str) -> Vec<String> {
     fn descend(g: Group<'_>, uuid: &str, trail: &mut Vec<String>) -> bool {
         trail.push(g.name());
         if g.entries()
-            .any(|e| e.uuid().map(|u| u.to_string()).as_deref() == Some(uuid))
+            .any(|e| e.uuid().map(uuid_text).as_deref() == Some(uuid))
         {
             return true;
         }
@@ -498,4 +498,39 @@ fn parse_uuid(text: &str) -> CmdResult<vardo_vault::Uuid> {
     vardo_vault::Uuid::parse(text).ok_or(UiError::NotFound {
         path: text.to_string(),
     })
+}
+
+/// The single string form of a UUID on the IPC boundary.
+///
+/// Base64, deliberately: it is the form KDBX itself stores and the only one
+/// [`vardo_vault::Uuid::parse`] accepts. `Display` renders the hyphenated hex
+/// form, which has no parser at all — emitting that over IPC meant every read
+/// handed the UI an identifier no write could resolve, and every edit failed
+/// with "no such entry" while the entry was plainly on screen.
+fn uuid_text(uuid: vardo_vault::Uuid) -> String {
+    uuid.to_base64()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn uuid_text_round_trips_through_parse_uuid() {
+        // Regression guard for the two-representations bug: whatever a read
+        // command emits, a write command must be able to parse back.
+        let uuid = vardo_vault::Uuid::from_bytes([
+            0x17, 0x81, 0x93, 0x0d, 0x6f, 0xf7, 0xf9, 0x4b, 0xbe, 0xb1, 0x1c, 0x23, 0x5f, 0xaa,
+            0x1d, 0xf0,
+        ]);
+        assert_eq!(parse_uuid(&uuid_text(uuid)).unwrap(), uuid);
+    }
+
+    #[test]
+    fn the_display_form_is_not_what_we_send() {
+        // Documents why: Display is for humans and cannot be parsed back.
+        let uuid = vardo_vault::Uuid::from_bytes([1; 16]);
+        assert!(vardo_vault::Uuid::parse(&uuid.to_string()).is_none());
+        assert_ne!(uuid_text(uuid), uuid.to_string());
+    }
 }

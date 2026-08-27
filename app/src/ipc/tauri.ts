@@ -14,8 +14,11 @@ import { open } from "@tauri-apps/plugin-dialog";
 import type {
 	EntryDetail,
 	EntrySummary,
+	FieldEdit,
+	GeneratorOptions,
 	GroupNode,
 	Ipc,
+	SaveResult,
 	UnlockPhase,
 	Uuid,
 	VaultInfo,
@@ -88,5 +91,35 @@ export class TauriIpc implements Ipc {
 
 	recentVaults(): Promise<string[]> {
 		return invoke("recent_vaults");
+	}
+
+	// --- writing ---
+
+	updateEntry(uuid: Uuid, fields: FieldEdit[]): Promise<boolean> {
+		return invoke("update_entry", { uuid, fields });
+	}
+
+	createEntry(group: Uuid): Promise<Uuid> {
+		return invoke("create_entry", { group });
+	}
+
+	deleteEntry(uuid: Uuid): Promise<"recycled" | "purged"> {
+		return invoke("delete_entry", { uuid });
+	}
+
+	moveEntry(uuid: Uuid, group: Uuid): Promise<void> {
+		return invoke("move_entry", { uuid, group });
+	}
+
+	saveVault(): Promise<SaveResult> {
+		return invoke("save_vault");
+	}
+
+	isDirty(): Promise<boolean> {
+		return invoke("is_dirty");
+	}
+
+	generatePassword(length: number, options: GeneratorOptions): Promise<string> {
+		return invoke("generate_password", { length, options });
 	}
 }

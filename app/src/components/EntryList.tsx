@@ -10,6 +10,9 @@ interface Props {
 	onQuery: (q: string) => void;
 	selected: Uuid | null;
 	onSelect: (uuid: Uuid) => void;
+	/** Absent on a read-only database, which hides the button entirely rather
+	 * than showing one that always fails. */
+	onAdd?: () => void;
 }
 
 /** Telegram's chat list. `dialogsRowHeight: 62px`, an avatar and two text lines. */
@@ -21,6 +24,7 @@ export function EntryList({
 	onQuery,
 	selected,
 	onSelect,
+	onAdd,
 }: Props) {
 	const listRef = useRef<HTMLUListElement>(null);
 	const searchRef = useRef<HTMLInputElement>(null);
@@ -116,6 +120,32 @@ export function EntryList({
 						color: "var(--window-fg)",
 					}}
 				/>
+				{onAdd && (
+					<button
+						type="button"
+						onClick={onAdd}
+						title="New entry (Ctrl+N)"
+						aria-label="New entry"
+						className="ml-1 flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full"
+						style={{
+							background: "var(--active-button-bg)",
+							color: "var(--window-fg-active)",
+						}}
+					>
+						<svg
+							width="16"
+							height="16"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							strokeWidth="2"
+							strokeLinecap="round"
+							aria-hidden
+						>
+							<path d="M12 5v14M5 12h14" />
+						</svg>
+					</button>
+				)}
 			</div>
 
 			<ul
