@@ -16,9 +16,12 @@ import type {
 	EntrySummary,
 	FieldEdit,
 	GeneratorOptions,
+	ConflictPolicy,
 	GroupNode,
 	Ipc,
 	SaveResult,
+	SyncOutcome,
+	SyncPreview,
 	UnlockPhase,
 	Uuid,
 	VaultInfo,
@@ -47,6 +50,10 @@ export class TauriIpc implements Ipc {
 
 	lock(): Promise<void> {
 		return invoke("lock_vault");
+	}
+
+	vaultInfo(): Promise<VaultInfo> {
+		return invoke("vault_info");
 	}
 
 	groups(): Promise<GroupNode> {
@@ -121,5 +128,15 @@ export class TauriIpc implements Ipc {
 
 	generatePassword(length: number, options: GeneratorOptions): Promise<string> {
 		return invoke("generate_password", { length, options });
+	}
+
+	// --- sync ---
+
+	syncPreview(): Promise<SyncPreview> {
+		return invoke("sync_preview");
+	}
+
+	syncApply(policy: ConflictPolicy): Promise<SyncOutcome> {
+		return invoke("sync_apply", { policy });
 	}
 }

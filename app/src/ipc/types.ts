@@ -139,6 +139,12 @@ export interface Ipc {
 	): Promise<VaultInfo>;
 	lock(): Promise<void>;
 
+	/**
+	 * Current vault metadata. Re-read after a merge, which rewrites the vault in
+	 * place and invalidates the entry count handed out at unlock.
+	 */
+	vaultInfo(): Promise<VaultInfo>;
+
 	groups(): Promise<GroupNode>;
 	listEntries(opts: { group?: Uuid; query?: string }): Promise<EntrySummary[]>;
 	getEntry(uuid: Uuid): Promise<EntryDetail>;
@@ -212,4 +218,58 @@ export interface Ipc {
 	 * because of it.
 	 */
 	generatePassword(length: number, options: GeneratorOptions): Promise<string>;
+
+	// --- sync ---
+
+	/**
+	 * Report what a merge would do, without touching anything.
+	 *
+	 * `vardo_merge::plan` is pure precisely so this is possible: the user sees
+	 * the consequences before any password changes.
+	 */
+	syncPreview(): Promise<SyncPreview>;
+
+	/** Perform the sync. `policy` decides anything the plan could not resolve. */
+	syncApply(policy: ConflictPolicy): Promise<SyncOutcome>;
+}
+
+// --- sync ---
+
+export interface ChangeView {
+	kind: string;
+	title: string;
+	detail: string;
+	side: string | null;
+}
+
+export interface ConflictView {
+	kind: string;
+	title: string;
+	detail: string;
+}
+
+export interface SyncPreview {
+	remote: string;
+	/** Remote is byte-identical to our sync point: nothing to fold in. */
+	remoteUnchanged: boolean;
+	/**
+	 * No merge base yet. Without one, an addition on one side is
+	 * indistinguishable from a deletion on the other, so nothing is deleted.
+	 */
+	firstSync: boolean;
+	changes: ChangeView[];
+	conflicts: ConflictView[];
+}
+
+export type ConflictPolicy =
+	| "duplicate"
+	| "keep-local"
+	| "keep-remote"
+	| "refuse";
+
+export interface SyncOutcome {
+	kind: "up-to-date" | "pushed" | "merged" | "needs-review" | "created";
+	detail: string;
+	racesLost: number;
+	retries: number;
 }

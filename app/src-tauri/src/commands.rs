@@ -9,7 +9,7 @@
 
 use crate::model::{
     Attachment, CopyResult, EntryDetail, EntrySummary, Field, FieldEdit, GeneratorOptions,
-    GroupNode, SaveResult, Times, UnlockPhase, VaultInfo,
+    GroupNode, SaveResult, SyncOutcome, SyncPreview, Times, UnlockPhase, VaultInfo,
 };
 use crate::{clipboard, AppState, Opened, UiError};
 
@@ -98,6 +98,15 @@ fn with_vault<T>(
     let guard = state.open.lock().unwrap();
     let opened = guard.as_ref().ok_or(UiError::Locked)?;
     Ok(f(&opened.vault, &opened.info))
+}
+
+/// Current vault metadata.
+///
+/// Needed because a merge rewrites the vault in place, so the entry count the
+/// UI was handed at unlock stops being true.
+#[tauri::command]
+pub fn vault_info(state: tauri::State<'_, AppState>) -> CmdResult<VaultInfo> {
+    with_vault(&state, |_, info| info.clone())
 }
 
 #[tauri::command]
@@ -526,6 +535,50 @@ mod tests {
         assert_eq!(parse_uuid(&uuid_text(uuid)).unwrap(), uuid);
     }
 
+    fn applied(add: usize, upd: usize, dup: usize, skipped: Vec<String>) -> vardo_merge::Applied {
+        vardo_merge::Applied {
+            entries_added: add,
+            entries_updated: upd,
+            entries_deleted: 0,
+            entries_moved: 0,
+            entries_resurrected: 0,
+            groups_added: 0,
+            conflicts_duplicated: dup,
+            skipped,
+        }
+    }
+
+    #[test]
+    fn a_merge_summary_reads_as_a_sentence() {
+        // The regression guard for shipping `Applied { entries_added: 1, .. }`
+        // to the one screen that most needs to be legible.
+        let text = describe_applied(&applied(1, 0, 0, vec![]));
+        assert_eq!(text, "Merged and uploaded: added 1 entry.");
+
+        let text = describe_applied(&applied(2, 3, 0, vec![]));
+        assert_eq!(
+            text,
+            "Merged and uploaded: added 2 entries and updated 3 entries."
+        );
+
+        assert!(!describe_applied(&applied(1, 1, 1, vec![])).contains('{'));
+    }
+
+    #[test]
+    fn nothing_changing_still_says_something() {
+        assert_eq!(
+            describe_applied(&applied(0, 0, 0, vec![])),
+            "Merged and uploaded; nothing changed locally."
+        );
+    }
+
+    #[test]
+    fn skipped_changes_are_never_silent() {
+        let text = describe_applied(&applied(1, 0, 0, vec!["entry vanished".into()]));
+        assert!(text.contains("could not be applied"), "{text}");
+        assert!(text.contains("entry vanished"), "{text}");
+    }
+
     #[test]
     fn the_display_form_is_not_what_we_send() {
         // Documents why: Display is for humans and cannot be parsed back.
@@ -533,4 +586,192 @@ mod tests {
         assert!(vardo_vault::Uuid::parse(&uuid.to_string()).is_none());
         assert_ne!(uuid_text(uuid), uuid.to_string());
     }
+}
+
+// --- sync -------------------------------------------------------------------
+
+/// Reads the remote and reports what a merge would do, changing nothing.
+///
+/// Separate from [`sync_apply`] on purpose: `vardo_merge::plan` is pure so the
+/// result can be shown before any password is touched. KeePassXC only added a
+/// merge preview in PR #10173; here it is the only way in.
+#[tauri::command]
+pub fn sync_preview(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> CmdResult<SyncPreview> {
+    let guard = state.open.lock().unwrap();
+    let opened = guard.as_ref().ok_or(UiError::Locked)?;
+    let path = std::path::Path::new(&opened.info.path);
+
+    let dir = app_dir(&app)?;
+    let point = crate::sync::load_point(&dir, path);
+
+    let preview = crate::sync::preview(path, &opened.vault, &opened.creds, point.as_ref())?;
+
+    Ok(SyncPreview {
+        remote: preview.remote,
+        remote_unchanged: preview.remote_unchanged,
+        first_sync: point.is_none(),
+        changes: crate::review::changes(&preview.plan),
+        conflicts: crate::review::conflicts(&preview.plan),
+    })
+}
+
+/// Performs the sync. `policy` decides what happens to anything the plan could
+/// not resolve on its own.
+#[tauri::command]
+pub fn sync_apply(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    policy: String,
+) -> CmdResult<SyncOutcome> {
+    let mut guard = state.open.lock().unwrap();
+    let opened = guard.as_mut().ok_or(UiError::Locked)?;
+    let path = std::path::Path::new(&opened.info.path).to_path_buf();
+
+    let dir = app_dir(&app)?;
+    let point = crate::sync::load_point(&dir, &path);
+
+    let policy = match policy.as_str() {
+        // The default. Keeps both versions rather than choosing, because a
+        // password manager that silently discards one of two passwords is
+        // worse than one that leaves you two to look at.
+        "duplicate" => vardo_merge::ConflictPolicy::Duplicate,
+        "keep-local" => vardo_merge::ConflictPolicy::KeepLocal,
+        "keep-remote" => vardo_merge::ConflictPolicy::KeepRemote,
+        "refuse" => vardo_merge::ConflictPolicy::Refuse,
+        other => {
+            return Err(UiError::Unsupported {
+                detail: format!("unknown conflict policy: {other}"),
+            })
+        }
+    };
+
+    let (outcome, new_point) = crate::sync::apply(
+        &path,
+        &mut opened.vault,
+        &opened.creds,
+        point.as_ref(),
+        policy,
+    )?;
+
+    if let Some(p) = &new_point {
+        crate::sync::store_point(&dir, &path, p)?;
+    }
+
+    let (kind, detail) = describe_outcome(&outcome);
+    // A merge rewrites the in-memory vault, so anything on screen is stale —
+    // including the entry count in the rail.
+    opened.dirty = false;
+    opened.info.entry_count = opened.vault.entries().len();
+
+    Ok(SyncOutcome {
+        kind: kind.into(),
+        detail,
+        races_lost: 0,
+        retries: 0,
+    })
+}
+
+fn describe_outcome(outcome: &vardo_sync::protocol::Outcome) -> (&'static str, String) {
+    use vardo_sync::protocol::Outcome as O;
+    match outcome {
+        O::UpToDate => ("up-to-date", "Already in sync.".into()),
+        O::Pushed => ("pushed", "Your changes were uploaded.".into()),
+        O::Created => ("created", "The remote file was created.".into()),
+        O::Merged(applied) => ("merged", describe_applied(applied)),
+        O::NeedsReview(plan) => (
+            "needs-review",
+            format!(
+                "{} item(s) need a decision. Nothing was uploaded.",
+                plan.conflicts.len()
+            ),
+        ),
+    }
+}
+
+/// Prose, not a `Debug` dump.
+///
+/// This string is the only account a user gets of what just happened to their
+/// passwords, and `Applied { entries_added: 1, entries_updated: 0, .. }` is not
+/// an account — it is an internal struct leaking into the one place that most
+/// needs to be legible.
+fn describe_applied(a: &vardo_merge::Applied) -> String {
+    let mut parts: Vec<String> = Vec::new();
+    let plural = |n: usize, one: &str, many: &str| {
+        if n == 1 {
+            format!("1 {one}")
+        } else {
+            format!("{n} {many}")
+        }
+    };
+
+    if a.entries_added > 0 {
+        parts.push(format!(
+            "added {}",
+            plural(a.entries_added, "entry", "entries")
+        ));
+    }
+    if a.entries_updated > 0 {
+        parts.push(format!(
+            "updated {}",
+            plural(a.entries_updated, "entry", "entries")
+        ));
+    }
+    if a.entries_deleted > 0 {
+        parts.push(format!(
+            "deleted {}",
+            plural(a.entries_deleted, "entry", "entries")
+        ));
+    }
+    if a.entries_moved > 0 {
+        parts.push(format!(
+            "moved {}",
+            plural(a.entries_moved, "entry", "entries")
+        ));
+    }
+    if a.entries_resurrected > 0 {
+        parts.push(format!(
+            "restored {}",
+            plural(a.entries_resurrected, "entry", "entries")
+        ));
+    }
+    if a.groups_added > 0 {
+        parts.push(format!(
+            "added {}",
+            plural(a.groups_added, "group", "groups")
+        ));
+    }
+    if a.conflicts_duplicated > 0 {
+        parts.push(format!(
+            "kept both versions of {}",
+            plural(a.conflicts_duplicated, "entry", "entries")
+        ));
+    }
+
+    let summary = match parts.as_slice() {
+        [] => "Merged and uploaded; nothing changed locally.".to_string(),
+        [one] => format!("Merged and uploaded: {one}."),
+        [rest @ .., last] => format!("Merged and uploaded: {} and {last}.", rest.join(", ")),
+    };
+
+    if a.skipped.is_empty() {
+        summary
+    } else {
+        // Never silent: a planned change that could not be carried out is
+        // exactly the thing a user needs to know about.
+        format!(
+            "{summary} {} change(s) could not be applied: {}.",
+            a.skipped.len(),
+            a.skipped.join("; ")
+        )
+    }
+}
+
+fn app_dir(app: &tauri::AppHandle) -> CmdResult<std::path::PathBuf> {
+    use tauri::Manager;
+    app.path().app_config_dir().map_err(|e| UiError::Io {
+        detail: format!("no config directory: {e}"),
+    })
 }

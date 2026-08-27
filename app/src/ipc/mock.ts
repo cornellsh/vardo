@@ -11,11 +11,14 @@
 import type {
 	EntryDetail,
 	EntrySummary,
+	ConflictPolicy,
 	FieldEdit,
 	GeneratorOptions,
 	GroupNode,
 	Ipc,
 	SaveResult,
+	SyncOutcome,
+	SyncPreview,
 	UnlockPhase,
 	Uuid,
 	VaultInfo,
@@ -235,6 +238,17 @@ export class MockIpc implements Ipc {
 
 	private assertUnlocked() {
 		if (!this.unlocked) throw new Error("vault is locked");
+	}
+
+	async vaultInfo(): Promise<VaultInfo> {
+		this.assertUnlocked();
+		return {
+			name: "passwords",
+			path: "/home/user/GoogleDrive/passwords.kdbx",
+			entryCount: ENTRIES.length,
+			format: "KDBX 4.0",
+			writable: true,
+		};
 	}
 
 	async groups(): Promise<GroupNode> {
@@ -470,6 +484,95 @@ export class MockIpc implements Ipc {
 		return this.dirty;
 	}
 
+	// --- sync ---
+
+	async syncPreview(): Promise<SyncPreview> {
+		this.assertUnlocked();
+		await delay(700);
+		// A fixed, deliberately awkward plan: one of everything the review screen
+		// has to render, including the two conflict kinds that are easiest to
+		// explain badly.
+		return {
+			remote: "passwords.kdbx (local file)",
+			remoteUnchanged: false,
+			firstSync: false,
+			changes: [
+				{
+					kind: "entry-added",
+					title: "Hetzner",
+					detail: "Added in Infrastructure by the other device",
+					side: "remote",
+				},
+				{
+					kind: "entry-updated",
+					title: "Deutsche Bank",
+					detail:
+						"The other device wins for Password and URL. The other version is kept in history.",
+					side: "remote",
+				},
+				{
+					kind: "entry-updated",
+					title: "GitHub",
+					detail:
+						"This device wins for Notes. The other version is kept in history.",
+					side: "local",
+				},
+				{
+					kind: "entry-deleted",
+					title: "Old Router (192.168.1.1)",
+					detail: "Deleted by the other device",
+					side: "remote",
+				},
+				{
+					kind: "entry-moved",
+					title: "Spotify",
+					detail: "Moved to Media by this device",
+					side: "local",
+				},
+				{
+					kind: "group-added",
+					title: "Work — new job",
+					detail: "Group added by the other device",
+					side: "remote",
+				},
+			],
+			conflicts: [
+				{
+					kind: "concurrent-edit",
+					title: "Proton Mail",
+					detail:
+						"Both devices changed Password in the same second, so neither is newer.",
+				},
+				{
+					kind: "delete-versus-edit",
+					title: "Krankenkasse TK",
+					detail:
+						"The other device deleted this in the same second this device edited it.",
+				},
+			],
+		};
+	}
+
+	async syncApply(policy: ConflictPolicy): Promise<SyncOutcome> {
+		this.assertUnlocked();
+		await delay(1200);
+		this.dirty = false;
+		if (policy === "refuse") {
+			return {
+				kind: "needs-review",
+				detail: "2 item(s) need a decision. Nothing was uploaded.",
+				racesLost: 0,
+				retries: 0,
+			};
+		}
+		return {
+			kind: "merged",
+			detail: "Merged and uploaded.",
+			racesLost: 0,
+			retries: 0,
+		};
+	}
+
 	async generatePassword(
 		length: number,
 		options: GeneratorOptions,
@@ -480,7 +583,9 @@ export class MockIpc implements Ipc {
 		if (options.digits) alphabet += "0123456789";
 		if (options.symbols) alphabet += "!@#$%^&*()-_=+[]{};:,.?";
 		if (options.excludeAmbiguous) {
-			alphabet = [...alphabet].filter((c) => !`0O1lI|\`'"`.includes(c)).join("");
+			alphabet = [...alphabet]
+				.filter((c) => !`0O1lI|\`'"`.includes(c))
+				.join("");
 		}
 		if (!alphabet) throw new Error("no character classes selected");
 

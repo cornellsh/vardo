@@ -139,39 +139,41 @@ export function EntryDetailPane({
 						/>
 					) : (
 						<div className="flex-1 overflow-y-auto p-4">
-						{entry.fields.map((f) => (
-							<FieldRow key={f.key} uuid={entry.uuid} field={f} />
-						))}
+							{entry.fields.map((f) => (
+								<FieldRow key={f.key} uuid={entry.uuid} field={f} />
+							))}
 
-						{entry.attachments.length > 0 && (
+							{entry.attachments.length > 0 && (
+								<div className="mt-5">
+									<SectionLabel>Attachments</SectionLabel>
+									{entry.attachments.map((a) => (
+										<div
+											key={a.name}
+											className="flex items-center gap-2 py-1.5"
+										>
+											<span className="truncate">{a.name}</span>
+											{a.size !== null && (
+												<span className="tabular-nums text-[var(--window-sub-text-fg)] text-[12px]">
+													{a.size} B
+												</span>
+											)}
+										</div>
+									))}
+								</div>
+							)}
+
 							<div className="mt-5">
-								<SectionLabel>Attachments</SectionLabel>
-								{entry.attachments.map((a) => (
-									<div key={a.name} className="flex items-center gap-2 py-1.5">
-										<span className="truncate">{a.name}</span>
-										{a.size !== null && (
-											<span className="tabular-nums text-[var(--window-sub-text-fg)] text-[12px]">
-												{a.size} B
-											</span>
-										)}
-									</div>
-								))}
+								<SectionLabel>Modified</SectionLabel>
+								<p className="text-[var(--window-sub-text-fg)]">
+									{new Date(entry.times.modified).toLocaleString()}
+									{entry.historyCount > 0 &&
+										` · ${entry.historyCount} earlier versions`}
+								</p>
 							</div>
-						)}
-
-						<div className="mt-5">
-							<SectionLabel>Modified</SectionLabel>
-							<p className="text-[var(--window-sub-text-fg)]">
-								{new Date(entry.times.modified).toLocaleString()}
-								{entry.historyCount > 0 &&
-									` · ${entry.historyCount} earlier versions`}
-							</p>
-						</div>
 
 							{!writable && (
 								<p className="mt-5 text-[var(--window-sub-text-fg)]">
-									This database is KDBX 3.1, which Vardo can read but not
-									write.
+									This database is KDBX 3.1, which Vardo can read but not write.
 								</p>
 							)}
 						</div>

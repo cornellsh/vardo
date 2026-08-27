@@ -273,7 +273,10 @@ function Row({
 					<span className="flex items-baseline gap-2">
 						<span
 							className="min-w-0 flex-1 truncate font-semibold"
-							style={{ color: name, fontStyle: row.title ? undefined : "italic" }}
+							style={{
+								color: name,
+								fontStyle: row.title ? undefined : "italic",
+							}}
 						>
 							{row.title || UNTITLED}
 						</span>

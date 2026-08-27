@@ -207,10 +207,37 @@ Tauri v2 + React 19 + Base UI, styled as a port of Telegram Desktop — palette,
 13px base, 62px rows, column rules, all taken from tdesktop source rather than
 designed. See `DESIGN.md`.
 
-**Phase A is done and runs against real files.** Unlock with progress, group
-rail with counts, searchable entry list, entry detail with canonical field
-order, copy, reveal, auto-lock. No write paths, so nothing in the UI can damage
-a vault yet. `vardo path/to.kdbx` opens a file directly.
+**Phases A, B and C are done and run against real files.** Unlock with
+progress, group rail, searchable entry list, entry detail with canonical field
+order, copy, reveal, auto-lock, editing, creation, deletion, a generator, an
+explicit verified save, and a merge review. `vardo path/to.kdbx` opens a file
+directly.
+
+### Verified end to end, not just unit-tested
+
+The claim this project exists to make is that two programs can edit one vault
+and nothing is lost. That is checked by doing it: `keepassxc-cli` adds an entry
+with a password to a file Vardo has open, Vardo detects it, shows the review,
+merges and uploads — and the other device's password is still readable
+afterwards. Likewise for editing: a title changed in the GUI, saved with
+Ctrl+S, then read back out of the file by `keepassxc-cli` while the rotated
+backup still holds the old value.
+
+### The merge review
+
+No prior art — KeePassXC merges without asking and only added a preview dialog
+in PR #10173. Two rules shape it:
+
+- **Nothing changes until the user has seen what will change.** `plan()` is
+  pure precisely so this is possible, and the conflict policy is an explicit
+  choice on the screen rather than a setting hidden elsewhere.
+- **A conflict must explain why it cannot be decided.** "Conflict" alone reads
+  as a bug in the merge; "both devices changed Password in the same second, so
+  neither is newer" reads as the fact of life it is.
+
+The prose for every `Change` and `Conflict` variant is generated in Rust, so
+adding a variant is a compile error rather than a silently blank row. A review
+that quietly omits a change is worse than no review, because it is trusted.
 
 ### Secrets do not enter the WebView
 
@@ -246,10 +273,13 @@ darken instead.
 
 ## Next
 
-1. **Phase B** — global-hotkey quick-access overlay.
-2. **Phase C** — write paths: edit, create, delete, move, generator,
-   attachments, history. Persisted recents.
-3. Run the contract tests once a throwaway Google account exists.
+1. **Google Drive in the UI** — the backend and OAuth are written and tested
+   offline; what is missing is the connect flow and swapping `LocalFile` for
+   `DriveBackend` behind the same commands. Needs a throwaway Google account
+   before the eight contract tests can run.
+2. **Cloud-mount migration prompt** — `looks_cloud_synced()` already detects the
+   dangerous case; the UI has to offer the move.
+3. Quick-access global-hotkey overlay; attachments; TOTP; password health.
 4. Distribution: Ed25519 updater signing, Apple notarisation, Azure Trusted
    Signing.
 
@@ -262,10 +292,17 @@ npm run tauri dev          # or: cargo run -p vardo-app -- some.kdbx
 
 Linux needs `webkit2gtk-4.1` (GTK3). Tauri does not support `webkitgtk-6.0`.
 
-One trap worth knowing: the Vite dev server intermittently serves a **stale or
-empty** module after rapid edits, which presents as a blank window or a
-missing export. Restarting it with `rm -rf node_modules/.vite` is the fix — it
-is not a code fault, and it cost real time to diagnose twice.
+One trap worth knowing: the Vite **dev** server intermittently serves a stale or
+empty module after rapid edits, which presents as a blank window or a missing
+export. It cost real diagnosis time three separate times, so GUI testing now
+uses the built output instead:
+
+```sh
+npm run build && npx vite preview --port 5173 --strictPort
+cargo run -p vardo-app -- some.kdbx
+```
+
+That removes the whole class, at the cost of no hot reload.
 
 ## Reading order
 
