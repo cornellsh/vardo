@@ -65,7 +65,7 @@ The defining property: **parse → serialise is byte-identical.** A save must no
 change bytes it was not asked to change, or the merge engine will invent
 conflicts that do not exist.
 
-277 tests · clippy clean · ~14.9M fuzz executions, zero failures · no `unsafe`
+292 tests, clippy clean, ~14.9M fuzz executions with zero failures, no `unsafe`.
 
 Run everything with `./check.sh` — fmt, clippy at `-D warnings`, the Rust
 suite, the frontend typecheck, the WCAG contrast gate, and the app build.

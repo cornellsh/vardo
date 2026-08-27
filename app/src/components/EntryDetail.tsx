@@ -169,9 +169,14 @@ export function EntryDetailPane({
 								<SectionLabel>Modified</SectionLabel>
 								<p className="text-[var(--window-sub-text-fg)]">
 									{new Date(entry.times.modified).toLocaleString()}
-									{entry.historyCount > 0 &&
-										` · ${entry.historyCount} earlier versions`}
 								</p>
+								{entry.historyCount > 0 && (
+									<p className="text-[var(--window-sub-text-fg)]">
+										{entry.historyCount === 1
+											? "1 earlier version"
+											: `${entry.historyCount} earlier versions`}
+									</p>
+								)}
 							</div>
 
 							{!writable && (
@@ -261,8 +266,17 @@ function EmptyState() {
 				Select an entry to see its details.
 			</p>
 			<p className="text-[var(--window-sub-text-fg)]">
-				<Kbd>Ctrl</Kbd> <Kbd>F</Kbd> to search · <Kbd>↑</Kbd> <Kbd>↓</Kbd> to
-				move · <Kbd>Ctrl</Kbd> <Kbd>L</Kbd> to lock
+				<span className="inline-flex flex-wrap justify-center gap-x-4 gap-y-1">
+					<span>
+						<Kbd>Ctrl</Kbd> <Kbd>F</Kbd> to search
+					</span>
+					<span>
+						<Kbd>↑</Kbd> <Kbd>↓</Kbd> to move
+					</span>
+					<span>
+						<Kbd>Ctrl</Kbd> <Kbd>L</Kbd> to lock
+					</span>
+				</span>
 			</p>
 		</div>
 	);

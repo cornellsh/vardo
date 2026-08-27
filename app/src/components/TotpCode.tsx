@@ -73,9 +73,7 @@ export function TotpCode({ uuid, onCopy }: Props) {
 				title="Copy one-time code"
 				className="secret cursor-pointer rounded-[var(--button-radius)] px-1 text-[15px] tracking-[0.08em] transition-colors"
 				style={{
-					color: urgent
-						? "var(--attention-button-fg)"
-						: "var(--window-fg)",
+					color: urgent ? "var(--attention-button-fg)" : "var(--window-fg)",
 					transitionDuration: "var(--duration-universal)",
 				}}
 			>
@@ -115,7 +113,8 @@ export function TotpCode({ uuid, onCopy }: Props) {
 					// Rotate so the ring drains from twelve o'clock.
 					transform="rotate(-90 10 10)"
 					style={{
-						transition: "stroke-dashoffset 1s linear, stroke var(--duration-universal)",
+						transition:
+							"stroke-dashoffset 1s linear, stroke var(--duration-universal)",
 					}}
 				/>
 			</svg>
