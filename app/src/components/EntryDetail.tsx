@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { humanDate, identityOf, initialOf, tintFor } from "../lib/identity";
 import { ipc } from "../ipc";
@@ -26,6 +26,8 @@ export function EntryDetailPane({
 	const [entry, setEntry] = useState<EntryDetail | null>(null);
 	const [reload, setReload] = useState(0);
 	const [confirmingDelete, setConfirmingDelete] = useState(false);
+	/** Entries already tried, so a site with no icon is asked once per session. */
+	const tried = useRef(new Set<string>());
 
 	useEffect(() => {
 		if (!uuid) {
@@ -34,12 +36,41 @@ export function EntryDetailPane({
 		}
 		let cancelled = false;
 		void (async () => {
-			const next = await (await ipc()).getEntry(uuid);
-			if (!cancelled) setEntry(next);
+			const api = await ipc();
+			const next = await api.getEntry(uuid);
+			if (cancelled) return;
+			setEntry(next);
+
+			// The icon for the entry being looked at, and only that one.
+			//
+			// Doing this on unlock instead would fire a request at every domain in
+			// the vault at once: a burst nobody asked for, and a decent map of
+			// someone's life leaving the machine in one go. One request, for the
+			// entry they just opened, is traffic that site was going to see from
+			// this person anyway.
+			//
+			// The result is written into the vault, so it happens once ever rather
+			// than once per device or once per visit.
+			if (next && !next.iconPng && writable && !tried.current.has(uuid)) {
+				tried.current.add(uuid);
+				try {
+					const png = await api.fetchIcon(uuid);
+					if (!cancelled && png) {
+						setEntry((e) =>
+							e && e.uuid === uuid ? { ...e, iconPng: png } : e,
+						);
+						onChanged();
+					}
+				} catch {
+					// A site being unreachable is not worth a message. The entry is
+					// perfectly usable with a letter for an avatar.
+				}
+			}
 		})();
 		return () => {
 			cancelled = true;
 		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [uuid, reload]);
 
 	useEffect(() => setConfirmingDelete(false), [uuid]);

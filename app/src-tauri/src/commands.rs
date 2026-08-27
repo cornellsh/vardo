@@ -461,3 +461,30 @@ pub async fn drive_pick_vault(app: tauri::AppHandle) -> CmdResult<Option<VaultSo
     }
     Ok(picked)
 }
+
+/// Downloads this entry's site icon and stores it in the vault.
+///
+/// Blocking: it makes up to three HTTP requests. Returns null when the site
+/// has no usable icon, which is ordinary rather than a failure.
+#[tauri::command]
+pub async fn fetch_icon(
+    state: tauri::State<'_, AppState>,
+    uuid: String,
+) -> CmdResult<Option<String>> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut guard = state.session.lock().unwrap();
+        let session = guard.as_mut().ok_or(CoreError::Locked)?;
+        session.fetch_icon(&uuid)
+    })
+    .await
+    .map_err(|e| CoreError::Io {
+        detail: e.to_string(),
+    })?
+}
+
+/// How many entries could get an icon, so the UI can say so before fetching.
+#[tauri::command]
+pub fn entries_missing_icons(state: tauri::State<'_, AppState>) -> CmdResult<Vec<String>> {
+    with_session(&state, |s| Ok(s.entries_missing_icons()))
+}
