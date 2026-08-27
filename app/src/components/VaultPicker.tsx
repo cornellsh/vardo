@@ -69,7 +69,8 @@ export function VaultPicker({ selected, onSelect, disabled }: Props) {
 	return (
 		<div className="flex flex-col gap-1">
 			{recents.map((source) => {
-				const isSelected = selected && sourceKey(selected) === sourceKey(source);
+				const isSelected =
+					selected && sourceKey(selected) === sourceKey(source);
 				return (
 					<div key={sourceKey(source)} className="group relative flex">
 						<button
@@ -260,8 +261,8 @@ function DriveList({ onPick }: { onPick: (s: VaultSource) => void }) {
 			{state.phase === "disconnected" && (
 				<>
 					<p style={{ color: "var(--window-sub-text-fg)" }}>
-						Connect a Google account to open a vault stored in Drive. Vardo
-						will only ever see the vault files you give it.
+						Connect a Google account to open a vault stored in Drive. Vardo will
+						only ever see the vault files you give it.
 					</p>
 					<button
 						type="button"
@@ -294,9 +295,8 @@ function DriveList({ onPick }: { onPick: (s: VaultSource) => void }) {
 			{state.phase === "ready" && state.vaults.length === 0 && (
 				<>
 					<p style={{ color: "var(--window-sub-text-fg)" }}>
-						No vaults here yet. Vardo can only see files you have given it, so
-						a vault already in your Drive will not appear until you add it
-						once.
+						No vaults here yet. Vardo can only see files you have given it, so a
+						vault already in your Drive will not appear until you add it once.
 					</p>
 					<button
 						type="button"

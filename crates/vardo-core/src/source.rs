@@ -165,6 +165,18 @@ impl VaultSource {
         })
     }
 
+    /// How to name the other copy on the merge review screen.
+    ///
+    /// Not `StorageBackend::describe`, which returns `drive:1mUbZAIGW3ec2ok...`.
+    /// That is the correct identifier and exactly the wrong thing to show a
+    /// person deciding which version of their passwords to keep.
+    pub fn describe_for_display(&self) -> String {
+        match self {
+            Self::File { path } => path.display().to_string(),
+            Self::GoogleDrive { name, .. } => format!("{name} in Google Drive"),
+        }
+    }
+
     /// How to refer to this source inside an error sentence.
     pub fn describe_for_error(&self) -> String {
         match self {
@@ -282,5 +294,33 @@ mod tests {
             matches!(err, CoreError::Unsupported { .. }),
             "expected Unsupported, got {err:?}"
         );
+    }
+}
+
+#[cfg(test)]
+mod display_tests {
+    use super::*;
+
+    #[test]
+    fn a_drive_vault_is_never_described_by_its_file_id() {
+        // Caught by running the live round trip: the merge review screen was
+        // about to label the other copy `drive:1mUbZAIGW3ec2okLFEU6B9FT8zDoR3T6C`
+        // while asking which version of someone's passwords to keep.
+        let source = VaultSource::GoogleDrive {
+            file_id: "1mUbZAIGW3ec2okLFEU6B9FT8zDoR3T6C".into(),
+            name: "passwords.kdbx".into(),
+        };
+        let shown = source.describe_for_display();
+        assert!(!shown.contains("1mUbZ"), "must not show a file id: {shown}");
+        assert!(shown.contains("passwords.kdbx"), "got: {shown}");
+        assert!(shown.contains("Google Drive"), "got: {shown}");
+    }
+
+    #[test]
+    fn a_local_vault_is_described_by_its_path() {
+        // The full path, not just the name: someone choosing between two
+        // copies needs to know which directory each is in.
+        let shown = VaultSource::file("/home/me/vaults/passwords.kdbx").describe_for_display();
+        assert!(shown.contains("/home/me/vaults"), "got: {shown}");
     }
 }

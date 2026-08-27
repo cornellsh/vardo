@@ -263,10 +263,15 @@ export class MockIpc implements Ipc {
 
 	async vaultInfo(): Promise<VaultInfo> {
 		this.assertUnlocked();
-		const source = this.source ?? { kind: "file" as const, path: "/vaults/demo.kdbx" };
+		const source = this.source ?? {
+			kind: "file" as const,
+			path: "/vaults/demo.kdbx",
+		};
 		return {
-			name: source.kind === "file" ? "demo" : source.name.replace(/\.kdbx$/i, ""),
-			path: source.kind === "file" ? "demo" : source.name.replace(/\.kdbx$/i, ""),
+			name:
+				source.kind === "file" ? "demo" : source.name.replace(/\.kdbx$/i, ""),
+			path:
+				source.kind === "file" ? "demo" : source.name.replace(/\.kdbx$/i, ""),
 			location: source.kind === "file" ? "/vaults" : "Google Drive",
 			source,
 			// Only a local file can sit on a suspect mount, so a Drive vault must

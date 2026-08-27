@@ -36,6 +36,7 @@ use crate::session::CoreError;
 /// Per RFC 8252 section 8.5 an installed app's "secret" is not confidential -
 /// it is inside every copy of the binary - which is exactly why PKCE exists
 /// and why the loopback redirect is bound to a port we own.
+#[derive(Clone)]
 pub struct DriveClient {
     pub client_id: String,
     pub client_secret: String,
