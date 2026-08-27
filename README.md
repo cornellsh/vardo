@@ -3,8 +3,59 @@
 A KDBX-native password manager for Windows, macOS, and Linux. Syncs via Google
 Drive. Stays byte-compatible with KeePassium on iOS.
 
-**Status:** the KDBX container layer is done and hardened. Nothing is
-user-facing yet. See [`STATUS.md`](STATUS.md).
+**Status:** the app reads, edits, saves and syncs real vaults. See
+[`STATUS.md`](STATUS.md) for what works and [`ROADMAP.md`](ROADMAP.md) for what
+does not.
+
+## Running it
+
+Linux needs `webkit2gtk-4.1` (GTK3 — Tauri does not support `webkitgtk-6.0`):
+
+```sh
+sudo pacman -S --needed webkit2gtk-4.1 base-devel librsvg    # Arch
+sudo apt install libwebkit2gtk-4.1-dev build-essential librsvg2-dev  # Debian/Ubuntu
+```
+
+Then:
+
+```sh
+cd app && npm install
+npm run app                  # development, with hot reload
+```
+
+To build a standalone binary that needs no dev server:
+
+```sh
+cd app && npm run app:release
+../target/release/vardo-app path/to/vault.kdbx
+```
+
+A path on the command line is opened directly, so file managers can hand it
+one. Without a path, use **Open another database…**.
+
+### Try it without risking a real vault
+
+```sh
+cp fixtures/test_db_kdbx4_with_password_argon2id.kdbx /tmp/demo.kdbx
+./target/release/vardo-app /tmp/demo.kdbx      # password: demopass
+```
+
+The fixtures are MIT-licensed test databases. Editing, saving and syncing all
+work against them, and the sync target is the file itself — so opening a second
+copy of the app, or editing with `keepassxc-cli`, exercises the merge path.
+
+### The UI alone, no Rust
+
+```sh
+cd app && npm run build && npm run preview
+```
+
+Runs against a mock vault of 400 entries with deliberately messy data. Useful
+for design work; it cannot touch a real file.
+
+> The Vite **dev** server occasionally serves a stale or empty module after
+> rapid edits, which shows up as a blank window. `rm -rf node_modules/.vite`
+> fixes it. Building and previewing avoids the class entirely.
 
 Reads KDBX 3.1/4.0/4.1 (AES, ChaCha20, Twofish; Argon2d/id, AES-KDF) and writes
 KDBX 4.x preserving the input's format. Files it writes are opened by
@@ -14,7 +65,10 @@ The defining property: **parse → serialise is byte-identical.** A save must no
 change bytes it was not asked to change, or the merge engine will invent
 conflicts that do not exist.
 
-65 tests · clippy clean · ~14.9M fuzz executions, zero failures · no `unsafe`
+277 tests · clippy clean · ~14.9M fuzz executions, zero failures · no `unsafe`
+
+Run everything with `./check.sh` — fmt, clippy at `-D warnings`, the Rust
+suite, the frontend typecheck, the WCAG contrast gate, and the app build.
 
 - [`STATUS.md`](STATUS.md) — what works, and the three decisions that shaped it
 - [`UI-PLAN.md`](UI-PLAN.md) — what the app looks like and the order it gets built
