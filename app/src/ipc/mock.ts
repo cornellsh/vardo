@@ -509,6 +509,15 @@ export class MockIpc implements Ipc {
 			remote: "passwords.kdbx (local file)",
 			remoteUnchanged: false,
 			firstSync: false,
+			// One of each shape, so the review screen is designed against a sync
+			// that has something to say rather than the tidy case.
+			warnings: [
+				{
+					kind: "clock-skew",
+					detail:
+						"The other copy is dated 3 hours in the future. Merges are decided by modification time, so a device with a wrong clock wins every conflict.",
+				},
+			],
 			changes: [
 				{
 					kind: "entry-added",

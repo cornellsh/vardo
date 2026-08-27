@@ -78,6 +78,8 @@ pub struct Preview {
     /// True when the remote is byte-identical to our sync point, so there is
     /// nothing to fold in and the only question is whether to push.
     pub remote_unchanged: bool,
+    /// Things that do not stop the sync but change what it will do.
+    pub warnings: Vec<crate::model::SyncWarning>,
 }
 
 /// Reads the remote and plans a merge, mutating nothing.
@@ -90,15 +92,25 @@ pub fn preview(
     let mut backend = LocalFile::new(vault_path);
     let remote_description = backend.describe();
 
+    let mut warnings = Vec::new();
+
     let state = match backend.stat() {
         Ok(state) => state,
-        // No remote file is not an error; it is a first push.
+        Err(vardo_sync::SyncError::NotFound) => {
+            return Err(UiError::RemoteMissing {
+                path: vault_path.display().to_string(),
+            })
+        }
         Err(e) => {
             return Err(UiError::Io {
-                detail: format!("cannot reach the remote: {e}"),
+                detail: format!("cannot reach the other copy: {e}"),
             })
         }
     };
+
+    if let Some(w) = clock_skew_warning(&state) {
+        warnings.push(w);
+    }
 
     let unchanged = point.is_some_and(|p| p.version == state.version);
     if unchanged {
@@ -109,23 +121,52 @@ pub fn preview(
             },
             remote: remote_description,
             remote_unchanged: true,
+            warnings,
         });
     }
 
     let (bytes, _) = backend.read().map_err(|e| UiError::Io {
         detail: e.to_string(),
     })?;
-    let remote_doc = vardo_kdbx::open(&bytes, creds)?;
+
+    // We are already unlocked, so our own password is right by construction.
+    // An authentication failure here therefore means the *other copy* uses a
+    // different password — reporting that as "wrong password" would send the
+    // user off to re-check the one that is working fine.
+    let remote_doc = vardo_kdbx::open(&bytes, creds).map_err(|e| match UiError::from(e) {
+        UiError::WrongPassword => UiError::RemotePassword,
+        other => other,
+    })?;
     let remote_vault = Vault::open(&remote_doc)?;
 
-    // The base is opened with the same credentials: a sync point recorded under
-    // a password that has since changed cannot be a merge base, and silently
-    // falling back to a two-way merge would make deletions impossible without
-    // saying so.
+    if !remote_vault.is_writable() {
+        warnings.push(crate::model::SyncWarning {
+            kind: "remote-read-only".into(),
+            detail: "The other copy is KDBX 3.1. Vardo can merge it but cannot write \
+                     that format, so the merged result will be saved as KDBX 4."
+                .into(),
+        });
+    }
+
+    // A sync point recorded under a password that has since changed cannot
+    // serve as a merge base. Falling back to a two-way merge is safe — nothing
+    // is ever deleted without a base — but doing it *silently* means deletions
+    // stop propagating and nobody is told why. So it is a warning, not a shrug.
     let base_vault = match point {
-        Some(p) => vardo_kdbx::open(&p.base, creds)
-            .and_then(|d| Vault::open(&d))
-            .ok(),
+        Some(p) => match vardo_kdbx::open(&p.base, creds).and_then(|d| Vault::open(&d)) {
+            Ok(v) => Some(v),
+            Err(e) => {
+                warnings.push(crate::model::SyncWarning {
+                    kind: "no-base".into(),
+                    detail: format!(
+                        "The record of the last sync could not be read ({e}), so this is a \
+                         two-way merge: entries will be combined, and nothing will be \
+                         deleted even if it was deleted on the other device."
+                    ),
+                });
+                None
+            }
+        },
         None => None,
     };
 
@@ -142,7 +183,46 @@ pub fn preview(
         plan,
         remote: remote_description,
         remote_unchanged: false,
+        warnings,
     })
+}
+
+/// Warn when the other copy's timestamp is implausibly far from our clock.
+///
+/// Merge resolves by modification time, so a device with a badly wrong clock
+/// wins every conflict on both machines — silently, and in a way that looks
+/// like the merge is malfunctioning rather than like a clock problem.
+fn clock_skew_warning(state: &vardo_sync::RemoteState) -> Option<crate::model::SyncWarning> {
+    /// An hour. Small enough to catch a wrong timezone written into a
+    /// timestamp, large enough not to fire on ordinary drift.
+    const TOLERANCE: i64 = 3600;
+
+    let remote = state.modified_unix?;
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()?
+        .as_secs() as i64;
+
+    let skew = remote - now;
+    if skew <= TOLERANCE {
+        return None;
+    }
+    Some(crate::model::SyncWarning {
+        kind: "clock-skew".into(),
+        detail: format!(
+            "The other copy is dated {} in the future. Merges are decided by \
+             modification time, so a device with a wrong clock wins every conflict.",
+            humanise(skew)
+        ),
+    })
+}
+
+fn humanise(seconds: i64) -> String {
+    match seconds {
+        s if s < 7200 => format!("{} minutes", s / 60),
+        s if s < 172_800 => format!("{} hours", s / 3600),
+        s => format!("{} days", s / 86_400),
+    }
 }
 
 /// Performs the sync for real, mutating `local` to the merged result.

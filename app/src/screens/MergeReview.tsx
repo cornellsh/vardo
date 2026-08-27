@@ -56,15 +56,12 @@ export function MergeReview({ onClose, onMerged }: Props) {
 				// screen would show changes still pending that are already applied,
 				// which is the one thing a review screen must never do.
 				setPreview({
-					...(preview ?? {
-						remote: "",
-						remoteUnchanged: true,
-						firstSync: false,
-					}),
+					remote: preview?.remote ?? "",
 					firstSync: false,
 					remoteUnchanged: true,
 					changes: [],
 					conflicts: [],
+					warnings: [],
 				});
 				onMerged();
 			}
@@ -133,6 +130,21 @@ export function MergeReview({ onClose, onMerged }: Props) {
 							` Another device overwrote us ${outcome.racesLost} time(s); the merge was redone.`}
 					</p>
 				)}
+
+				{!outcome &&
+					preview?.warnings.map((w) => (
+						<p
+							key={w.kind}
+							className="mb-3 rounded-[6px] px-3 py-2"
+							style={{
+								background: "var(--window-bg-over)",
+								color: "var(--window-fg)",
+								borderLeft: "2px solid var(--attention-button-fg)",
+							}}
+						>
+							{w.detail}
+						</p>
+					))}
 
 				{preview?.firstSync && !outcome && (
 					<p

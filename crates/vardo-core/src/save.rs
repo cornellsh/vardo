@@ -162,8 +162,15 @@ fn prune_backups(path: &Path, name: &str) {
     }
 }
 
+/// Everything in this module writes to a temporary file and only renames on
+/// success, so *any* failure here leaves the existing vault untouched. Saying
+/// so is the difference between a recoverable annoyance and a user believing
+/// their passwords were just destroyed.
 fn io(e: std::io::Error) -> UiError {
+    if e.kind() == std::io::ErrorKind::StorageFull {
+        return UiError::OutOfSpace;
+    }
     UiError::Io {
-        detail: e.to_string(),
+        detail: format!("{e}. The vault on disk is unchanged."),
     }
 }
