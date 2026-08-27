@@ -8,6 +8,14 @@
 //! suite without Google credentials, so if the only way to exercise this code
 //! were against live Drive, it would effectively be untested.
 
+/// Marks a transport failure that is Vardo's fault rather than the network's.
+///
+/// A request we could not construct and a connection we could not make look
+/// identical to every caller, but the advice is opposite: one is worth retrying
+/// and one never will be. This prefix is how the difference survives the trip
+/// through `Result<_, String>`.
+pub const BUG_PREFIX: &str = "vardo-bug: ";
+
 use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

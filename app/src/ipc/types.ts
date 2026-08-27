@@ -34,6 +34,8 @@ export interface StorageWarning {
 	kind: "fuse" | "network" | "name";
 	explanation: string;
 	remedy: string;
+	/** The full reasoning, shown only if the user opens it. */
+	why: string;
 }
 
 export interface VaultInfo {
@@ -72,6 +74,8 @@ export interface EntrySummary {
 	modified: Millis;
 	/** Drives the row icon and its colour. */
 	iconId: number;
+	/** A PNG the vault already carries, as a data URL. No network, no leak. */
+	iconPng: string | null;
 	hasTotp: boolean;
 	hasAttachments: boolean;
 }
@@ -92,6 +96,8 @@ export interface Field {
 
 export interface EntryDetail {
 	uuid: Uuid;
+	/** The vault's own icon for this entry, as a data URL. */
+	iconPng: string | null;
 	title: string;
 	fields: Field[];
 	tags: string[];

@@ -47,9 +47,13 @@ impl HttpTransport for UreqTransport {
         for (name, value) in &request.headers {
             builder = builder.header(name, value);
         }
+        // Prefixed so `classify_transport_error` can tell this apart from a
+        // network failure. A request we could not even construct is a bug in
+        // Vardo, and reporting it as "check your connection" sends someone to
+        // restart their router over a mistake in a URL we wrote ourselves.
         let outgoing = builder
             .body(request.body)
-            .map_err(|e| format!("could not build request: {e}"))?;
+            .map_err(|e| format!("{}could not build request: {e}", crate::http::BUG_PREFIX))?;
 
         // ureq treats a non-2xx as an error; we want the response either way,
         // because the status and body are how failures get classified.

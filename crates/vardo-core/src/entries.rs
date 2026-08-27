@@ -3,6 +3,8 @@
 //! Pure functions over a borrowed [`Vault`], so they are testable without a
 //! window, a session, or a Tauri handle.
 
+use std::collections::HashMap;
+
 use vardo_vault::{Entry, Group, Timestamp, Uuid, Vault};
 
 use crate::model::{Attachment, EntryDetail, EntrySummary, Field, GroupNode, Times};
@@ -62,9 +64,10 @@ pub fn list(vault: &Vault, group: Option<&str>, query: Option<&str>) -> Vec<Entr
         .filter(|q| !q.is_empty())
         .map(str::to_lowercase);
 
+    let icons = icon_index(vault);
     let mut rows: Vec<EntrySummary> = collect(vault, group)
         .into_iter()
-        .map(summary_of)
+        .map(|e| summary_of(e, &icons))
         .filter(|s| match &needle {
             None => true,
             Some(q) => {
@@ -108,9 +111,34 @@ fn walk<'a>(g: Group<'a>, f: &mut impl FnMut(&Group<'a>)) {
     }
 }
 
-fn summary_of(e: Entry<'_>) -> EntrySummary {
+/// Resolves each entry's custom icon to a data URL.
+///
+/// Built once per listing rather than per row: `<CustomIcons>` is a flat list,
+/// so a naive lookup would be quadratic, and a vault with a few hundred entries
+/// and a few hundred icons is exactly the case where that is felt.
+fn icon_index(vault: &Vault) -> HashMap<String, String> {
+    vault
+        .custom_icons()
+        .into_iter()
+        .map(|icon| {
+            (
+                uuid_text(icon.uuid),
+                format!("data:image/png;base64,{}", icon.png_base64),
+            )
+        })
+        .collect()
+}
+
+fn summary_of(e: Entry<'_>, icons: &HashMap<String, String>) -> EntrySummary {
     let url = e.url();
     EntrySummary {
+        // A site icon the user already has beats anything we could draw, and
+        // beats anything we could fetch. This is where KeePassXC's downloaded
+        // favicons live, so a vault that has been through it is already done.
+        icon_png: e
+            .custom_icon_uuid()
+            .map(uuid_text)
+            .and_then(|u| icons.get(&u).cloned()),
         uuid: e.uuid().map(uuid_text).unwrap_or_default(),
         title: e.title(),
         username: e.username(),
@@ -134,11 +162,16 @@ pub fn find<'a>(vault: &'a Vault, uuid: &str) -> Option<Entry<'a>> {
 }
 
 pub fn detail(vault: &Vault, uuid: &str) -> Option<EntryDetail> {
+    let icons = icon_index(vault);
     let entry = find(vault, uuid)?;
     let times = entry.times();
 
     Some(EntryDetail {
         uuid: uuid.to_string(),
+        icon_png: entry
+            .custom_icon_uuid()
+            .map(uuid_text)
+            .and_then(|u| icons.get(&u).cloned()),
         title: entry.title(),
         fields: ordered_fields(&entry),
         tags: entry.tags(),

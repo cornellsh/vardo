@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { DriveLogo } from "./DriveLogo";
+import { Notice, splitTechnical } from "./Notice";
 import { errorText } from "../ipc/error";
 import { ipc } from "../ipc";
 import type { DriveStatus } from "../ipc";
@@ -73,18 +74,14 @@ export function DriveConnect() {
 						Google Drive
 					</h3>
 
-					{status.connected ? (
-						<p className="text-[var(--window-sub-text-fg)]">
-							Connected. Vardo can reach the vault files you pick, and nothing
-							else in your Drive.
-						</p>
-					) : (
-						<p className="text-[var(--window-sub-text-fg)]">
-							Sync this vault through Drive&rsquo;s own API instead of a synced
-							folder, so two devices editing at once are merged rather than
-							overwriting each other.
-						</p>
-					)}
+					{/* One short line. The reasoning lives under "What this allows"
+					    below, as separate short lines, rather than as a paragraph
+					    that wraps into a block nobody reads. */}
+					<p className="text-[var(--window-sub-text-fg)]">
+						{status.connected
+							? "Connected"
+							: "Open and sync vaults kept in Drive"}
+					</p>
 				</div>
 
 				{status.configured && (
@@ -105,19 +102,18 @@ export function DriveConnect() {
 					>
 						{busy
 							? status.connected
-								? "Disconnecting…"
-								: "Waiting for your browser…"
+								? "Signing out…"
+								: "Waiting…"
 							: status.connected
-								? "Disconnect"
-								: "Connect"}
+								? "Sign out"
+								: "Sign in"}
 					</button>
 				)}
 			</div>
 
 			{!status.configured && (
 				<p className="mt-3 text-[var(--window-sub-text-fg)]">
-					This build was compiled without a Google client id, so Drive is
-					unavailable. That is a packaging setting, not something to fix here.
+					Unavailable: this build has no Google client id.
 				</p>
 			)}
 
@@ -126,26 +122,31 @@ export function DriveConnect() {
 					className="mt-3 space-y-1 text-[var(--window-sub-text-fg)]"
 					aria-label="What connecting allows"
 				>
-					{/* The scope in plain terms. `drive.file` is genuinely narrow and
-					    saying so is the difference between informed consent and a
-					    shrug, but it only counts if it is said before the click. */}
-					<li>Vardo sees only the files you pick, or that it creates.</li>
-					<li>The rest of your Drive stays invisible to it.</li>
-					<li>You sign in in your normal browser, not inside this window.</li>
+					{/* The scope in plain terms, one short line each. `drive.file` is
+					    genuinely narrow and saying so is the difference between
+					    informed consent and a shrug, but it only counts if it is said
+					    before the click and read rather than skimmed. */}
+					<li>Only the files you pick</li>
+					<li>The rest of your Drive stays hidden</li>
+					<li>You sign in in your own browser</li>
 				</ul>
 			)}
 
 			{busy && !status.connected && (
 				<p className="mt-3" style={{ color: "var(--window-active-text-fg)" }}>
-					Finish signing in in your browser, then come back here.
+					Finish signing in in your browser.
 				</p>
 			)}
 
-			{error && (
-				<p className="mt-3" style={{ color: "var(--attention-button-fg)" }}>
-					{error}
-				</p>
-			)}
+			{error &&
+				(() => {
+					const { message, technical } = splitTechnical(error);
+					return (
+						<div className="mt-3">
+							<Notice title={message} {...(technical ? { technical } : {})} />
+						</div>
+					);
+				})()}
 		</section>
 	);
 }

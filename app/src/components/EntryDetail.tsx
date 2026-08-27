@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { humanDate, identityOf, initialOf, tintFor } from "../lib/identity";
 import { ipc } from "../ipc";
 import type { EntryDetail, Uuid } from "../ipc";
 import { EntryEditor } from "./EntryEditor";
@@ -64,12 +65,42 @@ export function EntryDetailPane({
 			) : (
 				<>
 					<header
-						className="flex items-center px-4"
+						className="flex items-center gap-3 px-4"
 						style={{
 							height: "54px",
 							borderBottom: "1px solid var(--shadow-fg)",
 						}}
 					>
+						{/* The same avatar as the list row it came from. Telegram
+						    carries the peer's identity into the info panel rather
+						    than dropping to a bare title, which is what makes the
+						    two feel like one place instead of two screens. */}
+						<span
+							aria-hidden
+							className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full font-semibold"
+							style={{
+								background: tintFor(
+									identityOf({
+										title: entry.title,
+										url:
+											entry.fields.find((f) => f.key === "URL")?.value ?? null,
+									}),
+								),
+								color: "#ffffff",
+								fontSize: "15px",
+							}}
+						>
+							{entry.iconPng ? (
+								<img
+									src={entry.iconPng}
+									alt=""
+									style={{ width: "76%", height: "76%", objectFit: "contain" }}
+								/>
+							) : (
+								initialOf(entry.title || "?")
+							)}
+						</span>
+
 						<div className="min-w-0 flex-1">
 							<h2
 								className="truncate font-semibold text-[var(--window-bold-fg)] text-[15px]"
@@ -148,7 +179,7 @@ export function EntryDetailPane({
 
 							{entry.attachments.length > 0 && (
 								<div className="mt-5">
-									<SectionLabel>Attachments</SectionLabel>
+									<GroupHeading>Attachments</GroupHeading>
 									{entry.attachments.map((a) => (
 										<div
 											key={a.name}
@@ -166,9 +197,15 @@ export function EntryDetailPane({
 							)}
 
 							<div className="mt-5">
-								<SectionLabel>Modified</SectionLabel>
-								<p className="text-[var(--window-sub-text-fg)]">
-									{new Date(entry.times.modified).toLocaleString()}
+								{/* A date a person would say. `6/3/2026, 10:17:46 AM` is a
+								    machine's answer: nobody needs the second a password was
+								    edited, and 6/3 means two different days depending on who
+								    is reading. The full timestamp stays in the tooltip. */}
+								<p
+									className="text-[var(--window-fg)]"
+									title={new Date(entry.times.modified).toLocaleString()}
+								>
+									Edited {humanDate(entry.times.modified)}
 								</p>
 								{entry.historyCount > 0 && (
 									<p className="text-[var(--window-sub-text-fg)]">
@@ -181,7 +218,7 @@ export function EntryDetailPane({
 
 							{!writable && (
 								<p className="mt-5 text-[var(--window-sub-text-fg)]">
-									This database is KDBX 3.1, which Vardo can read but not write.
+									KDBX 3.1 is read-only in Vardo.
 								</p>
 							)}
 						</div>
@@ -223,7 +260,7 @@ function TotpRow({ uuid }: { uuid: Uuid }) {
 			style={{ borderBottom: "1px solid var(--shadow-fg)" }}
 		>
 			<div className="min-w-0 flex-1">
-				<SectionLabel>One-time code</SectionLabel>
+				<GroupHeading>One-time code</GroupHeading>
 				<TotpCode
 					uuid={uuid}
 					onCopy={() => {
@@ -243,18 +280,34 @@ function TotpRow({ uuid }: { uuid: Uuid }) {
 	);
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+/**
+ * The label under a value.
+ *
+ * Under, not over, and not shouted in capitals. Telegram's info panel puts the
+ * value first because that is what you came to read - the label only tells you
+ * what you are already looking at. Uppercase tracking-wide headers are the iOS
+ * settings idiom, and using them here made every field look like a form.
+ */
+/**
+ * A heading above a group of rows, as opposed to the label under one value.
+ * Still not shouted: weight and colour carry it.
+ */
+function GroupHeading({ children }: { children: React.ReactNode }) {
 	return (
 		<h3
-			className="mb-1 font-semibold uppercase"
-			style={{
-				color: "var(--window-sub-text-fg)",
-				fontSize: "11px",
-				letterSpacing: "0.04em",
-			}}
+			className="mb-1 font-semibold"
+			style={{ color: "var(--window-active-text-fg)", fontSize: "13px" }}
 		>
 			{children}
 		</h3>
+	);
+}
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+	return (
+		<div style={{ color: "var(--window-sub-text-fg)", fontSize: "12px" }}>
+			{children}
+		</div>
 	);
 }
 
@@ -342,58 +395,139 @@ function FieldRow({
 
 	return (
 		<div
-			className="group flex items-start gap-2 py-2"
-			style={{ borderBottom: "1px solid var(--shadow-fg)" }}
+			className="group flex items-center gap-2 rounded-[6px] py-2 pr-1 pl-2 transition-colors"
+			style={{ transitionDuration: "var(--duration-universal)" }}
+			onMouseEnter={(e) => {
+				e.currentTarget.style.background = "var(--window-bg-over)";
+			}}
+			onMouseLeave={(e) => {
+				e.currentTarget.style.background = "transparent";
+			}}
 		>
-			<div className="min-w-0 flex-1">
-				<SectionLabel>{field.key}</SectionLabel>
+			{/* The whole row copies, the way tapping a phone number in Telegram
+			    does. The buttons stay for discoverability and for anyone using a
+			    keyboard, but the common action does not require aiming. */}
+			<button
+				type="button"
+				onClick={copy}
+				title={`Copy ${field.key.toLowerCase()}`}
+				className="min-w-0 flex-1 cursor-pointer text-left"
+			>
 				<div
 					className={`selectable break-words ${field.protected ? "secret" : ""}`}
 					style={{ color: "var(--window-fg)", whiteSpace: "pre-wrap" }}
 				>
 					{shown}
 				</div>
-			</div>
+				<FieldLabel>
+					{copiedFor === null
+						? field.key
+						: `Copied. Clipboard clears in ${copiedFor}s`}
+				</FieldLabel>
+			</button>
 
-			<div className="flex shrink-0 items-center gap-1">
+			<div className="flex shrink-0 items-center gap-0.5">
 				{field.protected && (
-					<IconButton
-						label={revealed !== null ? "Hide" : "Reveal"}
+					<GlyphButton
+						label={revealed !== null ? "Hide" : "Show"}
 						onClick={toggleReveal}
 						pressed={revealed !== null}
-					/>
+					>
+						{revealed !== null ? <EyeOffIcon /> : <EyeIcon />}
+					</GlyphButton>
 				)}
-				<button
-					type="button"
-					onClick={copy}
-					className="cursor-pointer rounded-[6px] px-2 py-1"
-					style={{ color: "var(--window-active-text-fg)" }}
-				>
-					{copiedFor === null ? "Copy" : `Clears in ${copiedFor}s`}
-				</button>
+				<GlyphButton label={`Copy ${field.key}`} onClick={copy} pressed={false}>
+					<CopyIcon />
+				</GlyphButton>
 			</div>
 		</div>
 	);
 }
 
-function IconButton({
+/**
+ * A square icon button that only appears on hover or focus.
+ *
+ * "Reveal" and "Copy" as words made every row look like a toolbar and pushed
+ * the value - the thing you came for - into a narrow column.
+ */
+function GlyphButton({
 	label,
 	onClick,
 	pressed,
+	children,
 }: {
 	label: string;
 	onClick: () => void;
 	pressed: boolean;
+	children: React.ReactNode;
 }) {
 	return (
 		<button
 			type="button"
 			onClick={onClick}
 			aria-pressed={pressed}
-			className="cursor-pointer rounded-[6px] px-2 py-1"
-			style={{ color: "var(--window-active-text-fg)" }}
+			aria-label={label}
+			title={label}
+			className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-[6px] opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
+			style={{
+				color: pressed
+					? "var(--window-active-text-fg)"
+					: "var(--window-sub-text-fg)",
+				transitionDuration: "var(--duration-universal)",
+			}}
 		>
-			{label}
+			{children}
 		</button>
+	);
+}
+
+function EyeIcon() {
+	return (
+		<svg
+			width="16"
+			height="16"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="1.8"
+			aria-hidden
+		>
+			<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z" />
+			<circle cx="12" cy="12" r="3" />
+		</svg>
+	);
+}
+
+function EyeOffIcon() {
+	return (
+		<svg
+			width="16"
+			height="16"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="1.8"
+			aria-hidden
+		>
+			<path d="M2 12s3.6-7 10-7c2 0 3.7.7 5.1 1.6M22 12s-3.6 7-10 7c-2 0-3.7-.7-5.1-1.6" />
+			<path d="M4 4l16 16" />
+		</svg>
+	);
+}
+
+function CopyIcon() {
+	return (
+		<svg
+			width="16"
+			height="16"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="1.8"
+			aria-hidden
+		>
+			<rect x="9" y="9" width="11" height="11" rx="2" />
+			<path d="M5 15V5a2 2 0 0 1 2-2h10" />
+		</svg>
 	);
 }

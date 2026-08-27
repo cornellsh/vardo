@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { DriveLogo } from "./DriveLogo";
+import { Notice, splitTechnical } from "./Notice";
 import { errorText } from "../ipc/error";
 import { ipc } from "../ipc";
 import type { DriveVault, VaultSource } from "../ipc";
@@ -255,48 +256,45 @@ function DriveList({ onPick }: { onPick: (s: VaultSource) => void }) {
 			}}
 		>
 			{state.phase === "loading" && (
-				<p style={{ color: "var(--window-sub-text-fg)" }}>Looking in Drive…</p>
+				<p style={{ color: "var(--window-sub-text-fg)" }}>Looking&hellip;</p>
 			)}
 
 			{state.phase === "disconnected" && (
 				<>
 					<p style={{ color: "var(--window-sub-text-fg)" }}>
-						Connect a Google account to open a vault stored in Drive. Vardo will
-						only ever see the vault files you give it.
+						Sign in to open a vault kept in Drive.
 					</p>
 					<button
 						type="button"
 						onClick={() => void connect()}
-						className="mt-2 cursor-pointer rounded-[var(--button-radius)] px-3 py-1.5 font-semibold"
+						className="mt-2 flex cursor-pointer items-center gap-2 rounded-[var(--button-radius)] px-3 py-1.5 font-semibold"
 						style={{
 							background: "var(--active-button-bg)",
 							color: "var(--window-fg-active)",
 						}}
 					>
-						Connect
+						<DriveLogo size={16} />
+						Sign in
 					</button>
 				</>
 			)}
 
-			{state.phase === "error" && (
-				<>
-					<p style={{ color: "var(--attention-button-fg)" }}>{state.message}</p>
-					<button
-						type="button"
-						onClick={() => void load()}
-						className="mt-2 cursor-pointer font-semibold"
-						style={{ color: "var(--window-active-text-fg)" }}
-					>
-						Try again
-					</button>
-				</>
-			)}
+			{state.phase === "error" &&
+				(() => {
+					const { message, technical } = splitTechnical(state.message);
+					return (
+						<Notice
+							title={message}
+							{...(technical ? { technical } : {})}
+							action={{ label: "Try again", onClick: () => void load() }}
+						/>
+					);
+				})()}
 
 			{state.phase === "ready" && state.vaults.length === 0 && (
 				<>
 					<p style={{ color: "var(--window-sub-text-fg)" }}>
-						No vaults here yet. Vardo can only see files you have given it, so a
-						vault already in your Drive will not appear until you add it once.
+						Nothing here yet. Vardo only sees files you give it.
 					</p>
 					<button
 						type="button"

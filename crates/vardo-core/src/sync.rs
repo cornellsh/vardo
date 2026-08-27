@@ -104,48 +104,39 @@ pub fn map_sync_error(e: vardo_sync::SyncError, where_it_is: &str) -> UiError {
         // The grant was revoked, or the refresh token was invalidated by a
         // password change on the Google account. Neither is recoverable by
         // retrying, and both are fixed in the same place, so say where.
+        // Every message here fits one line in the panel it appears in.
+        // A message that wraps to four lines is a wall, and a wall is not read
+        // at the exact moment someone is worried about their passwords. The
+        // cause goes in the parenthetical, which the UI folds away.
         S::Unauthorized(detail) => UiError::DriveAuthExpired {
-            detail: format!(
-                "Vardo is no longer allowed to reach {where_it_is}. This usually means access \
-                 was revoked from your Google account. Reconnect in Settings to restore it. \
-                 ({detail})"
-            ),
+            detail: format!("Drive access was withdrawn ({detail})"),
         },
 
         // Another client replaced the file instead of updating it, minting a
         // new id. Our per-file grant points at something that no longer
         // exists, and no amount of retrying will bring it back.
         S::IdentityLost(detail) => UiError::DriveAuthExpired {
-            detail: format!(
-                "The file {where_it_is} was replaced rather than edited, so it is now a \
-                 different file and Vardo's permission does not cover it. Pick it again to \
-                 carry on. ({detail})"
-            ),
+            detail: format!("That file was replaced by another app ({detail})"),
         },
 
         // The overwhelmingly common cause is no network. Saying so beats
         // "transport failure", which reads as a bug in the program.
         S::Transport(detail) => UiError::Offline {
-            detail: format!(
-                "Could not reach {where_it_is}. Check your connection and try again. \
-                 Nothing has been changed. ({detail})"
-            ),
+            detail: format!("Could not reach Google Drive ({detail})"),
         },
 
         S::RateLimited { retry_after_secs } => UiError::Offline {
             detail: match retry_after_secs {
-                Some(s) => format!(
-                    "Google is asking Vardo to slow down. Try again in about {s} seconds. \
-                     Nothing has been changed."
-                ),
-                None => "Google is asking Vardo to slow down. Try again shortly. \
-                         Nothing has been changed."
-                    .into(),
+                // The wait goes in the headline, not the parenthetical: the UI
+                // folds parentheses away, and "how long" is the only thing the
+                // user actually wants from this message.
+                Some(s) => format!("Rate limited by Google, retry in {s}s"),
+                None => "Google is rate limiting Vardo".into(),
             },
         },
 
         S::Other(detail) => UiError::Io {
-            detail: format!("Could not reach {where_it_is}: {detail}"),
+            detail: format!("Could not read {where_it_is} ({detail})"),
         },
     }
 }
@@ -402,8 +393,55 @@ mod remote_failures {
 
     const WHERE: &str = "passwords.kdbx in Google Drive";
 
-    fn text(e: S) -> String {
-        map_sync_error(e, WHERE).to_string()
+    /// The visible part of a message must fit one line in a narrow panel.
+    ///
+    /// This is the rule these messages kept breaking. A four-line paragraph in
+    /// a side panel is a wall, and a wall is not read at the exact moment
+    /// someone is worried about their passwords. Anything longer belongs behind
+    /// the disclosure, which is what the parenthetical becomes in the UI.
+    const ONE_LINE: usize = 48;
+
+    /// What the user actually sees: everything before the technical cause.
+    fn headline(e: S) -> String {
+        let full = map_sync_error(e, WHERE).to_string();
+        match full.find(" (") {
+            Some(i) => full[..i].to_string(),
+            None => full,
+        }
+    }
+
+    #[test]
+    fn every_message_fits_on_one_line() {
+        for e in [
+            S::Transport("dns failure".into()),
+            S::Unauthorized("invalid_grant".into()),
+            S::IdentityLost("new id".into()),
+            S::Other("something odd".into()),
+            S::NotFound,
+            S::RateLimited {
+                retry_after_secs: Some(30),
+            },
+            S::RateLimited {
+                retry_after_secs: None,
+            },
+        ] {
+            let line = headline(e);
+            assert!(
+                line.len() <= ONE_LINE,
+                "must fit one line, got {} chars: {line:?}",
+                line.len()
+            );
+            assert!(!line.contains('\n'), "must be a single line: {line:?}");
+        }
+    }
+
+    #[test]
+    fn the_technical_cause_survives_behind_the_headline() {
+        // Shortening the message must not throw the cause away: it is the only
+        // thing that makes a bug report useful, and it is what told us a space
+        // in a URL was the real problem.
+        let full = map_sync_error(S::Transport("invalid uri character".into()), WHERE).to_string();
+        assert!(full.contains("invalid uri character"), "got: {full}");
     }
 
     #[test]
@@ -415,8 +453,7 @@ mod remote_failures {
         assert!(matches!(err, UiError::Offline { .. }));
 
         // Checking for the bare word "password" would be wrong: the vault is
-        // *called* passwords.kdbx, and naming the file is the whole point of
-        // these messages. What must not appear is a claim about the password.
+        // *called* passwords.kdbx. What must not appear is a claim about it.
         let text = err.to_string().to_lowercase();
         for accusation in [
             "wrong password",
@@ -431,69 +468,27 @@ mod remote_failures {
     }
 
     #[test]
-    fn being_offline_says_nothing_was_changed() {
-        // Without this, the honest question "did my edit get lost?" has no
-        // answer on screen, and the safe assumption a user makes is the wrong
-        // one - they re-enter changes that were never lost.
-        assert!(text(S::Transport("no route to host".into())).contains("Nothing has been changed"));
-    }
-
-    #[test]
-    fn a_revoked_grant_points_at_the_account_not_the_network() {
+    fn a_revoked_grant_points_at_access_not_the_network() {
         let err = map_sync_error(S::Unauthorized("invalid_grant".into()), WHERE);
         assert!(matches!(err, UiError::DriveAuthExpired { .. }));
-        let text = err.to_string().to_lowercase();
         assert!(
-            !text.contains("connection") || text.contains("reconnect"),
-            "must not send the user to check their network: {text}"
+            !err.to_string().to_lowercase().contains("connection"),
+            "must not send the user to check their network: {err}"
         );
     }
 
     #[test]
-    fn a_replaced_file_explains_that_it_is_now_a_different_file() {
-        // This is the failure mode ADR-001 exists to prevent, and if it ever
-        // happens the message has to explain why a file that is plainly still
-        // in Drive cannot be reached.
-        let text = text(S::IdentityLost("new id".into()));
-        assert!(text.contains("replaced"), "got: {text}");
-        assert!(
-            text.contains("Pick it again"),
-            "must offer a way out: {text}"
-        );
+    fn a_replaced_file_says_it_was_replaced() {
+        // The failure ADR-001 exists to prevent. If it ever happens, the
+        // message has to explain why a file plainly still in Drive is dead.
+        assert!(headline(S::IdentityLost("new id".into())).contains("replaced"));
     }
 
     #[test]
     fn rate_limiting_gives_the_wait_when_google_supplies_one() {
-        let text = text(S::RateLimited {
-            retry_after_secs: Some(30),
-        });
-        assert!(text.contains("30"), "got: {text}");
-    }
-
-    #[test]
-    fn rate_limiting_without_a_hint_still_says_what_to_do() {
-        let text = text(S::RateLimited {
-            retry_after_secs: None,
-        });
-        assert!(text.contains("Try again"), "got: {text}");
-    }
-
-    #[test]
-    fn every_message_names_the_file_it_is_about() {
-        // A user with three vaults needs to know which one failed. "Could not
-        // reach the remote" is useless to them.
-        for e in [
-            S::Transport("x".into()),
-            S::Unauthorized("x".into()),
-            S::IdentityLost("x".into()),
-            S::Other("x".into()),
-            S::NotFound,
-        ] {
-            let text = map_sync_error(e, WHERE).to_string();
-            assert!(
-                text.contains("passwords.kdbx"),
-                "message must name the vault, got: {text}"
-            );
-        }
+        assert!(headline(S::RateLimited {
+            retry_after_secs: Some(30)
+        })
+        .contains("30"));
     }
 }

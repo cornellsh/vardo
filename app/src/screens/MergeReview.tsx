@@ -154,9 +154,7 @@ export function MergeReview({ onClose, onMerged }: Props) {
 							color: "var(--window-sub-text-fg)",
 						}}
 					>
-						First sync for this file, so there is no common history to compare
-						against. Nothing will be deleted: an entry only one side has is
-						indistinguishable from one the other side deleted.
+						First sync, so nothing will be deleted.
 					</p>
 				)}
 
