@@ -106,8 +106,8 @@ fn run(failures: &mut i32) -> Result<(), String> {
             },
         );
 
-        let after = Session::open(&source, &ctx, PASSWORD, |_| {})
-            .map_err(|e| format!("reopen: {e}"))?;
+        let after =
+            Session::open(&source, &ctx, PASSWORD, |_| {}).map_err(|e| format!("reopen: {e}"))?;
         let titles: Vec<String> = after
             .list_entries(None, None)
             .into_iter()
@@ -124,8 +124,8 @@ fn run(failures: &mut i32) -> Result<(), String> {
     // ---------------------------------------------------------------------
     println!("\n\x1b[1m2. Sync resolves it, and saving works afterwards\x1b[0m");
     {
-        let mut here = Session::open(&source, &ctx, PASSWORD, |_| {})
-            .map_err(|e| format!("open: {e}"))?;
+        let mut here =
+            Session::open(&source, &ctx, PASSWORD, |_| {}).map_err(|e| format!("open: {e}"))?;
         let group = here.groups().uuid.clone();
         let mine = here.create_entry(&group).map_err(|e| e.to_string())?;
         here.update_entry(&mine, &[field("Title", "after merge")])

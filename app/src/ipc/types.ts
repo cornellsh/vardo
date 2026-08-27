@@ -206,6 +206,19 @@ export interface Ipc {
 	vaultInfo(): Promise<VaultInfo>;
 
 	groups(): Promise<GroupNode>;
+	/**
+	 * Ordering for a listing.
+	 *
+	 * Two, not five. Alphabetical finds something you know the name of; recent
+	 * finds what you were just doing. Every other axis anyone proposes turns
+	 * out to be one of those two.
+	 */
+	listEntriesSorted(
+		group: string | null,
+		query: string | null,
+		sort: "name" | "recent",
+	): Promise<EntrySummary[]>;
+
 	listEntries(opts: { group?: Uuid; query?: string }): Promise<EntrySummary[]>;
 	getEntry(uuid: Uuid): Promise<EntryDetail>;
 

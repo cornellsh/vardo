@@ -328,6 +328,23 @@ export class MockIpc implements Ipc {
 			);
 	}
 
+	async listEntriesSorted(
+		group: string | null,
+		query: string | null,
+		sort: "name" | "recent",
+	): Promise<EntrySummary[]> {
+		const rows = await this.listEntries({
+			...(group ? { group } : {}),
+			...(query ? { query } : {}),
+		});
+		if (sort === "name") return rows;
+		// Name breaks the tie, because an imported vault gives every entry the
+		// same timestamp and an unstable sort would reshuffle on every keystroke.
+		return [...rows].sort(
+			(a, b) => b.modified - a.modified || a.title.localeCompare(b.title),
+		);
+	}
+
 	async getEntry(uuid: Uuid): Promise<EntryDetail> {
 		this.assertUnlocked();
 		const e = ENTRIES.find((x) => x.summary.uuid === uuid);

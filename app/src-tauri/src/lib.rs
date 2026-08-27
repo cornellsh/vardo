@@ -51,6 +51,7 @@ pub fn run() {
             commands::vault_info,
             commands::groups,
             commands::list_entries,
+            commands::list_entries_sorted,
             commands::get_entry,
             commands::copy_field,
             commands::reveal_field,

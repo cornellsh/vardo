@@ -64,6 +64,14 @@ export class TauriIpc implements Ipc {
 		return invoke("groups");
 	}
 
+	listEntriesSorted(
+		group: string | null,
+		query: string | null,
+		sort: "name" | "recent",
+	): Promise<EntrySummary[]> {
+		return invoke("list_entries_sorted", { group, query, sort });
+	}
+
 	listEntries(opts: { group?: Uuid; query?: string }): Promise<EntrySummary[]> {
 		return invoke("list_entries", {
 			group: opts.group ?? null,

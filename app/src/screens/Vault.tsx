@@ -23,6 +23,12 @@ export function Vault({ info, onLock }: Props) {
 	const [groups, setGroups] = useState<GroupNode | null>(null);
 	const [group, setGroup] = useState<Uuid | undefined>(undefined);
 	const [query, setQuery] = useState("");
+	/**
+	 * Remembered for the session. Someone who wants recent-first wants it for
+	 * every group they look at, and resetting it on each click would be a
+	 * setting that never stays set.
+	 */
+	const [sort, setSort] = useState<"name" | "recent">("name");
 	const [rows, setRows] = useState<EntrySummary[]>([]);
 	const [selected, setSelected] = useState<Uuid | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -123,10 +129,11 @@ export function Vault({ info, onLock }: Props) {
 		void (async () => {
 			try {
 				const api = await ipc();
-				const next = await api.listEntries({
-					...(group ? { group } : {}),
-					...(query ? { query } : {}),
-				});
+				const next = await api.listEntriesSorted(
+					group ?? null,
+					query || null,
+					sort,
+				);
 				if (cancelled) return;
 				setRows(next);
 				// Keep the selection only if it survived the filter, so the detail
@@ -145,7 +152,7 @@ export function Vault({ info, onLock }: Props) {
 		return () => {
 			cancelled = true;
 		};
-	}, [group, query, reload]);
+	}, [group, query, sort, reload]);
 
 	useEffect(() => {
 		function onKey(e: KeyboardEvent) {
@@ -245,6 +252,8 @@ export function Vault({ info, onLock }: Props) {
 					onLock={() => onLock("manual")}
 					{...(info.writable ? { onSync: () => { setSaveBlocked(false); setReviewing(true); } } : {})}
 					onSettings={() => setSettings((s) => !s)}
+				location={live.location}
+				remote={live.source.kind === "googleDrive"}
 				/>
 				<EntryList
 					rows={rows}
@@ -252,6 +261,8 @@ export function Vault({ info, onLock }: Props) {
 					error={error}
 					query={query}
 					onQuery={setQuery}
+					sort={sort}
+					onSort={setSort}
 					selected={selected}
 					onSelect={setSelected}
 					{...(info.writable ? { onAdd: () => void addEntry() } : {})}
