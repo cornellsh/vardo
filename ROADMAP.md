@@ -5,8 +5,8 @@
 > effect: once saving moved behind a plain `Session::save`, the command became
 > a `spawn_blocking` wrapper and stopped freezing the window. Remaining:
 > 1.3 (conditional write in the trait) and 3 (non-happy-path messages) are
-> done too. Remaining: 4.1/4.2/4.3 (end-to-end and frontend tests), WebDAV,
-> and 5 (polish).
+> done too, as is 4.1 (end-to-end). Remaining: 4.2 (frontend tests), 4.3
+> (property-based merge testing), WebDAV, and 5 (polish).
 
 Written after Phase D, when the app can read, edit, save and sync real vaults.
 Ordered by what gets **more expensive the longer it waits**, not by what is
@@ -147,10 +147,23 @@ is missing.** That is a smaller job than it looks, and `errorText` plus the
 
 Ranked by risk.
 
-1. **No automated end-to-end test.** Everything about the write and sync paths
-   has been verified by hand. A headless test that unlocks a fixture, edits,
-   saves, mutates the file externally, syncs, and asserts the result would have
-   caught the UUID-format bug and the stale-count bug without a screenshot.
+1. ~~**No automated end-to-end test.**~~ **Done** —
+   `crates/vardo-core/tests/end_to_end.rs`, 9 tests in 1.8s, replacing minutes
+   of driving a window per run. Writing it surfaced three things worth knowing:
+
+   - **Merging is entry-level, not field-level.** The newer version of an entry
+     wins wholesale, including fields the editor never touched — so editing a
+     stale entry reverts the other device's change to a *different* field of
+     it. That is the right trade (field-level merging would assemble a
+     credential that never existed anywhere), and it is survivable only because
+     the loser is archived. Now pinned by a test.
+   - **The sync point is per-device state.** Two sessions sharing a config
+     directory share one sync point and overwrite each other's, which makes
+     them one device with two windows. A convergence test written that way
+     passes or fails for the wrong reasons.
+   - **Same-second edits are conflicts**, so any test whose meaning depends on
+     "A then B" has to space them apart explicitly rather than rely on
+     wall-clock luck. That is the format's limit, not flakiness.
 2. **Zero frontend tests.** No component tests, no logic tests. The dirty/save
    state machine and the merge-review rendering are both worth testing directly.
 3. **No property-based merge testing beyond the chaos suite.** The chaos suite
