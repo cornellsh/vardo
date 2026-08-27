@@ -22,8 +22,10 @@
 
 pub mod backend_config;
 pub mod drive_auth;
+pub mod drive_picker;
 pub mod drive_vaults;
 pub mod entries;
+pub mod favicon;
 pub mod generate;
 pub mod model;
 pub mod recents;

@@ -318,6 +318,14 @@ export interface Ipc {
 	/** Copies a local vault into Drive. The original is left alone. */
 	driveUploadVault(path: string): Promise<VaultSource>;
 
+	/**
+	 * Opens Google's own file picker.
+	 *
+	 * The only way to reach a vault Vardo did not create without asking for
+	 * access to the user's whole Drive. Resolves to null if they close it.
+	 */
+	drivePickVault(): Promise<VaultSource | null>;
+
 	/** Drops a vault from recents without touching the vault. */
 	forgetVault(source: VaultSource): Promise<void>;
 }

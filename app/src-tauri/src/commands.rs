@@ -419,3 +419,45 @@ pub async fn drive_upload_vault(app: tauri::AppHandle, path: String) -> CmdResul
     }
     Ok(source)
 }
+
+/// Opens Google's file picker so the user can hand Vardo an existing vault.
+///
+/// The only way to reach a file Vardo did not create without widening the
+/// scope to the user's whole Drive. Returns `None` if they close it without
+/// choosing, which is an ordinary outcome rather than a failure.
+#[tauri::command]
+pub async fn drive_pick_vault(app: tauri::AppHandle) -> CmdResult<Option<VaultSource>> {
+    let dir = app_dir(&app)?;
+    let client = drive_client().ok_or(CoreError::Unsupported {
+        detail: "this build has no Google client id".into(),
+    })?;
+
+    let pending = tauri::async_runtime::spawn_blocking({
+        let dir = dir.clone();
+        move || vardo_core::drive_picker::begin(&client, &dir)
+    })
+    .await
+    .map_err(|e| CoreError::Io {
+        detail: e.to_string(),
+    })??;
+
+    // The URL also goes to the UI, so the flow is recoverable by copying it if
+    // opening a browser fails - which it does on minimal Linux installs.
+    let _ = open_in_browser(&pending.url);
+    app.emit("drive://picker-url", pending.url.clone())
+        .map_err(|e| CoreError::Io {
+            detail: e.to_string(),
+        })?;
+
+    let picked =
+        tauri::async_runtime::spawn_blocking(move || vardo_core::drive_picker::wait(pending))
+            .await
+            .map_err(|e| CoreError::Io {
+                detail: e.to_string(),
+            })??;
+
+    if let Some(source) = &picked {
+        let _ = vardo_core::recents::remember(&dir, source);
+    }
+    Ok(picked)
+}
