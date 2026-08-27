@@ -14,6 +14,7 @@
 //! [`crate::protocol`] behaves the same way here as against a real provider.
 
 use std::fs;
+use std::io::Write as _;
 use std::path::{Path, PathBuf};
 
 use crate::backend::{RemoteState, Revision, StorageBackend, SyncError, SyncResult};
@@ -129,9 +130,30 @@ impl StorageBackend for LocalFile {
         // Write-then-rename, which is atomic on a real filesystem. It is
         // exactly what breaks on a cloud mount, which is why this backend is
         // documented as local-only.
+        //
+        // The fsync is not ceremony. `rename` being atomic guarantees only that
+        // readers see the old file or the new one — not that the new one's
+        // *contents* reached the disk. Without flushing first, a crash shortly
+        // after can leave the name pointing at a zero-length or partially
+        // written file, and the original is already gone. That is a destroyed
+        // vault, and it is a well-known way to lose data on ext4.
         let temp = self.path.with_extension("kdbx.tmp");
-        fs::write(&temp, bytes).map_err(Self::io)?;
+        {
+            let mut file = fs::File::create(&temp).map_err(Self::io)?;
+            file.write_all(bytes).map_err(Self::io)?;
+            file.sync_all().map_err(Self::io)?;
+        }
         fs::rename(&temp, &self.path).map_err(Self::io)?;
+
+        // And fsync the directory, so the rename itself is durable. Best
+        // effort: some filesystems refuse to open a directory for this, and
+        // failing the save over it would be worse than the risk.
+        if let Some(parent) = self.path.parent() {
+            if let Ok(dir) = fs::File::open(parent) {
+                let _ = dir.sync_all();
+            }
+        }
+
         Ok(Self::state_of(bytes, self.modified()))
     }
 

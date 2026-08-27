@@ -4529,6 +4529,7 @@ dependencies = [
 name = "vardo-app"
 version = "0.0.1"
 dependencies = [
+ "getrandom 0.3.4",
  "serde",
  "serde_json",
  "tauri",
@@ -4598,6 +4599,7 @@ dependencies = [
 name = "vardo-vault"
 version = "0.0.1"
 dependencies = [
+ "getrandom 0.3.4",
  "vardo-kdbx",
  "zeroize",
 ]

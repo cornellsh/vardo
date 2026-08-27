@@ -78,6 +78,15 @@ impl Timestamp {
         }
     }
 
+    /// Reinterprets the same instant in another encoding.
+    ///
+    /// Needed when writing a value into a document whose encoding differs from
+    /// the one it was parsed with: mixing both inside one file produces
+    /// timestamps other clients silently misread.
+    pub fn with_encoding(self, encoding: Encoding) -> Self {
+        Self { encoding, ..self }
+    }
+
     /// Renders in this timestamp's original encoding.
     pub fn to_text(self) -> String {
         match self.encoding {
