@@ -154,14 +154,46 @@ impl VaultSource {
     /// the two produced a message telling someone their intact vault had
     /// vanished.
     pub fn read(&self, ctx: &SourceContext) -> Result<Vec<u8>, CoreError> {
+        self.read_versioned(ctx).map(|(bytes, _)| bytes)
+    }
+
+    /// The bytes, and the stored copy's version at the moment they were read.
+    ///
+    /// The two come back together deliberately. Asking for the version in a
+    /// second call would leave a gap in which exactly the write we care about
+    /// could land unseen, and the check would then report a safety it had not
+    /// established, which is worse than not checking.
+    pub fn read_versioned(
+        &self,
+        ctx: &SourceContext,
+    ) -> Result<(Vec<u8>, Option<String>), CoreError> {
         let where_it_is = self.describe_for_error();
         self.with_backend(ctx, |backend| {
-            backend.read().map(|(bytes, _)| bytes).map_err(|e| match e {
-                vardo_sync::SyncError::NotFound => CoreError::NotFound {
-                    path: where_it_is.clone(),
-                },
-                other => crate::sync::map_sync_error(other, &where_it_is),
-            })
+            backend
+                .read()
+                .map(|(bytes, state)| (bytes, Some(state.version)))
+                .map_err(|e| match e {
+                    vardo_sync::SyncError::NotFound => CoreError::NotFound {
+                        path: where_it_is.clone(),
+                    },
+                    other => crate::sync::map_sync_error(other, &where_it_is),
+                })
+        })
+    }
+
+    /// The stored copy's current version, without downloading it.
+    ///
+    /// Cheap on Drive (one metadata call) and near-free on a file, which is
+    /// what makes it reasonable to check on every save.
+    pub fn current_version(&self, ctx: &SourceContext) -> Result<Option<String>, CoreError> {
+        let where_it_is = self.describe_for_error();
+        self.with_backend(ctx, |backend| match backend.stat() {
+            Ok(state) => Ok(Some(state.version)),
+            // A vault that is not there yet cannot have been changed by anyone
+            // else, so this is not a reason to block a save - it is the first
+            // one.
+            Err(vardo_sync::SyncError::NotFound) => Ok(None),
+            Err(e) => Err(crate::sync::map_sync_error(e, &where_it_is)),
         })
     }
 

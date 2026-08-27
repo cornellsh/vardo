@@ -33,6 +33,8 @@ export function Vault({ info, onLock }: Props) {
 	const [editing, setEditing] = useState(false);
 	const [reload, setReload] = useState(0);
 	const [reviewing, setReviewing] = useState(false);
+	/** Set when the merge screen opened because a save was refused. */
+	const [saveBlocked, setSaveBlocked] = useState(false);
 	const [settings, setSettings] = useState(false);
 	// Starts as what unlock reported and is refreshed after anything that can
 	// change the vault's shape.
@@ -46,6 +48,16 @@ export function Vault({ info, onLock }: Props) {
 			setDirty(false);
 			return true;
 		} catch (err) {
+			// A vault changed elsewhere is not a failure and must not read like
+			// one. Nothing is wrong, there is simply a newer copy, and the answer
+			// is the merge screen rather than a message telling someone their
+			// save broke.
+			if ((err as { kind?: string })?.kind === "remote-changed") {
+				setSaveError(null);
+				setSaveBlocked(true);
+				setReviewing(true);
+				return false;
+			}
 			// The core verifies its own output before replacing anything, so a
 			// failed save means the file on disk is untouched. Say so, because
 			// "save failed" otherwise reads as "your vault may be broken".
@@ -231,7 +243,7 @@ export function Vault({ info, onLock }: Props) {
 					totalEntries={live.entryCount}
 					vaultName={live.name}
 					onLock={() => onLock("manual")}
-					{...(info.writable ? { onSync: () => setReviewing(true) } : {})}
+					{...(info.writable ? { onSync: () => { setSaveBlocked(false); setReviewing(true); } } : {})}
 					onSettings={() => setSettings((s) => !s)}
 				/>
 				<EntryList
@@ -288,10 +300,15 @@ export function Vault({ info, onLock }: Props) {
 						style={{ minWidth: "var(--column-min-third)" }}
 					>
 						<MergeReview
-							onClose={() => setReviewing(false)}
+							{...(saveBlocked ? { reason: "save-blocked" as const } : {})}
+							onClose={() => {
+								setSaveBlocked(false);
+								setReviewing(false);
+							}}
 							onMerged={() => {
 								// The merge rewrote the vault in place, so everything on
 								// screen is stale.
+								setSaveBlocked(false);
 								setSelected(null);
 								refresh();
 							}}
