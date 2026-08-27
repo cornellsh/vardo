@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef } from "react";
 
 /**
  * Lock after a period with no user input.
@@ -10,38 +10,43 @@ import { useEffect, useRef } from 'react';
  * machine that slept through the window locks on the first tick after waking.
  */
 export function useAutoLock(minutes: number, onLock: () => void) {
-  const deadline = useRef(Date.now() + minutes * 60_000);
-  const fired = useRef(false);
+	const deadline = useRef(Date.now() + minutes * 60_000);
+	const fired = useRef(false);
 
-  useEffect(() => {
-    const extend = () => {
-      deadline.current = Date.now() + minutes * 60_000;
-    };
+	useEffect(() => {
+		const extend = () => {
+			deadline.current = Date.now() + minutes * 60_000;
+		};
 
-    const events = ['pointerdown', 'keydown', 'wheel', 'pointermove'] as const;
-    for (const e of events) window.addEventListener(e, extend, { passive: true });
+		const events = ["pointerdown", "keydown", "wheel", "pointermove"] as const;
+		for (const e of events)
+			window.addEventListener(e, extend, { passive: true });
 
-    const tick = window.setInterval(() => {
-      if (!fired.current && Date.now() >= deadline.current) {
-        fired.current = true;
-        onLock();
-      }
-    }, 1000);
+		const tick = window.setInterval(() => {
+			if (!fired.current && Date.now() >= deadline.current) {
+				fired.current = true;
+				onLock();
+			}
+		}, 1000);
 
-    // Locking on hide would be hostile — alt-tabbing away is not walking away —
-    // but coming back is a good moment to notice the window elapsed.
-    const onVisible = () => {
-      if (!fired.current && document.visibilityState === 'visible' && Date.now() >= deadline.current) {
-        fired.current = true;
-        onLock();
-      }
-    };
-    document.addEventListener('visibilitychange', onVisible);
+		// Locking on hide would be hostile — alt-tabbing away is not walking away —
+		// but coming back is a good moment to notice the window elapsed.
+		const onVisible = () => {
+			if (
+				!fired.current &&
+				document.visibilityState === "visible" &&
+				Date.now() >= deadline.current
+			) {
+				fired.current = true;
+				onLock();
+			}
+		};
+		document.addEventListener("visibilitychange", onVisible);
 
-    return () => {
-      for (const e of events) window.removeEventListener(e, extend);
-      document.removeEventListener('visibilitychange', onVisible);
-      window.clearInterval(tick);
-    };
-  }, [minutes, onLock]);
+		return () => {
+			for (const e of events) window.removeEventListener(e, extend);
+			document.removeEventListener("visibilitychange", onVisible);
+			window.clearInterval(tick);
+		};
+	}, [minutes, onLock]);
 }

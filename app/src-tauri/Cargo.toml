@@ -1,0 +1,29 @@
+[package]
+name = "vardo-app"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Vardo desktop shell"
+
+[lib]
+name = "vardo_app_lib"
+# Matches the Tauri v2 template. (`rlib` vs `lib` here was not the cause of the
+# duplicate-macro error — that was `pub` commands sharing a module with the
+# Builder; see src/commands.rs.)
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-clipboard-manager = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+vardo-kdbx = { path = "../../crates/vardo-kdbx" }
+vardo-vault = { path = "../../crates/vardo-vault" }
+zeroize = { workspace = true }

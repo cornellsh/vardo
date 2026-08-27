@@ -1,7 +1,7 @@
 # Status
 
-Container, typed view, and merge planning are done. Sync and UI are not
-started.
+Container, typed view, merge planning and sync are done. The desktop app reads
+real vaults end to end; writing from the UI is not started.
 
 Run `./check.sh` — fmt, clippy `-D warnings`, and the full suite. It fails
 loudly rather than printing a total that hides failures, which an earlier
@@ -14,7 +14,7 @@ version of that command did.
 | `vardo-merge` | planning and application, chaos-tested |
 | `vardo-sync` | backends, fake Drive, race protocol |
 | `vardo-drive` | Drive backend + OAuth, tested offline |
-| UI | not started |
+| `vardo-app` | Tauri shell, read-only UI (Phase A) |
 
 ## What works
 
@@ -201,13 +201,71 @@ still need confirming once against live Drive — chief among them that
 file id. They are stated assumptions, not verified facts, and that file exists
 so the distinction stays visible.
 
+## The app
+
+Tauri v2 + React 19 + Base UI, styled as a port of Telegram Desktop — palette,
+13px base, 62px rows, column rules, all taken from tdesktop source rather than
+designed. See `DESIGN.md`.
+
+**Phase A is done and runs against real files.** Unlock with progress, group
+rail with counts, searchable entry list, entry detail with canonical field
+order, copy, reveal, auto-lock. No write paths, so nothing in the UI can damage
+a vault yet. `vardo path/to.kdbx` opens a file directly.
+
+### Secrets do not enter the WebView
+
+JS strings are immutable, the engine may copy them during GC, and there is no
+`zeroize` — so once a password becomes a JS string we permanently lose the
+ability to say when it stops existing. The unlocked vault therefore stays in
+Rust:
+
+- `list_entries` / `get_entry` return metadata only. A protected field
+  serialises as `{key, protected: true}` with the `value` key **absent**, so no
+  shape of the type can carry a secret.
+- `copy_field` moves the value Rust → clipboard and returns only the auto-clear
+  delay, which is conditional: if the clipboard no longer holds what we wrote,
+  wiping it would destroy the user's own copy.
+- `reveal_field` is the single deliberate exception, and exists only because
+  rendering a password otherwise means drawing text outside the WebView.
+
+Capabilities are enumerated rather than `core:default` — five permissions, each
+one the UI provably uses.
+
+### Contrast is enforced, not claimed
+
+Telegram's palette is not APCA-verified and fails WCAG AA in many places.
+`app/scripts/contrast.mjs` parses `tokens.css`, resolves `var()` chains and
+checks 38 real foreground/background pairs across both themes; it runs in
+`check.sh`. It caught nine failures that reading the palette by eye had missed
+— every hover state, and the focus ring at 2.67:1 on white, below even the 3:1
+floor for non-text UI. Deviations are hue-preserving, solved against the
+worst-case background, and recorded beside each token with the measured ratio.
+
+Telegram brightens buttons on hover, which drops white text under AA. Ours
+darken instead.
+
 ## Next
 
-1. **UI** — Tauri v2 (see `ADR-002-ui-toolkit.md`). Everything below it is now
-   boring, which was the point.
-2. Run the contract tests once a throwaway Google account exists.
-3. Distribution: Ed25519 updater signing, Apple notarisation, Azure Trusted
+1. **Phase B** — global-hotkey quick-access overlay.
+2. **Phase C** — write paths: edit, create, delete, move, generator,
+   attachments, history. Persisted recents.
+3. Run the contract tests once a throwaway Google account exists.
+4. Distribution: Ed25519 updater signing, Apple notarisation, Azure Trusted
    Signing.
+
+## Building the app
+
+```sh
+cd app && npm install
+npm run tauri dev          # or: cargo run -p vardo-app -- some.kdbx
+```
+
+Linux needs `webkit2gtk-4.1` (GTK3). Tauri does not support `webkitgtk-6.0`.
+
+One trap worth knowing: the Vite dev server intermittently serves a **stale or
+empty** module after rapid edits, which presents as a blank window or a
+missing export. Restarting it with `rm -rf node_modules/.vite` is the fix — it
+is not a code fault, and it cost real time to diagnose twice.
 
 ## Reading order
 
@@ -216,3 +274,5 @@ so the distinction stays visible.
 - `ADR-001-sync.md` — sync architecture (supersedes `CRITIQUE.md` §3.1)
 - `PHASE0-FINDINGS.md` — why we wrote the container layer, with evidence
 - `fuzz/README.md` — what fuzzing found
+- `UI-PLAN.md` — screens and build order
+- `DESIGN.md` — the Telegram port: palette, metrics, deviations
