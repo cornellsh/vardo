@@ -97,6 +97,18 @@ pub fn groups(state: tauri::State<'_, AppState>) -> CmdResult<GroupNode> {
 }
 
 #[tauri::command]
+pub fn list_entries_sorted(
+    state: tauri::State<'_, AppState>,
+    group: Option<String>,
+    query: Option<String>,
+    sort: String,
+) -> CmdResult<Vec<EntrySummary>> {
+    with_session(&state, |s| {
+        Ok(s.list_entries_sorted(group.as_deref(), query.as_deref(), &sort))
+    })
+}
+
+#[tauri::command]
 pub fn list_entries(
     state: tauri::State<'_, AppState>,
     group: Option<String>,

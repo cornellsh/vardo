@@ -1,5 +1,6 @@
 import type { GroupNode, Uuid } from "../ipc";
 import { useRipple } from "./Ripple";
+import { DriveLogo } from "./DriveLogo";
 
 interface Props {
 	root: GroupNode | null;
@@ -8,6 +9,10 @@ interface Props {
 	/** Whole-vault count, used for "All entries". */
 	totalEntries: number;
 	vaultName: string;
+	/** Where the vault lives, in words. "Google Drive", or the folder. */
+	location: string;
+	/** True for a vault in Drive, which gets its mark rather than a folder. */
+	remote: boolean;
 	onLock: () => void;
 	/** Absent on a read-only database, so no button that always fails. */
 	onSync?: () => void;
@@ -28,6 +33,8 @@ export function GroupRail({
 	onLock,
 	onSync,
 	onSettings,
+	location,
+	remote,
 }: Props) {
 	return (
 		<nav
@@ -43,12 +50,27 @@ export function GroupRail({
 				className="flex items-center justify-between px-3"
 				style={{ height: "54px", borderBottom: "1px solid var(--shadow-fg)" }}
 			>
-				<span
-					className="truncate font-semibold text-[var(--window-bold-fg)]"
-					title={vaultName}
-				>
-					{vaultName}
-				</span>
+				{/* The name alone said nothing about which copy you were looking
+				    at. With a vault in Drive and one on disk that can share a
+				    filename, "which one is this" is a question the title bar
+				    should answer without being asked. */}
+				<div className="flex min-w-0 items-center gap-2">
+					{remote && <DriveLogo size={18} />}
+					<div className="min-w-0">
+						<div
+							className="truncate font-semibold text-[var(--window-bold-fg)]"
+							title={vaultName}
+						>
+							{vaultName}
+						</div>
+						<div
+							className="truncate text-[12px] text-[var(--window-sub-text-fg)]"
+							title={location}
+						>
+							{location}
+						</div>
+					</div>
+				</div>
 				<div className="flex shrink-0 items-center gap-0.5">
 					{onSync && (
 						<button

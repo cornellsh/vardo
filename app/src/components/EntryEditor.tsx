@@ -208,8 +208,12 @@ export function EntryEditor({ entry, onSaved, onCancel }: Props) {
 				>
 					Cancel
 				</button>
+				{/* "to disk" was wrong for half of them: a vault in Drive has no
+				    disk here at all. The distinction that matters is the one this
+				    now makes - Apply changes the open vault, saving writes it back
+				    to wherever it came from. */}
 				<span className="ml-auto text-[var(--window-sub-text-fg)] text-[12px]">
-					Changes are written to disk when you save.
+					Apply keeps this in the open vault. Save stores it.
 				</span>
 			</div>
 		</form>
@@ -225,12 +229,14 @@ function Row({
 }) {
 	return (
 		<div className="mb-3">
+			{/* Not shouted. Uppercase tracking-wide headers are the iOS settings
+			    idiom, and next to a detail panel that had already dropped them
+			    this made editing look like a different application. */}
 			<div
-				className="mb-1 font-semibold uppercase"
+				className="mb-1"
 				style={{
 					color: "var(--window-sub-text-fg)",
-					fontSize: "11px",
-					letterSpacing: "0.04em",
+					fontSize: "12px",
 				}}
 			>
 				{label}

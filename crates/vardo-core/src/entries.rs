@@ -58,7 +58,36 @@ fn node_of(g: Group<'_>) -> GroupNode {
     }
 }
 
+/// How to order a listing.
+///
+/// Two orders, not five. Alphabetical is how you find something you already
+/// know the name of; recent is how you find what you were just doing. Every
+/// other axis anyone proposes turns out to be one of those two.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Sort {
+    Name,
+    Recent,
+}
+
+impl Sort {
+    pub fn parse(text: &str) -> Self {
+        match text {
+            "recent" => Self::Recent,
+            _ => Self::Name,
+        }
+    }
+}
+
 pub fn list(vault: &Vault, group: Option<&str>, query: Option<&str>) -> Vec<EntrySummary> {
+    list_sorted(vault, group, query, Sort::Name)
+}
+
+pub fn list_sorted(
+    vault: &Vault,
+    group: Option<&str>,
+    query: Option<&str>,
+    sort: Sort,
+) -> Vec<EntrySummary> {
     let needle = query
         .map(str::trim)
         .filter(|q| !q.is_empty())
@@ -78,12 +107,24 @@ pub fn list(vault: &Vault, group: Option<&str>, query: Option<&str>) -> Vec<Entr
         })
         .collect();
 
-    rows.sort_by(|a, b| {
-        a.title
-            .to_lowercase()
-            .cmp(&b.title.to_lowercase())
-            .then(b.modified.cmp(&a.modified))
-    });
+    match sort {
+        // Newest within a name, so repeated entries for one site read as a
+        // history rather than an arbitrary shuffle.
+        Sort::Name => rows.sort_by(|a, b| {
+            a.title
+                .to_lowercase()
+                .cmp(&b.title.to_lowercase())
+                .then(b.modified.cmp(&a.modified))
+        }),
+        // Name breaks the tie, because a vault imported in one go gives every
+        // entry the same timestamp and an unstable order would then reshuffle
+        // the list on every keystroke.
+        Sort::Recent => rows.sort_by(|a, b| {
+            b.modified
+                .cmp(&a.modified)
+                .then(a.title.to_lowercase().cmp(&b.title.to_lowercase()))
+        }),
+    }
     rows
 }
 

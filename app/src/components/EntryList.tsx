@@ -10,6 +10,8 @@ interface Props {
 	error: string | null;
 	query: string;
 	onQuery: (q: string) => void;
+	sort: "name" | "recent";
+	onSort: (s: "name" | "recent") => void;
 	selected: Uuid | null;
 	onSelect: (uuid: Uuid) => void;
 	/** Absent on a read-only database, which hides the button entirely rather
@@ -24,6 +26,8 @@ export function EntryList({
 	error,
 	query,
 	onQuery,
+	sort,
+	onSort,
 	selected,
 	onSelect,
 	onAdd,
@@ -122,6 +126,38 @@ export function EntryList({
 						color: "var(--window-fg)",
 					}}
 				/>
+				{/* Ordering, as a two-state toggle rather than a menu.
+				    There are only two useful orders and a dropdown for two
+				    options costs a click to discover what it even contains. */}
+				<button
+					type="button"
+					onClick={() => onSort(sort === "name" ? "recent" : "name")}
+					title={
+						sort === "name"
+							? "Sorted by name. Switch to most recent."
+							: "Sorted by most recent. Switch to name."
+					}
+					aria-label={
+						sort === "name" ? "Sorted by name" : "Sorted by most recent"
+					}
+					className="ml-1 flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors"
+					style={{
+						color: "var(--window-sub-text-fg)",
+						transitionDuration: "var(--duration-universal)",
+					}}
+				>
+					{sort === "name" ? (
+						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+							<path d="M6 4v16M6 20l-3-3M6 20l3-3" />
+							<path d="M13 6h8M13 12h6M13 18h4" />
+						</svg>
+					) : (
+						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+							<circle cx="12" cy="12" r="8" />
+							<path d="M12 8v4l3 2" />
+						</svg>
+					)}
+				</button>
 				{onAdd && (
 					<button
 						type="button"
@@ -199,13 +235,21 @@ export function EntryList({
 /** Real vaults contain untitled entries; they are not an error. */
 const UNTITLED = "Untitled";
 
+/**
+ * A compact age for the right edge of a row.
+ *
+ * The weeks step is not decoration. Without it anything between eight and
+ * twenty-nine days old divided to zero months and rendered as "0mo", which is
+ * both wrong and unmistakably a bug to anyone who notices it.
+ */
 function relative(ms: number): string {
 	const days = Math.floor((Date.now() - ms) / 86_400_000);
 	if (days <= 0) return "today";
-	if (days === 1) return "yesterday";
+	if (days === 1) return "1d";
 	if (days < 7) return `${days}d`;
-	if (days < 365) return `${Math.floor(days / 30)}mo`;
-	return `${Math.floor(days / 365)}y`;
+	if (days < 30) return `${Math.floor(days / 7)}w`;
+	if (days < 365) return `${Math.max(1, Math.floor(days / 30))}mo`;
+	return `${Math.max(1, Math.floor(days / 365))}y`;
 }
 
 function Row({

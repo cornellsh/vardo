@@ -283,6 +283,15 @@ impl Session {
         entries::list(&self.vault, group, query)
     }
 
+    pub fn list_entries_sorted(
+        &self,
+        group: Option<&str>,
+        query: Option<&str>,
+        sort: &str,
+    ) -> Vec<EntrySummary> {
+        entries::list_sorted(&self.vault, group, query, entries::Sort::parse(sort))
+    }
+
     pub fn entry(&self, uuid: &str) -> Result<EntryDetail, CoreError> {
         entries::detail(&self.vault, uuid).ok_or(CoreError::NotFound {
             path: uuid.to_string(),
