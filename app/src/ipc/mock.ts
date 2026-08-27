@@ -26,6 +26,15 @@ import type {
 
 const DEMO_PASSWORD = "demopass";
 
+/** Matches what `storage_risk::assess` reports for a real rclone mount. */
+const MOCK_STORAGE_WARNING = {
+	kind: "fuse",
+	explanation:
+		'This vault is on a userspace mount (rclone). Saving relies on an atomic rename, which userspace mounts often cannot provide — the usual result is a forked copy like "vault (1).kdbx" or a save that silently lands on a stale version.',
+	remedy:
+		"Move the vault to ordinary local storage and let Vardo sync it through the provider's API instead. Vardo can then merge properly rather than racing a background daemon.",
+} as const;
+
 /**
  * Deterministic PRNG, so the mock vault is identical between reloads.
  *
@@ -229,6 +238,9 @@ export class MockIpc implements Ipc {
 			entryCount: ENTRIES.length,
 			format: "KDBX 4.0",
 			writable: true,
+			// The reference vault really is on an rclone mount, so the mock
+			// reproduces the warning rather than the tidy case.
+			storageWarning: MOCK_STORAGE_WARNING,
 		};
 	}
 
@@ -245,6 +257,7 @@ export class MockIpc implements Ipc {
 		return {
 			name: "passwords",
 			path: "/home/user/GoogleDrive/passwords.kdbx",
+			storageWarning: MOCK_STORAGE_WARNING,
 			entryCount: ENTRIES.length,
 			format: "KDBX 4.0",
 			writable: true,

@@ -158,9 +158,7 @@ export function MergeReview({ onClose, onMerged }: Props) {
 
 				{preview && preview.conflicts.length > 0 && (
 					<section className="mb-5">
-						<Heading>
-							Needs a decision · {preview.conflicts.length}
-						</Heading>
+						<Heading>Needs a decision · {preview.conflicts.length}</Heading>
 						{preview.conflicts.map((c) => (
 							<Item
 								key={`${c.kind}-${c.title}`}
@@ -214,7 +212,9 @@ export function MergeReview({ onClose, onMerged }: Props) {
 
 				{preview && preview.changes.length > 0 && (
 					<section>
-						<Heading>Will apply automatically · {preview.changes.length}</Heading>
+						<Heading>
+							Will apply automatically · {preview.changes.length}
+						</Heading>
 						{preview.changes.map((c) => (
 							<Item
 								key={`${c.kind}-${c.title}`}

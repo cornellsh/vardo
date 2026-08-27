@@ -17,6 +17,8 @@ pub mod backend;
 pub mod fake;
 pub mod local;
 pub mod protocol;
+pub mod storage_risk;
 
 pub use backend::{RemoteState, Revision, StorageBackend, SyncError, SyncResult};
 pub use protocol::{sync, Options, Outcome, SyncPoint, SyncReport};
+pub use storage_risk::StorageRisk;

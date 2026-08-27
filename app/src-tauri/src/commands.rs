@@ -70,6 +70,7 @@ pub async fn open_vault(
         entry_count: vault.entries().len(),
         format: format!("KDBX {}.{}", doc.version().major, doc.version().minor),
         writable: vault.is_writable(),
+        storage_warning: storage_warning(std::path::Path::new(&path)),
     };
 
     *state.open.lock().unwrap() = Some(Opened {
@@ -79,6 +80,25 @@ pub async fn open_vault(
         dirty: false,
     });
     Ok(info)
+}
+
+/// Checked at unlock rather than at save, because the first save is already too
+/// late: by then the user has typed a password into a file the sync daemon may
+/// be about to fork.
+fn storage_warning(path: &std::path::Path) -> Option<crate::model::StorageWarning> {
+    use vardo_sync::StorageRisk;
+    let risk = vardo_sync::storage_risk::assess(path);
+    let kind = match &risk {
+        StorageRisk::Local => return None,
+        StorageRisk::Fuse { .. } => "fuse",
+        StorageRisk::Network { .. } => "network",
+        StorageRisk::NameSuggestsSync { .. } => "name",
+    };
+    Some(crate::model::StorageWarning {
+        kind: kind.into(),
+        explanation: risk.explain(),
+        remedy: risk.remedy().to_string(),
+    })
 }
 
 #[tauri::command]

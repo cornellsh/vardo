@@ -13,6 +13,18 @@ pub struct VaultInfo {
     pub entry_count: usize,
     pub format: String,
     pub writable: bool,
+    /// Present when the vault lives somewhere that can corrupt it. Surfaced at
+    /// unlock rather than at save, so it is seen before the first write.
+    pub storage_warning: Option<StorageWarning>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StorageWarning {
+    /// fuse | network | name
+    pub kind: String,
+    pub explanation: String,
+    pub remedy: String,
 }
 
 #[derive(Debug, Serialize)]
