@@ -233,3 +233,12 @@ fn app_dir(app: &tauri::AppHandle) -> CmdResult<std::path::PathBuf> {
         detail: format!("no config directory: {e}"),
     })
 }
+
+/// The current one-time code for an entry, or `None` if it has no seed.
+#[tauri::command]
+pub fn totp(
+    state: tauri::State<'_, AppState>,
+    uuid: String,
+) -> CmdResult<Option<vardo_core::model::TotpCode>> {
+    with_session(&state, |s| s.totp(&uuid))
+}

@@ -27,6 +27,8 @@ export function Unlock({ onUnlocked, lockedReason }: Props) {
 	const [password, setPassword] = useState("");
 	const [phase, setPhase] = useState<UnlockPhase | null>(null);
 	const [error, setError] = useState<string | null>(null);
+	/** Bumped on every failure, to re-trigger the shake. */
+	const [shakeKey, setShakeKey] = useState(0);
 	const passwordRef = useRef<HTMLInputElement>(null);
 
 	const busy = phase !== null;
@@ -76,6 +78,7 @@ export function Unlock({ onUnlocked, lockedReason }: Props) {
 			);
 			setPassword("");
 			setPhase(null);
+			setShakeKey((k) => k + 1);
 			passwordRef.current?.focus();
 		}
 	}
@@ -151,7 +154,18 @@ export function Unlock({ onUnlocked, lockedReason }: Props) {
 							? "var(--attention-button-fg)"
 							: "color-mix(in srgb, var(--window-sub-text-fg) 35%, transparent)",
 						color: "var(--window-fg)",
+						transitionDuration: "var(--duration-universal)",
+						// A rejected password shakes the field, which is what every
+						// lock screen worth using does: it says "try again" without
+						// making you read anything. `shakeDuration: 300` from
+						// lib_ui/ui/basic.style. Keyed on `shakeKey` so a second
+						// wrong attempt restarts the animation rather than being
+						// swallowed because the class never changed.
+						animation: error
+							? "shake var(--duration-shake) var(--ease-sine-in-out)"
+							: undefined,
 					}}
+					key={shakeKey}
 				/>
 
 				<div aria-live="polite" className="min-h-[20px] pt-2 text-center">

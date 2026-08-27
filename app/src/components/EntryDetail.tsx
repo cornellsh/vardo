@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { ipc } from "../ipc";
 import type { EntryDetail, Uuid } from "../ipc";
 import { EntryEditor } from "./EntryEditor";
+import { TotpCode } from "./TotpCode";
 
 interface Props {
 	uuid: Uuid | null;
@@ -139,6 +140,8 @@ export function EntryDetailPane({
 						/>
 					) : (
 						<div className="flex-1 overflow-y-auto p-4">
+							<TotpRow uuid={entry.uuid} />
+
 							{entry.fields.map((f) => (
 								<FieldRow key={f.key} uuid={entry.uuid} field={f} />
 							))}
@@ -181,6 +184,57 @@ export function EntryDetailPane({
 				</>
 			)}
 		</section>
+	);
+}
+
+/**
+ * Shown above the fields, because a one-time code is the thing you came for
+ * when an entry has one — burying it under Notes would mean scrolling past the
+ * password every time.
+ */
+function TotpRow({ uuid }: { uuid: Uuid }) {
+	const [present, setPresent] = useState(false);
+
+	useEffect(() => {
+		let cancelled = false;
+		void (async () => {
+			try {
+				const code = await (await ipc()).totp(uuid);
+				if (!cancelled) setPresent(code !== null);
+			} catch {
+				if (!cancelled) setPresent(false);
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, [uuid]);
+
+	if (!present) return null;
+
+	return (
+		<div
+			className="flex items-start gap-2 py-2"
+			style={{ borderBottom: "1px solid var(--shadow-fg)" }}
+		>
+			<div className="min-w-0 flex-1">
+				<SectionLabel>One-time code</SectionLabel>
+				<TotpCode
+					uuid={uuid}
+					onCopy={() => {
+						// Copying the code goes through the same Rust clipboard path
+						// as a password, so it is auto-cleared on the same schedule.
+						void (async () => {
+							try {
+								await (await ipc()).copyField(uuid, "otp");
+							} catch {
+								/* nothing to copy */
+							}
+						})();
+					}}
+				/>
+			</div>
+		</div>
 	);
 }
 

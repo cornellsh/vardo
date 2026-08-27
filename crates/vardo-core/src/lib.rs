@@ -27,6 +27,7 @@ pub mod review;
 pub mod save;
 pub mod session;
 pub mod sync;
+pub mod totp;
 
 pub use session::{CoreError, Session};
 

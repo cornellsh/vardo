@@ -217,3 +217,16 @@ pub struct SyncWarning {
     pub kind: String,
     pub detail: String,
 }
+
+/// A one-time code, ready to display.
+///
+/// Deliberately not the seed. The seed generates every future code and is
+/// stored as a protected field for that reason; only this derived value, which
+/// expires within seconds, crosses the boundary.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TotpCode {
+    pub code: String,
+    pub seconds_remaining: u64,
+    pub period: u64,
+}
