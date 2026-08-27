@@ -26,6 +26,7 @@ conflicts that do not exist.
 - [`ADR-003-frontend-framework.md`](ADR-003-frontend-framework.md) — Svelte vs React, two wrong reasons retracted (superseded)
 - [`ADR-004-base-ui-reversal.md`](ADR-004-base-ui-reversal.md) — reversed to React 19 + Base UI, and why
 - [`ADR-005-backend-strategy.md`](ADR-005-backend-strategy.md) — Drive is a backend, not the architecture
+- [`ROADMAP.md`](ROADMAP.md) — what is wrong now, what is unhandled, and the order to fix it
 - [`PHASE0-FINDINGS.md`](PHASE0-FINDINGS.md) — library decision, with evidence
 - [`fuzz/README.md`](fuzz/README.md) — what fuzzing found
 
