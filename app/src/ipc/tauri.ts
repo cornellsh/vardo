@@ -17,6 +17,7 @@ import type {
 	FieldEdit,
 	GeneratorOptions,
 	ConflictPolicy,
+	DriveStatus,
 	GroupNode,
 	Ipc,
 	SaveResult,
@@ -137,5 +138,19 @@ export class TauriIpc implements Ipc {
 
 	syncApply(policy: ConflictPolicy): Promise<SyncOutcome> {
 		return invoke("sync_apply", { policy });
+	}
+
+	// --- Google Drive ---
+
+	driveStatus(): Promise<DriveStatus> {
+		return invoke("drive_status");
+	}
+
+	driveConnect(): Promise<void> {
+		return invoke("drive_connect");
+	}
+
+	driveDisconnect(): Promise<void> {
+		return invoke("drive_disconnect");
 	}
 }

@@ -230,3 +230,15 @@ pub struct TotpCode {
     pub seconds_remaining: u64,
     pub period: u64,
 }
+
+/// Whether Drive can be used at all, and whether it currently is.
+///
+/// Two flags rather than one, because "this build ships no client id" and "you
+/// have not signed in" are different problems and only one of them is the
+/// user's to fix.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DriveStatus {
+    pub configured: bool,
+    pub connected: bool,
+}

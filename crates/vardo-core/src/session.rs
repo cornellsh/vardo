@@ -50,6 +50,13 @@ pub enum CoreError {
     /// Ran out of space. Called out separately because the answer is different
     /// from every other IO failure, and because the vault on disk is intact.
     OutOfSpace,
+    /// This vault syncs to Drive but no account is connected.
+    DriveNotConnected,
+    /// The Drive grant was revoked or expired. Not a transport failure, so
+    /// "check your connection" would send the user somewhere useless.
+    DriveAuthExpired {
+        detail: String,
+    },
 }
 
 impl std::fmt::Display for CoreError {
@@ -70,6 +77,13 @@ impl std::fmt::Display for CoreError {
             CoreError::OutOfSpace => write!(
                 f,
                 "not enough space to save. The vault on disk is unchanged."
+            ),
+            CoreError::DriveNotConnected => {
+                write!(f, "no Google account is connected")
+            }
+            CoreError::DriveAuthExpired { .. } => write!(
+                f,
+                "the Google Drive connection expired or was revoked. Reconnect to continue."
             ),
         }
     }

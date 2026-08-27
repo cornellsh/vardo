@@ -242,3 +242,82 @@ pub fn totp(
 ) -> CmdResult<Option<vardo_core::model::TotpCode>> {
     with_session(&state, |s| s.totp(&uuid))
 }
+
+// --- Google Drive -----------------------------------------------------------
+
+/// The OAuth client this build ships with.
+///
+/// Supplied at compile time. Absent in a source build, which is why
+/// `drive_status` reports `configured` separately from `connected` - "you have
+/// not signed in" and "this build has no client id" are different problems with
+/// different answers.
+fn drive_client() -> Option<vardo_core::drive_auth::DriveClient> {
+    let id = option_env!("VARDO_CLIENT_ID")?;
+    if id.is_empty() {
+        return None;
+    }
+    Some(vardo_core::drive_auth::DriveClient {
+        client_id: id.to_string(),
+        client_secret: option_env!("VARDO_CLIENT_SECRET").unwrap_or("").to_string(),
+    })
+}
+
+#[tauri::command]
+pub fn drive_status(app: tauri::AppHandle) -> CmdResult<vardo_core::model::DriveStatus> {
+    let dir = app_dir(&app)?;
+    Ok(vardo_core::model::DriveStatus {
+        configured: drive_client().is_some(),
+        connected: vardo_core::drive_auth::is_connected(&dir),
+    })
+}
+
+/// Runs the OAuth flow, opening the user's real browser.
+///
+/// Blocking, because it waits for the redirect. Deliberately not the app's own
+/// WebView: an embedded browser showing a third-party login is
+/// indistinguishable from a phishing page, and the user has no address bar to
+/// check it against.
+#[tauri::command]
+pub async fn drive_connect(app: tauri::AppHandle) -> CmdResult<()> {
+    let dir = app_dir(&app)?;
+    let client = drive_client().ok_or(CoreError::Unsupported {
+        detail: "this build has no Google client id, so Drive cannot be connected".into(),
+    })?;
+
+    let pending = vardo_core::drive_auth::begin(&client)?;
+
+    // Hand the URL to the system browser. If that fails the user still gets it
+    // in the event, so the flow is recoverable by copying it.
+    let _ = open_in_browser(&pending.url);
+    app.emit("drive://authorize-url", pending.url.clone())
+        .map_err(|e| CoreError::Io {
+            detail: e.to_string(),
+        })?;
+
+    tauri::async_runtime::spawn_blocking(move || {
+        vardo_core::drive_auth::complete(&client, pending, &dir)
+    })
+    .await
+    .map_err(|e| CoreError::Io {
+        detail: e.to_string(),
+    })?
+}
+
+#[tauri::command]
+pub fn drive_disconnect(app: tauri::AppHandle) -> CmdResult<()> {
+    vardo_core::drive_auth::disconnect(&app_dir(&app)?)
+}
+
+fn open_in_browser(url: &str) -> std::io::Result<()> {
+    #[cfg(target_os = "linux")]
+    let program = "xdg-open";
+    #[cfg(target_os = "macos")]
+    let program = "open";
+    #[cfg(target_os = "windows")]
+    let program = "explorer";
+
+    std::process::Command::new(program)
+        .arg(url)
+        .spawn()
+        .map(|_| ())
+}
