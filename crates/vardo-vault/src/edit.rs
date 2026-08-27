@@ -61,7 +61,7 @@ impl std::fmt::Display for EditError {
 
 impl std::error::Error for EditError {}
 
-type Result<T> = std::result::Result<T, EditError>;
+pub(crate) type Result<T> = std::result::Result<T, EditError>;
 
 /// A staged edit of one entry.
 ///
@@ -136,6 +136,22 @@ impl EntryEdit<'_> {
     }
 
     /// Marks the entry as expiring, or not.
+    /// Points this entry at a custom icon.
+    ///
+    /// Replaces any existing reference rather than adding a second, because
+    /// KDBX allows exactly one and a duplicate element is the kind of thing
+    /// another client silently drops on its next save.
+    pub fn set_custom_icon_uuid(&mut self, icon: Uuid) {
+        let text = icon.to_base64();
+        if let Some(existing) = self.element.child_mut("CustomIconUUID") {
+            existing.set_text(&text);
+            return;
+        }
+        let mut node = Element::new("CustomIconUUID");
+        node.set_text(&text);
+        append_child(self.element, node);
+    }
+
     pub fn set_expiry(&mut self, at: Option<Timestamp>) {
         let encoding = self.encoding;
         let times = child_or_create(self.element, "Times");
@@ -151,7 +167,7 @@ impl EntryEdit<'_> {
 
 impl Vault {
     /// True when this vault can be written at all.
-    fn require_writable(&self) -> Result<()> {
+    pub(crate) fn require_writable(&self) -> Result<()> {
         if self.is_writable() {
             Ok(())
         } else {
@@ -359,6 +375,14 @@ impl Vault {
             .is_some_and(|g| walk(g, entry))
     }
 
+    /// The `<Meta>` element, for writing.
+    pub(crate) fn meta_mut(&mut self) -> Result<&mut Element> {
+        self.dom
+            .root
+            .child_mut("Meta")
+            .ok_or(EditError::Malformed("no Meta element"))
+    }
+
     fn root_element_mut(&mut self) -> Result<&mut Element> {
         self.dom
             .root
@@ -380,7 +404,7 @@ fn now_unix() -> i64 {
 ///
 /// KDBX UUIDs are opaque identifiers rather than true UUIDs, but stamping the
 /// version and variant bits costs nothing and keeps other tools happy.
-fn random_uuid_bytes() -> [u8; 16] {
+pub(crate) fn random_uuid_bytes() -> [u8; 16] {
     let mut bytes = [0u8; 16];
     getrandom::fill(&mut bytes).expect("system RNG unavailable");
     bytes[6] = (bytes[6] & 0x0f) | 0x40;
@@ -587,7 +611,7 @@ fn take_entry(element: &mut Element, uuid: Uuid) -> Option<Node> {
 
 /// Appends a child, un-collapsing `<Foo/>` and matching sibling indentation so
 /// the document still looks hand-written after an edit.
-fn append_child(parent: &mut Element, child: Element) {
+pub(crate) fn append_child(parent: &mut Element, child: Element) {
     let insert_at = parent
         .children
         .iter()

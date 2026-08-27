@@ -65,9 +65,10 @@ export function VaultPicker({ selected, onSelect, disabled }: Props) {
 	 * screen to show it: the choice was not in recents, so nothing highlighted
 	 * and the click looked like it had done nothing at all.
 	 */
-	const listed = selected && !recents.some((s) => sourceKey(s) === sourceKey(selected))
-		? [selected, ...recents]
-		: recents;
+	const listed =
+		selected && !recents.some((s) => sourceKey(s) === sourceKey(selected))
+			? [selected, ...recents]
+			: recents;
 
 	/** Picking anything closes the Drive panel, so the choice is visible. */
 	function choose(source: VaultSource) {

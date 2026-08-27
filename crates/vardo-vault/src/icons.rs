@@ -12,6 +12,8 @@
 //! icon we already have would be absurd.
 
 use crate::uuid::Uuid;
+use vardo_kdbx::xml::Element;
+
 use crate::{Entry, Vault};
 
 /// A PNG stored in the database, keyed by the UUID entries reference.
@@ -68,6 +70,60 @@ impl Entry<'_> {
             .and_then(|e| e.text().parse().ok())
             .unwrap_or(0)
     }
+}
+
+impl Vault {
+    /// Stores a PNG in `<Meta><CustomIcons>` and points `entry` at it.
+    ///
+    /// Writing into the vault rather than a private cache is the whole point:
+    /// the icon then travels with the file, so it is fetched once ever rather
+    /// than once per device, and KeePassXC and KeePassium render it too. It is
+    /// also exactly where those clients put the icons they download, so this
+    /// is not a Vardo-specific convention being smuggled into the format.
+    pub fn set_custom_icon(&mut self, entry: Uuid, png: &[u8]) -> crate::edit::Result<Uuid> {
+        self.require_writable()?;
+
+        let icon_uuid = Uuid::from_bytes(crate::edit::random_uuid_bytes());
+        let encoded = vardo_kdbx::write::base64_encode(png);
+
+        {
+            let meta = self.meta_mut()?;
+            let icons = child_or_insert(meta, "CustomIcons");
+
+            let mut icon = Element::new("Icon");
+            let mut id = Element::new("UUID");
+            id.set_text(&icon_uuid.to_base64());
+            crate::edit::append_child(&mut icon, id);
+
+            let mut data = Element::new("Data");
+            data.set_text(&encoded);
+            crate::edit::append_child(&mut icon, data);
+
+            crate::edit::append_child(icons, icon);
+        }
+
+        // Done as an ordinary edit so it gets a history record and a modified
+        // timestamp like any other change. An icon appearing without either
+        // would make the entry look untouched to the merge, and a sync could
+        // then discard it in favour of a copy that never had one.
+        let changed = self.update_entry(entry, |e| {
+            e.set_custom_icon_uuid(icon_uuid);
+        })?;
+
+        if !changed {
+            return Err(crate::edit::EditError::NoSuchEntry(entry));
+        }
+        Ok(icon_uuid)
+    }
+}
+
+fn child_or_insert<'a>(parent: &'a mut Element, name: &str) -> &'a mut Element {
+    if parent.child(name).is_none() {
+        crate::edit::append_child(parent, Element::new(name));
+    }
+    parent
+        .child_mut(name)
+        .expect("just inserted when it was absent")
 }
 
 #[cfg(test)]

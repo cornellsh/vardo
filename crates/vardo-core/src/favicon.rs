@@ -60,8 +60,14 @@ pub fn fetch(http: &mut dyn HttpTransport, url: &str) -> Result<Option<FetchedIc
     // apple-touch-icon is always PNG and usually 180px, where /favicon.ico is
     // often a 16px ICO that cannot be stored as a PNG without re-encoding.
     let mut candidates = Vec::new();
-    if let Ok(html) = get(http, &origin, MAX_HTML_BYTES) {
-        candidates.extend(icon_links(&String::from_utf8_lossy(&html), &origin));
+    if let Ok(html) = get(http, &origin, usize::MAX) {
+        // Truncated, not rejected. Rejecting an oversized page threw away every
+        // site whose homepage runs past the cap, which is most large ones -
+        // Airbnb and Stripe both publish perfectly good apple-touch-icons and
+        // both were being skipped because their HTML is bigger than the buffer
+        // I had picked. The link tags live in <head>, so the start is enough.
+        let head = &html[..html.len().min(MAX_HTML_BYTES)];
+        candidates.extend(icon_links(&String::from_utf8_lossy(head), &origin));
     }
     candidates.push(format!("{origin}/apple-touch-icon.png"));
     candidates.push(format!("{origin}/favicon.png"));
@@ -165,7 +171,7 @@ fn icon_links(html: &str, origin: &str) -> Vec<String> {
             continue;
         }
 
-        let Some(href) = attribute(raw, "href") else {
+        let Some(href) = attribute(raw, "href").map(|h| unescape(&h)) else {
             continue;
         };
 
@@ -184,6 +190,20 @@ fn icon_links(html: &str, origin: &str) -> Vec<String> {
 
     found.sort_by_key(|(rank, _)| *rank);
     found.into_iter().map(|(_, url)| url).collect()
+}
+
+/// Undoes the HTML escaping in an attribute value.
+///
+/// `&amp;` is the one that matters and it is everywhere: an icon URL with sizing
+/// parameters is written `?w=180&amp;h=180`, and requesting that literally gets
+/// a 404 or the wrong image. Stripe's icons are served exactly this way.
+fn unescape(text: &str) -> String {
+    text.replace("&amp;", "&")
+        .replace("&#38;", "&")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
 }
 
 fn attribute(tag: &str, name: &str) -> Option<String> {
@@ -289,5 +309,20 @@ mod tests {
     #[test]
     fn a_page_with_no_icon_links_yields_nothing() {
         assert!(icon_links("<html><body>hi</body></html>", "https://example.com").is_empty());
+    }
+
+    #[test]
+    fn an_escaped_ampersand_in_an_icon_url_is_decoded() {
+        // Real sites write sizing parameters this way, and requesting the
+        // literal `&amp;` gets a 404 or the wrong image. Stripe serves its
+        // icons exactly like this, and it was one of the two sites that
+        // silently produced no icon.
+        let html =
+            r#"<link rel="apple-touch-icon" href="https://cdn.example/i.png?w=180&amp;h=180">"#;
+        let links = icon_links(html, "https://example.com");
+        assert_eq!(
+            links.first().map(String::as_str),
+            Some("https://cdn.example/i.png?w=180&h=180")
+        );
     }
 }

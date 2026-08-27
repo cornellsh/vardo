@@ -326,6 +326,18 @@ export interface Ipc {
 	 */
 	drivePickVault(): Promise<VaultSource | null>;
 
+	/**
+	 * Downloads an entry's site icon and stores it in the vault.
+	 *
+	 * Direct from the site, never an aggregator, and written into the vault so
+	 * it happens once ever rather than once per device. Null when the site has
+	 * no usable icon, which is ordinary.
+	 */
+	fetchIcon(uuid: Uuid): Promise<string | null>;
+
+	/** Entries with a web address and no icon yet. */
+	entriesMissingIcons(): Promise<Uuid[]>;
+
 	/** Drops a vault from recents without touching the vault. */
 	forgetVault(source: VaultSource): Promise<void>;
 }

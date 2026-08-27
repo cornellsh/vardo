@@ -698,6 +698,16 @@ export class MockIpc implements Ipc {
 		return this.driveVaults;
 	}
 
+	async fetchIcon(_uuid: Uuid): Promise<string | null> {
+		await delay(700);
+		// A real one-pixel PNG, so the img tag is exercised rather than a stub.
+		return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+	}
+
+	async entriesMissingIcons(): Promise<Uuid[]> {
+		return [];
+	}
+
 	async drivePickVault(): Promise<VaultSource | null> {
 		// Models the real thing: a round trip through the browser, then a file
 		// that was not in the list before because Vardo could not see it.

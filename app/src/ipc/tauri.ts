@@ -168,6 +168,14 @@ export class TauriIpc implements Ipc {
 		return invoke("drive_pick_vault");
 	}
 
+	fetchIcon(uuid: Uuid): Promise<string | null> {
+		return invoke("fetch_icon", { uuid });
+	}
+
+	entriesMissingIcons(): Promise<Uuid[]> {
+		return invoke("entries_missing_icons");
+	}
+
 	forgetVault(source: VaultSource): Promise<void> {
 		return invoke("forget_vault", { source });
 	}

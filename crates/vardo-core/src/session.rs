@@ -475,3 +475,54 @@ fn storage_warning(path: &Path) -> Option<StorageWarning> {
         why: risk.why().to_string(),
     })
 }
+
+impl Session {
+    /// Fetches this entry's site icon and stores it in the vault.
+    ///
+    /// Direct from the site, never an aggregator, and cached in the vault so it
+    /// happens once ever rather than once per device. Returns the data URL when
+    /// something was found; `None` when the site has no usable icon, which is
+    /// common and not worth interrupting anyone about.
+    ///
+    /// Marks the vault dirty, because it genuinely changed. An icon that lived
+    /// only in memory would be re-fetched on every device forever.
+    pub fn fetch_icon(&mut self, uuid: &str) -> Result<Option<String>, CoreError> {
+        let id = entries::parse_uuid(uuid).ok_or(CoreError::NotFound {
+            path: uuid.to_string(),
+        })?;
+
+        let url = entries::find(&self.vault, uuid)
+            .map(|e| e.url())
+            .unwrap_or_default();
+        if url.trim().is_empty() {
+            return Ok(None);
+        }
+
+        let mut http = vardo_drive::ureq_transport::UreqTransport::new();
+        let Some(icon) = crate::favicon::fetch(&mut http, &url)? else {
+            return Ok(None);
+        };
+
+        self.vault.set_custom_icon(id, &icon.png)?;
+        self.dirty = true;
+
+        Ok(Some(format!(
+            "data:image/png;base64,{}",
+            vardo_kdbx::write::base64_encode(&icon.png)
+        )))
+    }
+
+    /// Entries that have a web address and no icon yet.
+    ///
+    /// Exposed so the UI can say how many requests a bulk fetch would make
+    /// before making them, rather than after.
+    pub fn entries_missing_icons(&self) -> Vec<String> {
+        self.vault
+            .entries()
+            .into_iter()
+            .filter(|e| e.custom_icon_uuid().is_none())
+            .filter(|e| crate::favicon::host_of(&e.url()).is_some())
+            .filter_map(|e| e.uuid().map(entries::uuid_text))
+            .collect()
+    }
+}
