@@ -5,6 +5,7 @@ import { EntryList } from "../components/EntryList";
 import { GroupRail } from "../components/GroupRail";
 import { StorageBanner } from "../components/StorageBanner";
 import { useAutoLock } from "../hooks/useAutoLock";
+import { DriveConnect } from "../components/DriveConnect";
 import { MergeReview } from "./MergeReview";
 import { errorText } from "../ipc/error";
 import { ipc } from "../ipc";
@@ -32,6 +33,7 @@ export function Vault({ info, onLock }: Props) {
 	const [editing, setEditing] = useState(false);
 	const [reload, setReload] = useState(0);
 	const [reviewing, setReviewing] = useState(false);
+	const [settings, setSettings] = useState(false);
 	// Starts as what unlock reported and is refreshed after anything that can
 	// change the vault's shape.
 	const [live, setLive] = useState<VaultInfo>(info);
@@ -230,6 +232,7 @@ export function Vault({ info, onLock }: Props) {
 					vaultName={live.name}
 					onLock={() => onLock("manual")}
 					{...(info.writable ? { onSync: () => setReviewing(true) } : {})}
+					onSettings={() => setSettings((s) => !s)}
 				/>
 				<EntryList
 					rows={rows}
@@ -241,7 +244,45 @@ export function Vault({ info, onLock }: Props) {
 					onSelect={setSelected}
 					{...(info.writable ? { onAdd: () => void addEntry() } : {})}
 				/>
-				{reviewing ? (
+				{settings ? (
+				<section
+					aria-label="Settings"
+					className="flex min-w-0 flex-1 flex-col"
+					style={{
+						minWidth: "var(--column-min-third)",
+						background: "var(--window-bg)",
+					}}
+				>
+					<header
+						className="flex shrink-0 items-center px-4"
+						style={{
+							height: "54px",
+							borderBottom: "1px solid var(--shadow-fg)",
+						}}
+					>
+						<h2 className="flex-1 font-semibold text-[15px] text-[var(--window-bold-fg)]">
+							Settings
+						</h2>
+						<button
+							type="button"
+							onClick={() => setSettings(false)}
+							className="cursor-pointer rounded-[var(--button-radius)] px-2 py-1"
+							style={{ color: "var(--window-sub-text-fg)" }}
+						>
+							Close
+						</button>
+					</header>
+					<div
+						className="min-h-0 flex-1 overflow-y-auto p-4"
+						style={{
+							animation:
+								"slide-up var(--duration-slide-wrap) var(--ease-out-circ)",
+						}}
+					>
+						<DriveConnect />
+					</div>
+				</section>
+			) : reviewing ? (
 					<div
 						className="flex min-w-0 flex-1 flex-col"
 						style={{ minWidth: "var(--column-min-third)" }}

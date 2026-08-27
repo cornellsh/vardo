@@ -12,6 +12,7 @@ import type {
 	EntryDetail,
 	EntrySummary,
 	ConflictPolicy,
+	DriveStatus,
 	FieldEdit,
 	GeneratorOptions,
 	GroupNode,
@@ -201,6 +202,7 @@ const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 export class MockIpc implements Ipc {
 	private unlocked = false;
 	private dirty = false;
+	private driveConnected = false;
 
 	async openVault(
 		path: string,
@@ -496,6 +498,26 @@ export class MockIpc implements Ipc {
 
 	async isDirty(): Promise<boolean> {
 		return this.dirty;
+	}
+
+	// --- Google Drive ---
+
+	async driveStatus(): Promise<DriveStatus> {
+		// Configured but not connected, so the browser build shows the state
+		// that actually needs designing.
+		return { configured: true, connected: this.driveConnected };
+	}
+
+	async driveConnect(): Promise<void> {
+		// Modelled slowly on purpose: the real flow waits for a round trip
+		// through the system browser, and the UI has to look sane meanwhile.
+		await delay(2500);
+		this.driveConnected = true;
+	}
+
+	async driveDisconnect(): Promise<void> {
+		await delay(200);
+		this.driveConnected = false;
 	}
 
 	// --- sync ---

@@ -65,6 +65,9 @@ pub fn run() {
             commands::sync_preview,
             commands::sync_apply,
             commands::totp,
+            commands::drive_status,
+            commands::drive_connect,
+            commands::drive_disconnect,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Vardo");

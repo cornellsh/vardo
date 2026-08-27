@@ -132,6 +132,17 @@ export interface GeneratorOptions {
 	excludeAmbiguous: boolean;
 }
 
+/**
+ * Whether Drive can be used at all, and whether it currently is.
+ *
+ * Two flags rather than one: "this build ships no client id" and "you have not
+ * signed in" are different problems, and only one of them is the user's to fix.
+ */
+export interface DriveStatus {
+	configured: boolean;
+	connected: boolean;
+}
+
 export interface TotpCode {
 	code: string;
 	secondsRemaining: number;
@@ -255,6 +266,18 @@ export interface Ipc {
 
 	/** Perform the sync. `policy` decides anything the plan could not resolve. */
 	syncApply(policy: ConflictPolicy): Promise<SyncOutcome>;
+
+	// --- Google Drive ---
+
+	driveStatus(): Promise<DriveStatus>;
+
+	/**
+	 * Run the OAuth flow. Resolves once the browser has come back, so it is
+	 * long-running by nature and the caller must show that it is waiting.
+	 */
+	driveConnect(): Promise<void>;
+
+	driveDisconnect(): Promise<void>;
 }
 
 // --- sync ---
