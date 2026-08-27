@@ -157,6 +157,41 @@ impl StorageBackend for LocalFile {
         Ok(Self::state_of(bytes, self.modified()))
     }
 
+    /// Refuses rather than buries.
+    ///
+    /// The default emulation writes first and discovers afterwards that it
+    /// destroyed somebody's change, then recovers it from the revision
+    /// history. On a local file we can simply look before writing, so the other
+    /// write is never destroyed at all — which is the whole reason
+    /// `write_if_unchanged` exists as a trait method rather than the protocol
+    /// hard-coding Drive's shape.
+    ///
+    /// Honest about what this is not: comparing and then writing is not atomic.
+    /// Another process can still slip in between, and closing that properly
+    /// needs an advisory lock. What it does remove is the guaranteed-destroy
+    /// step, turning a certainty into a narrow race.
+    fn write_if_unchanged(
+        &mut self,
+        bytes: &[u8],
+        expected: &[u8],
+    ) -> SyncResult<crate::backend::WriteOutcome> {
+        let current = fs::read(&self.path).unwrap_or_default();
+
+        // An empty `expected` means "we believe nothing is there yet".
+        let matches = if expected.is_empty() {
+            current.is_empty()
+        } else {
+            current == expected
+        };
+
+        if !matches {
+            return Ok(crate::backend::WriteOutcome::Superseded { buried: current });
+        }
+
+        let state = self.write(bytes)?;
+        Ok(crate::backend::WriteOutcome::Written(state))
+    }
+
     fn revisions(&mut self) -> SyncResult<Vec<Revision>> {
         let Ok(dir) = fs::read_dir(&self.history) else {
             return Ok(Vec::new());

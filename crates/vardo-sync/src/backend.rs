@@ -92,6 +92,18 @@ impl SyncError {
 
 pub type SyncResult<T> = Result<T, SyncError>;
 
+/// What happened to a conditional write.
+#[derive(Debug)]
+pub enum WriteOutcome {
+    /// The write landed and nothing was lost.
+    Written(RemoteState),
+    /// The remote had moved on. `buried` is the content that was there
+    /// instead — either what the write replaced without having seen it (the
+    /// emulated path) or what is there now (a native conditional write that
+    /// refused). Either way it is what has to be merged before trying again.
+    Superseded { buried: Vec<u8> },
+}
+
 /// A place a vault file lives.
 ///
 /// Intentionally small. Everything hard — merging, conflict recovery, retry —
@@ -110,9 +122,54 @@ pub trait StorageBackend {
     /// every other client's reference to the file. That is precisely how
     /// KeePassXC's "safe save" breaks mobile clients.
     ///
-    /// There is no conditional form. The returned state describes what is
-    /// stored *now*, which may already reflect somebody else's write.
+    /// Unconditional. The returned state describes what is stored *now*, which
+    /// may already reflect somebody else's write. Prefer
+    /// [`StorageBackend::write_if_unchanged`], which is what the protocol
+    /// actually calls.
     fn write(&mut self, bytes: &[u8]) -> SyncResult<RemoteState>;
+
+    /// Write, but only if the remote still holds `expected`.
+    ///
+    /// This is the operation the sync protocol is written against, because it
+    /// is the one that is actually safe: a backend that can refuse the write
+    /// never buries anybody's data in the first place.
+    ///
+    /// **Backends that can do this natively should override it.** WebDAV has
+    /// `If-Match` with ETags; S3 has `If-Match` and `If-None-Match`. Both
+    /// collapse this to a single request with a header, and the race window
+    /// closes to zero.
+    ///
+    /// The default below is the *emulation*, for backends that cannot. It is
+    /// the shape Google Drive forces: write first, then look at what you
+    /// replaced, and recover afterwards if it was not what you expected. Drive
+    /// v3 removed `etag` and ignores `If-Match` — confirmed against a live
+    /// account, see `vardo-drive/tests/contract_notes.md` — so there is no
+    /// conditional form to use.
+    ///
+    /// Having the default be the weak version, rather than the trait only
+    /// offering the weak version, is the point: previously every backend
+    /// inherited Drive's limitation whether or not it shared it.
+    fn write_if_unchanged(&mut self, bytes: &[u8], expected: &[u8]) -> SyncResult<WriteOutcome> {
+        let state = self.write(bytes)?;
+
+        // [0] is the write just made; [1] is what it replaced. If that is not
+        // what we merged on top of, somebody wrote in the gap between our read
+        // and our write, and we have just buried it.
+        let revisions = self.revisions()?;
+        let Some(previous) = revisions.get(1) else {
+            return Ok(WriteOutcome::Written(state));
+        };
+        let id = previous.id.clone();
+        let found = self.read_revision(&id)?;
+
+        if found == expected {
+            Ok(WriteOutcome::Written(state))
+        } else {
+            // Recoverable precisely because the buried write is still a
+            // revision. Hand it back so the caller can fold it in.
+            Ok(WriteOutcome::Superseded { buried: found })
+        }
+    }
 
     /// Prior versions, newest first.
     ///

@@ -1,6 +1,13 @@
 # ADR-005: Drive is a backend, not the architecture
 
-**Status**: accepted, and it amends `ADR-001`
+**Status**: accepted and implemented, and it amends `ADR-001`
+
+> **Implemented.** `StorageBackend::write_if_unchanged` is now the operation
+> the protocol calls. Backends that can refuse a write override it; the
+> default body is the write-then-detect emulation Drive forces. `LocalFile`
+> overrides it and therefore never destroys a competing write in the first
+> place — `crates/vardo-sync/tests/conditional_write.rs` asserts exactly that
+> difference. Assumption 1 below has since been confirmed against live Drive.
 **Question**: is Google Drive the right long-term answer for multi-device sync?
 
 ## Short answer
@@ -36,24 +43,28 @@ The trait should express the **strongest** operation and let weak backends
 emulate it, rather than standardising on the weakest:
 
 ```rust
-/// Write only if the remote is still at `expected`.
+/// Write, but only if the remote still holds `expected`.
 ///
-/// Backends with real conditional writes implement this natively. Drive
-/// cannot, and emulates it with the revision walk in `protocol.rs`.
+/// Backends that can do this natively override it. The default body is the
+/// emulation Drive forces: write, then look at what you replaced.
 fn write_if_unchanged(
     &mut self,
     bytes: &[u8],
-    expected: Option<&str>,
-) -> SyncResult<CasOutcome>;
+    expected: &[u8],
+) -> SyncResult<WriteOutcome>;
 ```
 
-`CasOutcome` distinguishes *written* from *precondition failed*, which is the
-distinction the current protocol has to infer. On WebDAV and S3 this collapses
-to one request with a header, and the race window closes to zero rather than
-being detected after the fact.
+`WriteOutcome` distinguishes *written* from *superseded*, which is the
+distinction the protocol previously had to infer for itself. On WebDAV and S3
+this collapses to one request with a header, and the race window closes to zero
+rather than being detected after the fact.
 
-This is not a rewrite. `protocol.rs` keeps the revision walk as Drive's
-implementation of the same method.
+Making the *default* the weak version — rather than the trait only offering the
+weak version — is the whole point. Previously every backend inherited Drive's
+limitation whether or not it shared it.
+
+This was not a rewrite. The revision walk moved verbatim from `protocol.rs`
+into the trait's default body, and the chaos suite passed unchanged.
 
 ## Why not just switch to WebDAV
 

@@ -41,7 +41,7 @@ use vardo_kdbx::{write::Rng, Credentials};
 use vardo_merge::{apply, plan, Applied, ConflictPolicy, MergePlan};
 use vardo_vault::Vault;
 
-use crate::backend::{StorageBackend, SyncError, SyncResult};
+use crate::backend::{StorageBackend, SyncError, SyncResult, WriteOutcome};
 
 /// What both sides agreed on at the last successful sync.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -238,23 +238,29 @@ pub fn sync(
         }
 
         let bytes = local.save_with(creds, rng)?;
-        let version = retry(backend, options, &mut report.retries, |b| b.write(&bytes))?.version;
 
-        // What ended up directly beneath our write? It must be what was head
-        // when we wrote; anything else is a write we never saw and just buried.
-        match clobbered(backend, options, &mut report.retries, &expected_prev)? {
-            None => {
+        // The backend decides how to make this safe. One with a real
+        // conditional write refuses and nothing is buried; one without it
+        // writes, inspects what it replaced, and reports afterwards. The
+        // protocol does not need to know which — that asymmetry belongs to the
+        // backend, not here.
+        let outcome = retry(backend, options, &mut report.retries, |b| {
+            b.write_if_unchanged(&bytes, &expected_prev)
+        })?;
+
+        match outcome {
+            WriteOutcome::Written(state) => {
                 report.outcome = match applied_summary {
                     Some(applied) => Outcome::Merged(Box::new(applied)),
                     None => Outcome::Pushed,
                 };
                 report.point = Some(SyncPoint {
-                    version,
+                    version: state.version,
                     base: bytes,
                 });
                 return Ok(report);
             }
-            Some(unseen) => {
+            WriteOutcome::Superseded { buried: unseen } => {
                 // Recoverable precisely because the write we buried is still a
                 // revision. Fold it in and go again — and next time expect to
                 // be sitting on top of the attempt we just made.
@@ -270,29 +276,11 @@ pub fn sync(
     }
 }
 
-/// Returns the bytes of a write we overwrote without having seen it.
-///
-/// The revision directly beneath ours should be exactly what we merged on top
-/// of. If it is not, somebody wrote in the gap between our read and our write.
-fn clobbered(
-    backend: &mut dyn StorageBackend,
-    options: &Options,
-    retries: &mut u32,
-    expected: &[u8],
-) -> Result<Option<Vec<u8>>, Error> {
-    let revisions = retry(backend, options, retries, |b| b.revisions())?;
-    // [0] is the write we just made; [1] is what it replaced.
-    let Some(previous) = revisions.get(1) else {
-        return Ok(None);
-    };
-    let id = previous.id.clone();
-    let bytes = retry(backend, options, retries, |b| b.read_revision(&id))?;
-    if bytes == expected {
-        Ok(None)
-    } else {
-        Ok(Some(bytes))
-    }
-}
+// The "what did we bury?" check that used to live here is now
+// `StorageBackend::write_if_unchanged`'s default body. It moved because it is
+// a property of storage that cannot refuse a write, not of the protocol — and
+// leaving it here forced every backend to behave as though it shared Drive's
+// limitation. See `ADR-005`.
 
 fn combine(a: Applied, b: Applied) -> Applied {
     Applied {
