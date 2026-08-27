@@ -110,3 +110,35 @@ impl UnlockPhase {
         }
     }
 }
+
+/// One field change in an [`crate::commands::update_entry`] call.
+///
+/// `value: None` means remove the field. That is distinct from `Some("")`,
+/// which means the field exists and is empty — KeePass treats those the same
+/// for standard fields but not for custom ones.
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FieldEdit {
+    pub key: String,
+    pub value: Option<String>,
+    #[serde(default)]
+    pub protected: bool,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GeneratorOptions {
+    pub lowercase: bool,
+    pub uppercase: bool,
+    pub digits: bool,
+    pub symbols: bool,
+    pub exclude_ambiguous: bool,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveResult {
+    pub bytes_written: usize,
+    /// Filename of the rotated backup, if one was made.
+    pub backup: Option<String>,
+}

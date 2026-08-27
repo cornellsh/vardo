@@ -8,8 +8,8 @@
 //! as `commands::x` in `generate_handler!` is the documented arrangement.
 
 use crate::model::{
-    Attachment, CopyResult, EntryDetail, EntrySummary, Field, GroupNode, Times, UnlockPhase,
-    VaultInfo,
+    Attachment, CopyResult, EntryDetail, EntrySummary, Field, FieldEdit, GeneratorOptions,
+    GroupNode, SaveResult, Times, UnlockPhase, VaultInfo,
 };
 use crate::{clipboard, AppState, Opened, UiError};
 
@@ -48,9 +48,12 @@ pub async fn open_vault(
     // hardware. On the async runtime's main thread that would freeze the
     // window, which is precisely the behaviour that makes KeePassXC feel
     // broken, so the derivation goes to a blocking thread.
-    let doc = tauri::async_runtime::spawn_blocking(move || {
+    // Returns the credentials too: saving has to re-derive the key, and
+    // prompting again on every save would be unusable. They stay in a
+    // `Zeroizing` buffer inside `Credentials` and die with `lock_vault`.
+    let (doc, creds) = tauri::async_runtime::spawn_blocking(move || {
         let creds = Credentials::with_password(&password);
-        vardo_kdbx::open(&bytes, &creds)
+        vardo_kdbx::open(&bytes, &creds).map(|doc| (doc, creds))
     })
     .await
     .map_err(|e| UiError::Io {
@@ -72,6 +75,8 @@ pub async fn open_vault(
     *state.open.lock().unwrap() = Some(Opened {
         vault,
         info: info.clone(),
+        creds,
+        dirty: false,
     });
     Ok(info)
 }
@@ -383,4 +388,114 @@ pub fn recent_vaults() -> Vec<String> {
         .filter(|a| std::path::Path::new(a).is_file())
         .take(1)
         .collect()
+}
+
+// --- writing ----------------------------------------------------------------
+
+/// Applies a set of field changes to one entry.
+///
+/// The whole edit is one call so the vault layer can push exactly one history
+/// record: a per-field command would archive a copy per keystroke.
+#[tauri::command]
+pub fn update_entry(
+    state: tauri::State<'_, AppState>,
+    uuid: String,
+    fields: Vec<FieldEdit>,
+) -> CmdResult<bool> {
+    let mut guard = state.open.lock().unwrap();
+    let opened = guard.as_mut().ok_or(UiError::Locked)?;
+    let id = parse_uuid(&uuid)?;
+
+    let changed = opened.vault.update_entry(id, |e| {
+        for f in &fields {
+            match &f.value {
+                Some(value) => e.set_field(&f.key, value, f.protected),
+                None => e.remove_field(&f.key),
+            }
+        }
+    })?;
+
+    opened.dirty |= changed;
+    Ok(changed)
+}
+
+#[tauri::command]
+pub fn create_entry(state: tauri::State<'_, AppState>, group: String) -> CmdResult<String> {
+    let mut guard = state.open.lock().unwrap();
+    let opened = guard.as_mut().ok_or(UiError::Locked)?;
+    let group = parse_uuid(&group)?;
+    let uuid = opened.vault.create_entry(group)?;
+    opened.dirty = true;
+    Ok(uuid.to_base64())
+}
+
+#[tauri::command]
+pub fn delete_entry(state: tauri::State<'_, AppState>, uuid: String) -> CmdResult<String> {
+    let mut guard = state.open.lock().unwrap();
+    let opened = guard.as_mut().ok_or(UiError::Locked)?;
+    let outcome = opened.vault.delete_entry(parse_uuid(&uuid)?)?;
+    opened.dirty = true;
+    Ok(match outcome {
+        vardo_vault::Deletion::Recycled => "recycled".into(),
+        vardo_vault::Deletion::Purged => "purged".into(),
+    })
+}
+
+#[tauri::command]
+pub fn move_entry(state: tauri::State<'_, AppState>, uuid: String, group: String) -> CmdResult<()> {
+    let mut guard = state.open.lock().unwrap();
+    let opened = guard.as_mut().ok_or(UiError::Locked)?;
+    opened
+        .vault
+        .move_entry(parse_uuid(&uuid)?, parse_uuid(&group)?)?;
+    opened.dirty = true;
+    Ok(())
+}
+
+/// Writes the vault to disk, verifying the encoded bytes re-open before
+/// anything is replaced. See `save.rs`.
+#[tauri::command]
+pub fn save_vault(state: tauri::State<'_, AppState>) -> CmdResult<SaveResult> {
+    let mut guard = state.open.lock().unwrap();
+    let opened = guard.as_mut().ok_or(UiError::Locked)?;
+
+    let saved = crate::save::save(
+        &opened.vault,
+        &opened.creds,
+        std::path::Path::new(&opened.info.path),
+    )?;
+
+    opened.dirty = false;
+    Ok(SaveResult {
+        bytes_written: saved.bytes_written,
+        backup: saved.backup.map(|p| {
+            p.file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned()
+        }),
+    })
+}
+
+#[tauri::command]
+pub fn is_dirty(state: tauri::State<'_, AppState>) -> CmdResult<bool> {
+    let guard = state.open.lock().unwrap();
+    Ok(guard.as_ref().map(|o| o.dirty).unwrap_or(false))
+}
+
+/// Generates a password.
+///
+/// Lives in Rust so the generated value can go straight into the vault without
+/// a detour through a JS string, and so it uses the OS CSPRNG rather than
+/// `Math.random`, which is not cryptographically secure and has been the source
+/// of real weak-password bugs in browser-based generators.
+#[tauri::command]
+pub fn generate_password(length: usize, options: GeneratorOptions) -> CmdResult<String> {
+    crate::generate::password(length, &options).map_err(|detail| UiError::Io { detail })
+}
+
+fn parse_uuid(text: &str) -> CmdResult<vardo_vault::Uuid> {
+    vardo_vault::Uuid::parse(text).ok_or(UiError::NotFound {
+        path: text.to_string(),
+    })
 }

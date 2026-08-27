@@ -10,3 +10,5 @@ repository.workspace = true
 [dependencies]
 vardo-kdbx = { path = "../vardo-kdbx" }
 zeroize.workspace = true
+# New entries need UUIDs.
+getrandom.workspace = true

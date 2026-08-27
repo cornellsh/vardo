@@ -26,7 +26,9 @@ use vardo_vault::Vault;
 
 mod clipboard;
 mod commands;
+mod generate;
 mod model;
+mod save;
 
 use model::VaultInfo;
 
@@ -39,6 +41,13 @@ pub struct AppState {
 pub struct Opened {
     pub(crate) vault: Vault,
     pub(crate) info: VaultInfo,
+    /// Held for the session because saving re-derives the key, and prompting
+    /// for the password on every save would be unusable. `Credentials` keeps it
+    /// in a `Zeroizing` buffer, and it dies with `lock_vault`.
+    pub(crate) creds: vardo_kdbx::Credentials,
+    /// Set by any successful edit, cleared by a successful save. Drives the
+    /// "unsaved changes" state in the UI.
+    pub(crate) dirty: bool,
 }
 
 /// Errors as the UI models them.
@@ -83,6 +92,23 @@ impl From<vardo_kdbx::Error> for UiError {
     }
 }
 
+impl From<vardo_vault::EditError> for UiError {
+    fn from(e: vardo_vault::EditError) -> Self {
+        use vardo_vault::EditError as E;
+        match e {
+            E::ReadOnly => UiError::Unsupported {
+                detail: "KDBX 3.1 databases are read-only in Vardo".into(),
+            },
+            E::NoSuchEntry(u) | E::NoSuchGroup(u) => UiError::NotFound {
+                path: u.to_base64(),
+            },
+            other => UiError::Corrupt {
+                detail: other.to_string(),
+            },
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -101,6 +127,13 @@ pub fn run() {
             commands::copy_field,
             commands::reveal_field,
             commands::recent_vaults,
+            commands::update_entry,
+            commands::create_entry,
+            commands::delete_entry,
+            commands::move_entry,
+            commands::save_vault,
+            commands::is_dirty,
+            commands::generate_password,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Vardo");

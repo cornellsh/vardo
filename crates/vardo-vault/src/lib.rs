@@ -24,8 +24,11 @@
 
 #![forbid(unsafe_code)]
 
+pub mod edit;
 pub mod time;
 pub mod uuid;
+
+pub use edit::{Deletion, EditError, EntryEdit};
 
 use vardo_kdbx::protected;
 use vardo_kdbx::xml;
