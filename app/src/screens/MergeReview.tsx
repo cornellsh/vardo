@@ -94,7 +94,9 @@ export function MergeReview({ onClose, onMerged, reason }: Props) {
 			>
 				<div className="min-w-0 flex-1">
 					<h2 className="font-semibold text-[15px] text-[var(--window-bold-fg)]">
-						{reason === "save-blocked" ? "This changed elsewhere" : "Review changes"}
+						{reason === "save-blocked"
+							? "This changed elsewhere"
+							: "Review changes"}
 					</h2>
 					{preview && (
 						<p className="truncate text-[12px] text-[var(--window-sub-text-fg)]">

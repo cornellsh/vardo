@@ -124,6 +124,18 @@ impl Document {
     }
 }
 
+impl Document {
+    /// The bytes of one attachment from the binary pool.
+    ///
+    /// Attachments are user data - a bank statement, an SSH key, the recovery
+    /// codes someone will need exactly once and at the worst moment. Until this
+    /// existed they could be listed but never taken out, which makes a vault a
+    /// place things go to be lost.
+    pub fn binary(&self, index: usize) -> Option<&[u8]> {
+        self.inner.binaries.get(index).map(|b| b.data.as_slice())
+    }
+}
+
 /// Decrypts a KDBX file down to its raw XML payload.
 ///
 /// Authentication is checked before anything is decrypted: the header digest,

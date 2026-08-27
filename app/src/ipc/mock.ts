@@ -138,18 +138,29 @@ interface MockEntry {
 	historyCount: number;
 }
 
-const GROUPS: { uuid: Uuid; name: string }[] = [
+/**
+ * Nested on purpose, and more than two deep.
+ *
+ * A flat mock hid a real bug for weeks: the rail drew only the root's direct
+ * children, so any nested group was invisible, and nothing on screen could
+ * reveal it. Test data that is tidier than real data does not test anything.
+ */
+const GROUPS: { uuid: Uuid; name: string; parent?: Uuid }[] = [
 	{ uuid: "g-root", name: "passwords" },
-	{ uuid: "g-email", name: "Email" },
-	{ uuid: "g-finance", name: "Finance" },
-	{ uuid: "g-infra", name: "Infrastructure" },
-	{ uuid: "g-shopping", name: "Shopping" },
-	{ uuid: "g-gov", name: "Government & Admin" },
-	{ uuid: "g-media", name: "Media" },
-	{ uuid: "g-old", name: "Archive (pre-2015)" },
+	{ uuid: "g-email", name: "Email", parent: "g-root" },
+	{ uuid: "g-finance", name: "Finance", parent: "g-root" },
+	{ uuid: "g-banks", name: "Banks", parent: "g-finance" },
+	{ uuid: "g-cards", name: "Cards", parent: "g-finance" },
+	{ uuid: "g-infra", name: "Infrastructure", parent: "g-root" },
+	{ uuid: "g-servers", name: "Servers", parent: "g-infra" },
+	{ uuid: "g-eu", name: "eu-west", parent: "g-servers" },
+	{ uuid: "g-shopping", name: "Shopping", parent: "g-root" },
+	{ uuid: "g-gov", name: "Government & Admin", parent: "g-root" },
+	{ uuid: "g-media", name: "Media", parent: "g-root" },
+	{ uuid: "g-old", name: "Archive (pre-2015)", parent: "g-root" },
 	// The last two are excluded from entry assignment, so both stay empty.
-	{ uuid: "g-bin", name: "Recycle Bin" },
-	{ uuid: "g-empty", name: "Work — new job" },
+	{ uuid: "g-bin", name: "Recycle Bin", parent: "g-root" },
+	{ uuid: "g-empty", name: "Work — new job", parent: "g-root" },
 ];
 
 const NOW = Date.UTC(2026, 7, 26);
@@ -288,16 +299,19 @@ export class MockIpc implements Ipc {
 		this.assertUnlocked();
 		const countIn = (uuid: Uuid) =>
 			ENTRIES.filter((e) => e.group === uuid).length;
+		const build = (parent: Uuid): GroupNode[] =>
+			GROUPS.filter((g) => g.parent === parent).map((g) => ({
+				uuid: g.uuid,
+				name: g.name,
+				entryCount: countIn(g.uuid),
+				children: build(g.uuid),
+			}));
+
 		return {
 			uuid: "g-root",
 			name: "passwords",
 			entryCount: ENTRIES.length,
-			children: GROUPS.slice(1).map((g) => ({
-				uuid: g.uuid,
-				name: g.name,
-				entryCount: countIn(g.uuid),
-				children: [],
-			})),
+			children: build("g-root"),
 		};
 	}
 
@@ -723,6 +737,19 @@ export class MockIpc implements Ipc {
 
 	async entriesMissingIcons(): Promise<Uuid[]> {
 		return [];
+	}
+
+	async saveAttachment(
+		_uuid: Uuid,
+		_name: string,
+		_dest: string,
+	): Promise<number> {
+		await delay(300);
+		return 4096;
+	}
+
+	async pickSavePath(suggested: string): Promise<string | null> {
+		return `/home/you/Downloads/${suggested}`;
 	}
 
 	async drivePickVault(): Promise<VaultSource | null> {

@@ -499,6 +499,34 @@ impl<'a> Entry<'a> {
             .collect()
     }
 
+    /// The bytes of a named attachment.
+    ///
+    /// KDBX 4 keeps attachments in the inner header's pool and the entry holds
+    /// an index into it. KDBX 3.1 stores them base64 inside `<Meta><Binaries>`,
+    /// so both are tried - a vault Vardo can read but whose attachments it
+    /// pretends do not exist would be a worse lie than refusing to open it.
+    pub fn attachment_bytes(&self, name: &str) -> Option<Vec<u8>> {
+        let index = self
+            .element
+            .children_named("Binary")
+            .find(|b| b.child("Key").map(|k| k.text()).as_deref() == Some(name))
+            .and_then(|b| b.child("Value"))
+            .and_then(|v| v.attr_value("Ref"))
+            .and_then(|r| r.parse::<usize>().ok())?;
+
+        if let Some(binary) = self.vault.binaries.get(index) {
+            return Some(binary.data.clone());
+        }
+
+        // KDBX 3.1: the pool lives in the XML, keyed by an ID attribute.
+        let pool = self.vault.meta()?.child("Binaries")?;
+        let encoded = pool
+            .children_named("Binary")
+            .find(|b| b.attr_value("ID").and_then(|i| i.parse::<usize>().ok()) == Some(index))?
+            .text();
+        vardo_kdbx::base64::decode(encoded.trim())
+    }
+
     /// The group this entry was in before it was last moved, if recorded.
     /// KDBX 4.1 only.
     pub fn previous_parent(&self) -> Option<Uuid> {
