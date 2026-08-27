@@ -170,7 +170,7 @@ fn preview_with(
     creds: &Credentials,
     point: Option<&SyncPoint>,
 ) -> Result<Preview, UiError> {
-    let remote_description = backend.describe();
+    let remote_description = source.describe_for_display();
     let where_it_is = source.describe_for_error();
 
     let mut warnings = Vec::new();

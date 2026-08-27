@@ -34,7 +34,6 @@ export function Unlock({ onUnlocked, lockedReason }: Props) {
 
 	const busy = phase !== null;
 
-
 	useEffect(() => {
 		passwordRef.current?.focus();
 	}, []);
@@ -118,11 +117,7 @@ export function Unlock({ onUnlocked, lockedReason }: Props) {
 				    means anything once you know what it is for, and someone with
 				    two vaults would routinely type the wrong one. */}
 				<div className="mb-4">
-					<VaultPicker
-						selected={source}
-						onSelect={setSource}
-						disabled={busy}
-					/>
+					<VaultPicker selected={source} onSelect={setSource} disabled={busy} />
 				</div>
 
 				{lockedReason === "idle" && !error && (
@@ -213,7 +208,6 @@ export function Unlock({ onUnlocked, lockedReason }: Props) {
 				>
 					{busy ? "Unlocking…" : "Unlock"}
 				</button>
-
 			</form>
 		</div>
 	);
