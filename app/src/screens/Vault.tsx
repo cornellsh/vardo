@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { EntryDetailPane } from "../components/EntryDetail";
 import { EntryList } from "../components/EntryList";
 import { GroupRail } from "../components/GroupRail";
+import { StorageBanner } from "../components/StorageBanner";
 import { useAutoLock } from "../hooks/useAutoLock";
 import { MergeReview } from "./MergeReview";
 import { errorText } from "../ipc/error";
@@ -169,6 +170,8 @@ export function Vault({ info, onLock }: Props) {
 
 	return (
 		<div className="flex h-full flex-col">
+			{live.storageWarning && <StorageBanner warning={live.storageWarning} />}
+
 			{(dirty || saveError) && (
 				<div
 					className="flex shrink-0 items-center gap-3 px-4"
@@ -238,30 +241,30 @@ export function Vault({ info, onLock }: Props) {
 					onSelect={setSelected}
 					{...(info.writable ? { onAdd: () => void addEntry() } : {})}
 				/>
-			{reviewing ? (
-				<div
-					className="flex min-w-0 flex-1 flex-col"
-					style={{ minWidth: "var(--column-min-third)" }}
-				>
-					<MergeReview
-						onClose={() => setReviewing(false)}
-						onMerged={() => {
-							// The merge rewrote the vault in place, so everything on
-							// screen is stale.
-							setSelected(null);
-							refresh();
-						}}
+				{reviewing ? (
+					<div
+						className="flex min-w-0 flex-1 flex-col"
+						style={{ minWidth: "var(--column-min-third)" }}
+					>
+						<MergeReview
+							onClose={() => setReviewing(false)}
+							onMerged={() => {
+								// The merge rewrote the vault in place, so everything on
+								// screen is stale.
+								setSelected(null);
+								refresh();
+							}}
+						/>
+					</div>
+				) : (
+					<EntryDetailPane
+						uuid={selected}
+						writable={info.writable}
+						onChanged={refresh}
+						editing={editing}
+						onEditing={setEditing}
 					/>
-				</div>
-			) : (
-				<EntryDetailPane
-					uuid={selected}
-					writable={info.writable}
-					onChanged={refresh}
-					editing={editing}
-					onEditing={setEditing}
-				/>
-			)}
+				)}
 			</div>
 		</div>
 	);

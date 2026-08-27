@@ -23,9 +23,23 @@ export type Uuid = string;
 /** Milliseconds since the Unix epoch. */
 export type Millis = number;
 
+/**
+ * Present when the vault lives somewhere that can corrupt it — a userspace
+ * mount, a network mount, or a directory a sync daemon watches.
+ *
+ * Reported at unlock rather than at save, because the first save is already too
+ * late.
+ */
+export interface StorageWarning {
+	kind: "fuse" | "network" | "name";
+	explanation: string;
+	remedy: string;
+}
+
 export interface VaultInfo {
 	name: string;
 	path: string;
+	storageWarning: StorageWarning | null;
 	entryCount: number;
 	/** KDBX 3.1 / 4.0 / 4.1 — shown in the UI because it affects sync behaviour. */
 	format: string;
