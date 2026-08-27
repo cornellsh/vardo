@@ -351,6 +351,15 @@ export interface Ipc {
 	/** Entries with a web address and no icon yet. */
 	entriesMissingIcons(): Promise<Uuid[]>;
 
+	/**
+	 * Writes an attachment to a path the user chose. Returns the byte count,
+	 * so the UI can confirm the file is really there rather than assume.
+	 */
+	saveAttachment(uuid: Uuid, name: string, dest: string): Promise<number>;
+
+	/** A save dialog. Null when the user cancels. */
+	pickSavePath(suggested: string): Promise<string | null>;
+
 	/** Drops a vault from recents without touching the vault. */
 	forgetVault(source: VaultSource): Promise<void>;
 }

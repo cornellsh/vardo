@@ -250,10 +250,17 @@ export function Vault({ info, onLock }: Props) {
 					totalEntries={live.entryCount}
 					vaultName={live.name}
 					onLock={() => onLock("manual")}
-					{...(info.writable ? { onSync: () => { setSaveBlocked(false); setReviewing(true); } } : {})}
+					{...(info.writable
+						? {
+								onSync: () => {
+									setSaveBlocked(false);
+									setReviewing(true);
+								},
+							}
+						: {})}
 					onSettings={() => setSettings((s) => !s)}
-				location={live.location}
-				remote={live.source.kind === "googleDrive"}
+					location={live.location}
+					remote={live.source.kind === "googleDrive"}
 				/>
 				<EntryList
 					rows={rows}

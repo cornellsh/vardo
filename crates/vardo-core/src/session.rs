@@ -582,3 +582,59 @@ impl Session {
             .collect()
     }
 }
+
+impl Session {
+    /// Writes an attachment out to a file the user chose.
+    ///
+    /// Attachments are the things people put in a vault precisely because they
+    /// matter: recovery codes, an SSH key, a scan of a passport. Being able to
+    /// see the filename and never the contents makes a vault somewhere data
+    /// goes to be lost.
+    ///
+    /// Returns how many bytes were written, so the caller can confirm the file
+    /// is really there rather than assuming.
+    pub fn save_attachment(&self, uuid: &str, name: &str, dest: &Path) -> Result<usize, CoreError> {
+        let entry = entries::find(&self.vault, uuid).ok_or(CoreError::NotFound {
+            path: uuid.to_string(),
+        })?;
+
+        let bytes = entry
+            .attachment_bytes(name)
+            .ok_or_else(|| CoreError::NotFound {
+                path: name.to_string(),
+            })?;
+
+        // Owner-only from the moment it exists, rather than written first and
+        // tightened after. The gap between those two is short and is exactly
+        // when another process on a shared machine could read it.
+        write_private(dest, &bytes)?;
+        Ok(bytes.len())
+    }
+}
+
+fn write_private(dest: &Path, bytes: &[u8]) -> Result<(), CoreError> {
+    use std::io::Write as _;
+
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt as _;
+        options.mode(0o600);
+    }
+
+    let mut file = options.open(dest).map_err(|e| match e.kind() {
+        std::io::ErrorKind::PermissionDenied => CoreError::Io {
+            detail: format!("Cannot write to {}", dest.display()),
+        },
+        _ => CoreError::Io {
+            detail: e.to_string(),
+        },
+    })?;
+    file.write_all(bytes).map_err(|e| CoreError::Io {
+        detail: e.to_string(),
+    })?;
+    file.sync_all().map_err(|e| CoreError::Io {
+        detail: e.to_string(),
+    })
+}

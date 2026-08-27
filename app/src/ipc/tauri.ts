@@ -9,7 +9,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { open } from "@tauri-apps/plugin-dialog";
+import { open, save } from "@tauri-apps/plugin-dialog";
 
 import type {
 	EntryDetail,
@@ -103,6 +103,15 @@ export class TauriIpc implements Ipc {
 			directory: false,
 			filters: [{ name: "KeePass database", extensions: ["kdbx"] }],
 		});
+		return typeof picked === "string" ? picked : null;
+	}
+
+	saveAttachment(uuid: Uuid, name: string, dest: string): Promise<number> {
+		return invoke("save_attachment", { uuid, name, dest });
+	}
+
+	async pickSavePath(suggested: string): Promise<string | null> {
+		const picked = await save({ defaultPath: suggested });
 		return typeof picked === "string" ? picked : null;
 	}
 

@@ -500,3 +500,18 @@ pub async fn fetch_icon(
 pub fn entries_missing_icons(state: tauri::State<'_, AppState>) -> CmdResult<Vec<String>> {
     with_session(&state, |s| Ok(s.entries_missing_icons()))
 }
+
+/// Writes an attachment to a path the user chose.
+///
+/// Returns the byte count so the UI can confirm rather than assume.
+#[tauri::command]
+pub fn save_attachment(
+    state: tauri::State<'_, AppState>,
+    uuid: String,
+    name: String,
+    dest: String,
+) -> CmdResult<usize> {
+    with_session(&state, |s| {
+        s.save_attachment(&uuid, &name, std::path::Path::new(&dest))
+    })
+}

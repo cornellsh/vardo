@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import type { GroupNode, Uuid } from "../ipc";
 import { useRipple } from "./Ripple";
 import { DriveLogo } from "./DriveLogo";
@@ -36,6 +38,22 @@ export function GroupRail({
 	location,
 	remote,
 }: Props) {
+	/**
+	 * Which branches are open.
+	 *
+	 * Everything starts collapsed. A deep vault would otherwise open to a wall
+	 * of nesting, and the top level is the map people actually navigate by.
+	 */
+	const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+	function toggle(uuid: string) {
+		setExpanded((prev) => {
+			const next = new Set(prev);
+			if (!next.delete(uuid)) next.add(uuid);
+			return next;
+		});
+	}
+
 	return (
 		<nav
 			aria-label="Groups"
@@ -151,17 +169,76 @@ export function GroupRail({
 					active={selected === undefined}
 					onClick={() => onSelect(undefined)}
 				/>
+				{/* The whole tree, not just its first level. Only the root's
+				    direct children were drawn, so anything nested was invisible -
+				    and a vault organised into Work / Clients / Acme simply had no
+				    way to show you Acme. */}
 				{root?.children.map((g) => (
-					<GroupItem
+					<GroupBranch
 						key={g.uuid}
-						name={g.name}
-						count={g.entryCount}
-						active={selected === g.uuid}
-						onClick={() => onSelect(g.uuid)}
+						group={g}
+						depth={0}
+						selected={selected}
+						onSelect={onSelect}
+						expanded={expanded}
+						onToggle={toggle}
 					/>
 				))}
 			</ul>
 		</nav>
+	);
+}
+
+/**
+ * One group and everything under it.
+ *
+ * Recursive rather than flattened, because KDBX nesting has no depth limit and
+ * a hand-unrolled two or three levels is just a lower limit that fails silently
+ * on somebody's fourth.
+ */
+function GroupBranch({
+	group,
+	depth,
+	selected,
+	onSelect,
+	expanded,
+	onToggle,
+}: {
+	group: GroupNode;
+	depth: number;
+	selected: string | undefined;
+	onSelect: (uuid: string | undefined) => void;
+	expanded: Set<string>;
+	onToggle: (uuid: string) => void;
+}) {
+	const hasChildren = group.children.length > 0;
+	const isOpen = expanded.has(group.uuid);
+
+	return (
+		<>
+			<GroupItem
+				name={group.name}
+				count={group.entryCount}
+				active={selected === group.uuid}
+				onClick={() => onSelect(group.uuid)}
+				depth={depth}
+				{...(hasChildren
+					? { open: isOpen, onToggle: () => onToggle(group.uuid) }
+					: {})}
+			/>
+			{isOpen &&
+				group.children.map((child) => (
+					<GroupBranch
+						key={child.uuid}
+						group={child}
+						depth={depth + 1}
+						selected={selected}
+						onSelect={onSelect}
+						expanded={expanded}
+						onToggle={onToggle}
+					/>
+				))}
+		</>
 	);
 }
 
@@ -170,11 +247,17 @@ function GroupItem({
 	count,
 	active,
 	onClick,
+	depth = 0,
+	open,
+	onToggle,
 }: {
 	name: string;
 	count: number;
 	active: boolean;
 	onClick: () => void;
+	depth?: number;
+	open?: boolean;
+	onToggle?: () => void;
 }) {
 	const ripple = useRipple();
 	return (
@@ -187,12 +270,58 @@ function GroupItem({
 				className="relative flex w-full cursor-pointer items-center gap-2 overflow-hidden px-3 text-left"
 				style={{
 					height: "34px",
+					// Indent by depth. 14px is enough to read as hierarchy without
+					// running a deep tree off the edge of a narrow rail.
+					paddingLeft: `${12 + depth * 14}px`,
 					background: active ? "var(--dialogs-bg-active)" : "transparent",
 					color: active ? "var(--window-fg-active)" : "var(--window-bold-fg)",
 					transition: "background-color var(--duration-universal) linear",
 				}}
 			>
 				{ripple.layer}
+				{/* The twist is its own button: expanding a branch and selecting
+				    it are different intentions, and a single control that did
+				    both would make it impossible to look inside a group without
+				    also filtering to it. */}
+				{onToggle ? (
+					<span
+						role="button"
+						tabIndex={-1}
+						aria-label={open ? `Collapse ${name}` : `Expand ${name}`}
+						onClick={(e) => {
+							e.stopPropagation();
+							onToggle();
+						}}
+						onKeyDown={(e) => {
+							if (e.key === "Enter" || e.key === " ") {
+								e.preventDefault();
+								e.stopPropagation();
+								onToggle();
+							}
+						}}
+						className="relative -ml-1 flex h-5 w-4 shrink-0 items-center justify-center"
+						style={{ opacity: 0.7 }}
+					>
+						<svg
+							width="10"
+							height="10"
+							viewBox="0 0 10 10"
+							fill="none"
+							stroke="currentColor"
+							strokeWidth="1.6"
+							strokeLinecap="round"
+							aria-hidden
+							style={{
+								transform: open ? "rotate(90deg)" : "none",
+								transition: "transform var(--duration-universal) ease",
+							}}
+						>
+							<path d="M3.5 1.5L7 5l-3.5 3.5" />
+						</svg>
+					</span>
+				) : (
+					<span className="relative w-3 shrink-0" aria-hidden />
+				)}
 				<span className="relative flex-1 truncate">{name}</span>
 				{/* Empty groups show nothing rather than a zero — a "0" reads as a
             broken count, and an empty group is not an error. */}
