@@ -136,10 +136,7 @@ export function DriveConnect() {
 			)}
 
 			{busy && !status.connected && (
-				<p
-					className="mt-3"
-					style={{ color: "var(--window-active-text-fg)" }}
-				>
+				<p className="mt-3" style={{ color: "var(--window-active-text-fg)" }}>
 					Finish signing in in your browser, then come back here.
 				</p>
 			)}

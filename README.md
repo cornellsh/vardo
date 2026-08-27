@@ -1,11 +1,30 @@
 # Vardo
 
-A KDBX-native password manager for Windows, macOS, and Linux. Syncs via Google
-Drive. Stays byte-compatible with KeePassium on iOS.
+A KDBX-native password manager for Windows, macOS, and Linux. Stays
+byte-compatible with KeePassium on iOS.
 
-**Status:** the app reads, edits, saves and syncs real vaults. See
-[`STATUS.md`](STATUS.md) for what works and [`ROADMAP.md`](ROADMAP.md) for what
-does not.
+A vault can be a file on this machine or a file in Google Drive, and the two
+behave the same everywhere in the app. Drive is reached through its own API
+rather than a synced folder, which is what makes it possible to merge two
+devices that edited at once instead of one silently overwriting the other.
+Other backends are a variant in one enum, not a rewrite.
+
+**Status:** the app reads, edits, saves, syncs and merges real vaults. The Drive
+path is unit-tested and its API assumptions were verified against a live
+account, but the full open-edit-save cycle over Drive has not yet been run
+end to end. See [`STATUS.md`](STATUS.md) for what works and
+[`ROADMAP.md`](ROADMAP.md) for what does not.
+
+### One surprise worth knowing about Drive
+
+Vardo asks for the `drive.file` scope, which lets it see only files it created
+or that you explicitly gave it. It cannot list, read, or touch anything else in
+your Drive, and it cannot be made to.
+
+The cost of that is real and shows up immediately: a vault already sitting in
+your Drive **will not appear** in Vardo's list until you add it once. The
+alternative is requesting read access to your entire Drive in order to populate
+a dropdown, which is not a reasonable thing for a password manager to ask.
 
 ## Running it
 

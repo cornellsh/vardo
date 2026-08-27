@@ -323,3 +323,131 @@ fn the_file_id_is_url_encoded() {
         http.seen[0].url
     );
 }
+
+// --- listing vaults ---------------------------------------------------------
+
+#[test]
+fn listing_returns_only_kdbx_files() {
+    // Drive has no registered MIME type for KDBX, so everything the account
+    // has shared with us comes back and the extension is the only filter. A
+    // list that offered someone's tax return as a vault would be a bug with
+    // real consequences: they would pick it and Vardo would overwrite it.
+    let body = r#"{"files":[
+        {"id":"1","name":"passwords.kdbx","size":"646000","modifiedTime":"2026-08-01T10:00:00.000Z"},
+        {"id":"2","name":"taxes.pdf","size":"12","modifiedTime":"2026-08-01T10:00:00.000Z"},
+        {"id":"3","name":"family.KDBX","size":"900","modifiedTime":"2026-07-01T10:00:00.000Z"}
+    ]}"#;
+    let mut http = MockHttp::new(vec![ok(body)]);
+
+    let (files, _, _) = vardo_drive::drive::list_vaults(&mut http, config(), tokens()).unwrap();
+
+    let names: Vec<_> = files.iter().map(|f| f.name.as_str()).collect();
+    assert_eq!(names, vec!["passwords.kdbx", "family.KDBX"]);
+    assert_eq!(files[0].id, "1");
+    assert_eq!(files[0].size, 646_000);
+    assert!(files[0].modified_unix.is_some());
+}
+
+#[test]
+fn listing_excludes_trashed_files_at_the_query() {
+    // Filtering client-side would still show them for the moment before the
+    // response is parsed, and more importantly would waste the page budget on
+    // files that cannot be used.
+    let mut http = MockHttp::new(vec![ok(r#"{"files":[]}"#)]);
+    let _ = vardo_drive::drive::list_vaults(&mut http, config(), tokens());
+
+    let url = &http.seen[0].url;
+    assert!(
+        url.contains("trashed") && url.contains("false"),
+        "the query must exclude trashed files, got {url}"
+    );
+}
+
+#[test]
+fn an_empty_drive_is_not_an_error() {
+    // This is the normal state for a new user, and under the drive.file scope
+    // it is also the state for someone whose Drive already has a vault Vardo
+    // has never been shown. Returning an error would make the UI say something
+    // went wrong when nothing did.
+    let mut http = MockHttp::new(vec![ok(r#"{"files":[]}"#)]);
+    let (files, _, _) = vardo_drive::drive::list_vaults(&mut http, config(), tokens()).unwrap();
+    assert!(files.is_empty());
+}
+
+#[test]
+fn a_name_containing_braces_does_not_break_the_split() {
+    // The brace-depth scan is only safe because it tracks string state. A file
+    // literally named "{}.kdbx" is legal in Drive and would otherwise desync
+    // the depth counter and silently drop every file after it.
+    let body = r#"{"files":[
+        {"id":"1","name":"{}.kdbx","size":"10","modifiedTime":"2026-08-01T10:00:00.000Z"},
+        {"id":"2","name":"after.kdbx","size":"20","modifiedTime":"2026-08-01T10:00:00.000Z"}
+    ]}"#;
+    let mut http = MockHttp::new(vec![ok(body)]);
+    let (files, _, _) = vardo_drive::drive::list_vaults(&mut http, config(), tokens()).unwrap();
+    assert_eq!(
+        files.len(),
+        2,
+        "the file after the braced name must survive"
+    );
+    assert_eq!(files[1].name, "after.kdbx");
+}
+
+#[test]
+fn creating_a_vault_sends_one_multipart_request() {
+    // Two requests (create metadata, then upload content) would leave a window
+    // where an empty file exists under the vault's name and may already have
+    // synced to the user's other devices.
+    let mut http = MockHttp::new(vec![ok(r#"{"id":"newid123"}"#)]);
+    let (id, _, _) = vardo_drive::drive::create(
+        &mut http,
+        config(),
+        tokens(),
+        "passwords.kdbx",
+        &[0x03, 0xD9, 0xA2, 0x9A],
+    )
+    .unwrap();
+
+    assert_eq!(id, "newid123");
+    assert_eq!(http.seen.len(), 1, "create must be a single request");
+    assert!(http.seen[0].url.contains("uploadType=multipart"));
+
+    let body = String::from_utf8_lossy(&http.seen[0].body);
+    assert!(body.contains(r#""name":"passwords.kdbx""#));
+}
+
+#[test]
+fn a_vault_name_containing_a_quote_is_escaped() {
+    // Legal on every platform Vardo runs on. Interpolated raw it produces a
+    // malformed request and an error message about JSON, which sends the user
+    // looking anywhere but at their filename.
+    let mut http = MockHttp::new(vec![ok(r#"{"id":"x"}"#)]);
+    let _ = vardo_drive::drive::create(
+        &mut http,
+        config(),
+        tokens(),
+        r#"my "old" vault.kdbx"#,
+        &[0x03, 0xD9, 0xA2, 0x9A],
+    );
+
+    let body = String::from_utf8_lossy(&http.seen[0].body);
+    assert!(
+        body.contains(r#""name":"my \"old\" vault.kdbx""#),
+        "quotes must be escaped, got: {body}"
+    );
+}
+
+#[test]
+fn create_reports_a_missing_id_rather_than_inventing_one() {
+    // If Drive ever answers 200 without an id, silently continuing would leave
+    // a vault uploaded and unreachable, with the app pointing at "".
+    let mut http = MockHttp::new(vec![ok(r#"{"kind":"drive#file"}"#)]);
+    let result = vardo_drive::drive::create(
+        &mut http,
+        config(),
+        tokens(),
+        "v.kdbx",
+        &[0x03, 0xD9, 0xA2, 0x9A],
+    );
+    assert!(result.is_err());
+}

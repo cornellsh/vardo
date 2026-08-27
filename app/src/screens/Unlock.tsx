@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 
+import { VaultPicker } from "../components/VaultPicker";
 import { errorText } from "../ipc/error";
 import { ipc } from "../ipc";
-import type { UnlockPhase, VaultInfo } from "../ipc";
+import type { UnlockPhase, VaultInfo, VaultSource } from "../ipc";
 
 interface Props {
 	onUnlocked: (info: VaultInfo) => void;
@@ -23,7 +24,7 @@ const PHASE_LABEL: Record<UnlockPhase["phase"], string> = {
  * difference between "working" and "hung".
  */
 export function Unlock({ onUnlocked, lockedReason }: Props) {
-	const [path, setPath] = useState("");
+	const [source, setSource] = useState<VaultSource | null>(null);
 	const [password, setPassword] = useState("");
 	const [phase, setPhase] = useState<UnlockPhase | null>(null);
 	const [error, setError] = useState<string | null>(null);
@@ -33,16 +34,6 @@ export function Unlock({ onUnlocked, lockedReason }: Props) {
 
 	const busy = phase !== null;
 
-	useEffect(() => {
-		let cancelled = false;
-		void (async () => {
-			const recent = await (await ipc()).recentVaults();
-			if (!cancelled && recent[0]) setPath(recent[0]);
-		})();
-		return () => {
-			cancelled = true;
-		};
-	}, []);
 
 	useEffect(() => {
 		passwordRef.current?.focus();
@@ -50,12 +41,12 @@ export function Unlock({ onUnlocked, lockedReason }: Props) {
 
 	async function submit(e: React.FormEvent) {
 		e.preventDefault();
-		if (busy || !password) return;
+		if (busy || !password || !source) return;
 		setError(null);
 		setPhase({ phase: "reading" });
 		try {
 			const api = await ipc();
-			const info = await api.openVault(path, password, setPhase);
+			const info = await api.openVault(source, password, setPhase);
 			setPassword("");
 			onUnlocked(info);
 		} catch (err) {
@@ -68,13 +59,23 @@ export function Unlock({ onUnlocked, lockedReason }: Props) {
 				kind === "wrong-password"
 					? "Wrong password."
 					: kind === "not-found"
-						? "That file no longer exists."
-						: kind === "unsupported"
-							? `Vardo cannot read this database yet: ${errorText(err)}`
-							: // An unrecognised failure shows its reason rather than a
-								// generic sentence. "Could not open the database" on its own
-								// is untriageable for the user and for us.
-								`Could not open the database: ${errorText(err)}`,
+						? source.kind === "file"
+							? "That file is no longer there. If it is on a removable or network drive, it may just not be mounted."
+							: "That vault is no longer in your Drive. It may have been deleted or moved to the bin."
+						: // Offline and auth failures must never be shown as a wrong
+							// password: the fix is in a different place entirely, and
+							// sending someone to re-check a password that is correct is
+							// the single most frustrating thing this screen can do.
+							kind === "offline"
+							? errorText(err)
+							: kind === "drive-auth-expired"
+								? "Vardo's access to your Google account has expired or was withdrawn. Reconnect it and try again."
+								: kind === "unsupported"
+									? `Vardo cannot read this database yet: ${errorText(err)}`
+									: // An unrecognised failure shows its reason rather than a
+										// generic sentence. "Could not open the database" on its own
+										// is untriageable for the user and for us.
+										`Could not open the database: ${errorText(err)}`,
 			);
 			setPassword("");
 			setPhase(null);
@@ -83,12 +84,6 @@ export function Unlock({ onUnlocked, lockedReason }: Props) {
 		}
 	}
 
-	async function browse() {
-		const picked = await (await ipc()).pickVaultFile();
-		if (picked) setPath(picked);
-	}
-
-	const fileName = path.split("/").pop() ?? "";
 	const progress = phase?.phase === "deriving" ? phase.progress : null;
 
 	return (
@@ -116,14 +111,18 @@ export function Unlock({ onUnlocked, lockedReason }: Props) {
 					<h1 className="text-[20px] font-semibold text-[var(--window-bold-fg)]">
 						Vardo
 					</h1>
-					{fileName && (
-						<p
-							className="mt-1 truncate text-[var(--window-sub-text-fg)]"
-							title={path}
-						>
-							{fileName}
-						</p>
-					)}
+				</div>
+
+				{/* Which vault, before the password. Asking for a password first
+				    and the vault second would be backwards: the password only
+				    means anything once you know what it is for, and someone with
+				    two vaults would routinely type the wrong one. */}
+				<div className="mb-4">
+					<VaultPicker
+						selected={source}
+						onSelect={setSource}
+						disabled={busy}
+					/>
 				</div>
 
 				{lockedReason === "idle" && !error && (
@@ -205,7 +204,7 @@ export function Unlock({ onUnlocked, lockedReason }: Props) {
 
 				<button
 					type="submit"
-					disabled={busy || !password}
+					disabled={busy || !password || !source}
 					className="mt-4 w-full cursor-pointer rounded-[6px] px-3 py-2.5 font-semibold transition-colors disabled:cursor-default disabled:opacity-45"
 					style={{
 						background: "var(--active-button-bg)",
@@ -215,18 +214,6 @@ export function Unlock({ onUnlocked, lockedReason }: Props) {
 					{busy ? "Unlocking…" : "Unlock"}
 				</button>
 
-				<button
-					type="button"
-					onClick={browse}
-					disabled={busy}
-					className="mt-2 w-full cursor-pointer rounded-[6px] px-3 py-2 transition-colors"
-					style={{
-						color: "var(--window-active-text-fg)",
-						background: "transparent",
-					}}
-				>
-					Open another database…
-				</button>
 			</form>
 		</div>
 	);

@@ -8,6 +8,13 @@ use serde::Serialize;
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VaultInfo {
+    /// Where the vault lives. The UI needs this to decide what to offer:
+    /// a local vault can be moved to Drive, a Drive vault can be disconnected,
+    /// and only one of them can be on a suspect mount.
+    pub source: crate::source::VaultSource,
+    /// A second line under the name, in words. "Google Drive", or the
+    /// containing folder.
+    pub location: String,
     pub name: String,
     pub path: String,
     pub entry_count: usize,
@@ -241,4 +248,14 @@ pub struct TotpCode {
 pub struct DriveStatus {
     pub configured: bool,
     pub connected: bool,
+}
+
+/// A vault found in Drive, for the chooser.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DriveVault {
+    pub file_id: String,
+    pub name: String,
+    pub size: u64,
+    pub modified_unix: Option<i64>,
 }

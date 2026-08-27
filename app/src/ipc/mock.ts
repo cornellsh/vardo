@@ -9,6 +9,8 @@
  */
 
 import type {
+	DriveVault,
+	VaultSource,
 	EntryDetail,
 	EntrySummary,
 	ConflictPolicy,
@@ -203,12 +205,25 @@ export class MockIpc implements Ipc {
 	private unlocked = false;
 	private dirty = false;
 	private driveConnected = false;
+	private source: VaultSource | null = null;
+	private recents: VaultSource[] = [
+		{ kind: "file", path: "/vaults/personal.kdbx" },
+		{ kind: "file", path: "/vaults/work.kdbx" },
+	];
+	/**
+	 * Starts empty on purpose. Under the `drive.file` scope a connected account
+	 * with no app-created files is the *expected* first state, and it is the
+	 * one whose copy is hardest to get right, so the mock must show it by
+	 * default rather than as an edge case someone has to go looking for.
+	 */
+	private driveVaults: DriveVault[] = [];
 
 	async openVault(
-		path: string,
+		source: VaultSource,
 		password: string,
 		onProgress?: (p: UnlockPhase) => void,
 	): Promise<VaultInfo> {
+		this.source = source;
 		onProgress?.({ phase: "reading" });
 		await delay(120);
 
@@ -235,16 +250,7 @@ export class MockIpc implements Ipc {
 		await delay(140);
 
 		this.unlocked = true;
-		return {
-			name: "passwords",
-			path,
-			entryCount: ENTRIES.length,
-			format: "KDBX 4.0",
-			writable: true,
-			// The reference vault really is on an rclone mount, so the mock
-			// reproduces the warning rather than the tidy case.
-			storageWarning: MOCK_STORAGE_WARNING,
-		};
+		return this.vaultInfo();
 	}
 
 	async lock(): Promise<void> {
@@ -257,10 +263,16 @@ export class MockIpc implements Ipc {
 
 	async vaultInfo(): Promise<VaultInfo> {
 		this.assertUnlocked();
+		const source = this.source ?? { kind: "file" as const, path: "/vaults/demo.kdbx" };
 		return {
-			name: "passwords",
-			path: "/home/user/GoogleDrive/passwords.kdbx",
-			storageWarning: MOCK_STORAGE_WARNING,
+			name: source.kind === "file" ? "demo" : source.name.replace(/\.kdbx$/i, ""),
+			path: source.kind === "file" ? "demo" : source.name.replace(/\.kdbx$/i, ""),
+			location: source.kind === "file" ? "/vaults" : "Google Drive",
+			source,
+			// Only a local file can sit on a suspect mount, so a Drive vault must
+			// never show this - warning about a mount that does not exist is how
+			// people learn to dismiss warnings without reading them.
+			storageWarning: source.kind === "file" ? MOCK_STORAGE_WARNING : null,
 			entryCount: ENTRIES.length,
 			format: "KDBX 4.0",
 			writable: true,
@@ -660,10 +672,40 @@ export class MockIpc implements Ipc {
 	}
 
 	async pickVaultFile(): Promise<string | null> {
-		return "/home/user/GoogleDrive/passwords.kdbx";
+		return "/vaults/from-picker.kdbx";
 	}
 
-	async recentVaults(): Promise<string[]> {
-		return ["/home/user/GoogleDrive/passwords.kdbx"];
+	async recentVaults(): Promise<VaultSource[]> {
+		return this.recents;
+	}
+
+	async forgetVault(source: VaultSource): Promise<void> {
+		const key = (s: VaultSource) =>
+			s.kind === "file" ? `file:${s.path}` : `gdrive:${s.fileId}`;
+		this.recents = this.recents.filter((s) => key(s) !== key(source));
+	}
+
+	async driveListVaults(): Promise<DriveVault[]> {
+		await delay(600);
+		if (!this.driveConnected) throw { kind: "drive-not-connected" };
+		return this.driveVaults;
+	}
+
+	async driveUploadVault(path: string): Promise<VaultSource> {
+		await delay(900);
+		const name = path.split("/").pop() ?? "vault.kdbx";
+		const source: VaultSource = {
+			kind: "googleDrive",
+			fileId: `mock-${this.driveVaults.length + 1}`,
+			name,
+		};
+		this.driveVaults.push({
+			fileId: source.kind === "googleDrive" ? source.fileId : "",
+			name,
+			size: 646_000,
+			modifiedUnix: Math.floor(Date.now() / 1000),
+		});
+		this.recents.unshift(source);
+		return source;
 	}
 }

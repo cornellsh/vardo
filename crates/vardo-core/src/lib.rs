@@ -22,12 +22,15 @@
 
 pub mod backend_config;
 pub mod drive_auth;
+pub mod drive_vaults;
 pub mod entries;
 pub mod generate;
 pub mod model;
+pub mod recents;
 pub mod review;
 pub mod save;
 pub mod session;
+pub mod source;
 pub mod sync;
 pub mod totp;
 
