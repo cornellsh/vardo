@@ -7,6 +7,10 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
+    "tauri": "tauri",
+    "app": "tauri dev",
+    "app:build": "tauri build",
+    "app:release": "tauri build --no-bundle",
     "typecheck": "tsc --noEmit",
     "contrast": "node scripts/contrast.mjs --verbose",
     "lint": "eslint src --max-warnings 0"
@@ -22,6 +26,7 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.0",
+    "@tauri-apps/cli": "^2.11.4",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.0",
