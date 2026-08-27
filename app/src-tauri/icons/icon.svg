@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- Padlock on the Telegram accent (day windowBgActive, darkened to the
+       behind-text variant so the white glyph stays legible). Same mark as the
+       unlock screen. -->
+  <rect width="512" height="512" rx="112" fill="#1b7db7"/>
+  <g fill="none" stroke="#ffffff" stroke-width="34" stroke-linecap="round">
+    <rect x="136" y="232" width="240" height="164" rx="34" fill="#ffffff" stroke="none"/>
+    <path d="M192 232v-52a64 64 0 0 1 128 0v52"/>
+  </g>
+  <circle cx="256" cy="300" r="24" fill="#1b7db7"/>
+  <rect x="244" y="308" width="24" height="52" rx="12" fill="#1b7db7"/>
+</svg>

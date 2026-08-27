@@ -1,11 +1,13 @@
-import type { GroupNode, Uuid } from '../ipc';
+import type { GroupNode, Uuid } from "../ipc";
 
 interface Props {
-  root: GroupNode | null;
-  selected: Uuid | undefined;
-  onSelect: (uuid: Uuid | undefined) => void;
-  vaultName: string;
-  onLock: () => void;
+	root: GroupNode | null;
+	selected: Uuid | undefined;
+	onSelect: (uuid: Uuid | undefined) => void;
+	/** Whole-vault count, used for "All entries". */
+	totalEntries: number;
+	vaultName: string;
+	onLock: () => void;
 }
 
 /**
@@ -13,96 +15,119 @@ interface Props {
  * depth runs rail → list → content in one direction, which is the opposite of
  * the usual elevation ladder and is deliberate.
  */
-export function GroupRail({ root, selected, onSelect, vaultName, onLock }: Props) {
-  return (
-    <nav
-      aria-label="Groups"
-      className="flex shrink-0 flex-col"
-      style={{
-        width: 'var(--column-min-left)',
-        background: 'var(--side-bar-bg)',
-        borderRight: '1px solid var(--shadow-fg)',
-      }}
-    >
-      <header
-        className="flex items-center justify-between px-3"
-        style={{ height: '54px', borderBottom: '1px solid var(--shadow-fg)' }}
-      >
-        <span className="truncate font-semibold text-[var(--window-bold-fg)]" title={vaultName}>
-          {vaultName}
-        </span>
-        <button
-          type="button"
-          onClick={onLock}
-          title="Lock (Ctrl+L)"
-          aria-label="Lock vault"
-          className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-[6px]"
-          style={{ color: 'var(--window-sub-text-fg)' }}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-            <rect x="4" y="10" width="16" height="10" rx="2" />
-            <path d="M8 10V7a4 4 0 0 1 8 0v3" />
-          </svg>
-        </button>
-      </header>
+export function GroupRail({
+	root,
+	selected,
+	onSelect,
+	totalEntries,
+	vaultName,
+	onLock,
+}: Props) {
+	return (
+		<nav
+			aria-label="Groups"
+			className="flex shrink-0 flex-col"
+			style={{
+				width: "var(--column-min-left)",
+				background: "var(--side-bar-bg)",
+				borderRight: "1px solid var(--shadow-fg)",
+			}}
+		>
+			<header
+				className="flex items-center justify-between px-3"
+				style={{ height: "54px", borderBottom: "1px solid var(--shadow-fg)" }}
+			>
+				<span
+					className="truncate font-semibold text-[var(--window-bold-fg)]"
+					title={vaultName}
+				>
+					{vaultName}
+				</span>
+				<button
+					type="button"
+					onClick={onLock}
+					title="Lock (Ctrl+L)"
+					aria-label="Lock vault"
+					className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-[6px]"
+					style={{ color: "var(--window-sub-text-fg)" }}
+				>
+					<svg
+						width="16"
+						height="16"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						strokeWidth="2"
+						strokeLinecap="round"
+						aria-hidden
+					>
+						<rect x="4" y="10" width="16" height="10" rx="2" />
+						<path d="M8 10V7a4 4 0 0 1 8 0v3" />
+					</svg>
+				</button>
+			</header>
 
-      <ul className="flex-1 overflow-y-auto py-1">
-        <GroupItem
-          name="All entries"
-          count={root?.entryCount ?? 0}
-          active={selected === undefined}
-          onClick={() => onSelect(undefined)}
-        />
-        {root?.children.map((g) => (
-          <GroupItem
-            key={g.uuid}
-            name={g.name}
-            count={g.entryCount}
-            active={selected === g.uuid}
-            onClick={() => onSelect(g.uuid)}
-          />
-        ))}
-      </ul>
-    </nav>
-  );
+			<ul className="flex-1 overflow-y-auto py-1">
+				<GroupItem
+					name="All entries"
+					count={totalEntries}
+					active={selected === undefined}
+					onClick={() => onSelect(undefined)}
+				/>
+				{root?.children.map((g) => (
+					<GroupItem
+						key={g.uuid}
+						name={g.name}
+						count={g.entryCount}
+						active={selected === g.uuid}
+						onClick={() => onSelect(g.uuid)}
+					/>
+				))}
+			</ul>
+		</nav>
+	);
 }
 
 function GroupItem({
-  name,
-  count,
-  active,
-  onClick,
+	name,
+	count,
+	active,
+	onClick,
 }: {
-  name: string;
-  count: number;
-  active: boolean;
-  onClick: () => void;
+	name: string;
+	count: number;
+	active: boolean;
+	onClick: () => void;
 }) {
-  return (
-    <li>
-      <button
-        type="button"
-        onClick={onClick}
-        aria-current={active ? 'true' : undefined}
-        className="flex w-full cursor-pointer items-center gap-2 px-3 text-left"
-        style={{
-          height: '34px',
-          background: active ? 'var(--dialogs-bg-active)' : 'transparent',
-          color: active ? 'var(--window-fg-active)' : 'var(--window-bold-fg)',
-        }}
-      >
-        <span className="flex-1 truncate">{name}</span>
-        {/* Empty groups show nothing rather than a zero — a "0" reads as a
+	return (
+		<li>
+			<button
+				type="button"
+				onClick={onClick}
+				aria-current={active ? "true" : undefined}
+				className="flex w-full cursor-pointer items-center gap-2 px-3 text-left"
+				style={{
+					height: "34px",
+					background: active ? "var(--dialogs-bg-active)" : "transparent",
+					color: active ? "var(--window-fg-active)" : "var(--window-bold-fg)",
+				}}
+			>
+				<span className="flex-1 truncate">{name}</span>
+				{/* Empty groups show nothing rather than a zero — a "0" reads as a
             broken count, and an empty group is not an error. */}
-        {count > 0 && (
-          <span
-            className="tabular-nums"
-            style={{ color: active ? 'var(--window-fg-active)' : 'var(--window-sub-text-fg)' }}
-          >
-            {count}
-          </span>
-        )}
-      </button>
-    </li>
-  );
+				{count > 0 && (
+					<span
+						className="tabular-nums"
+						style={{
+							color: active
+								? "var(--window-fg-active)"
+								: "var(--window-sub-text-fg)",
+						}}
+					>
+						{count}
+					</span>
+				)}
+			</button>
+		</li>
+	);
 }

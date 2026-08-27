@@ -38,7 +38,8 @@ function rng(seed: number): () => number {
 }
 
 const rand = rng(0x5eed);
-const pick = <T>(xs: readonly T[]): T => xs[Math.floor(rand() * xs.length)] as T;
+const pick = <T>(xs: readonly T[]): T =>
+	xs[Math.floor(rand() * xs.length)] as T;
 
 const SERVICES = [
 	"GitHub",
@@ -187,11 +188,14 @@ export class MockIpc implements Ipc {
 		// Mirrors the measured 0.871s Argon2d pass on the real vault, because the
 		// unlock screen has to be designed against the real duration, not an
 		// instant mock that makes the progress UI look unnecessary.
-		const steps = 20;
-		for (let i = 0; i <= steps; i++) {
-			onProgress?.({ phase: "deriving", progress: i / steps });
-			await delay(870 / steps);
-		}
+		//
+		// `progress: null` is deliberate and matches reality: the argon2 crate
+		// exposes no per-pass callback, so the core can report which *phase* it is
+		// in but not how far through the derivation it is. A mock that reported a
+		// smooth fraction would have let us design a determinate bar we cannot
+		// actually drive.
+		onProgress?.({ phase: "deriving", progress: null });
+		await delay(871);
 
 		onProgress?.({ phase: "decrypting" });
 		await delay(90);
