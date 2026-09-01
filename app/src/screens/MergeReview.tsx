@@ -14,6 +14,15 @@ interface Props {
 	 * change reads as a malfunction.
 	 */
 	reason?: "save-blocked" | undefined;
+	/**
+	 * Whether the vault lives somewhere remote.
+	 *
+	 * Changes the words, not the mechanism. For a vault in Drive "the other
+	 * copy" is exactly right; for a file on this machine that another window
+	 * or another program has rewritten, it would be baffling - there is one
+	 * file, and it changed on disk.
+	 */
+	remote: boolean;
 }
 
 /**
@@ -29,7 +38,7 @@ interface Props {
  * "Conflict" on its own reads as a bug in the merge; "both devices changed this
  * in the same second" reads as the fact of life it actually is.
  */
-export function MergeReview({ onClose, onMerged, reason }: Props) {
+export function MergeReview({ onClose, onMerged, reason, remote }: Props) {
 	const [preview, setPreview] = useState<SyncPreview | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [policy, setPolicy] = useState<ConflictPolicy>("duplicate");
@@ -95,7 +104,9 @@ export function MergeReview({ onClose, onMerged, reason }: Props) {
 				<div className="min-w-0 flex-1">
 					<h2 className="font-semibold text-[15px] text-[var(--window-bold-fg)]">
 						{reason === "save-blocked"
-							? "This changed elsewhere"
+							? remote
+								? "Changed on another device"
+								: "Changed on disk"
 							: "Review changes"}
 					</h2>
 					{preview && (
@@ -121,7 +132,7 @@ export function MergeReview({ onClose, onMerged, reason }: Props) {
 
 				{!preview && !error && (
 					<p className="text-[var(--window-sub-text-fg)]">
-						Reading the other copy…
+						{remote ? "Reading the copy in Drive…" : "Reading the file…"}
 					</p>
 				)}
 
@@ -169,7 +180,9 @@ export function MergeReview({ onClose, onMerged, reason }: Props) {
 				{nothingToDo && !outcome && (
 					<p className="text-[var(--window-sub-text-fg)]">
 						{preview.remoteUnchanged
-							? "The other copy has not changed since the last sync."
+							? remote
+								? "Drive has not changed since the last sync."
+								: "The file has not changed since you opened it."
 							: "Nothing to merge."}
 					</p>
 				)}
