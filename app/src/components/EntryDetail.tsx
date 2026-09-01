@@ -15,6 +15,8 @@ interface Props {
 	onChanged: () => void;
 	/** Writes the vault to its source. Rejects if the write failed. */
 	onSaveVault: () => Promise<void>;
+	/** Returns to the list. Only set when this pane replaced it. */
+	onBack?: (() => void) | undefined;
 	/** Opened straight into edit mode, for a freshly created entry. */
 	editing: boolean;
 	onEditing: (editing: boolean) => void;
@@ -25,6 +27,7 @@ export function EntryDetailPane({
 	writable,
 	onChanged,
 	onSaveVault,
+	onBack,
 	editing,
 	onEditing,
 }: Props) {
@@ -122,6 +125,32 @@ export function EntryDetailPane({
 						    carries the peer's identity into the info panel rather
 						    than dropping to a bare title, which is what makes the
 						    two feel like one place instead of two screens. */}
+						{/* The way back, when this pane has replaced the list rather
+						    than sitting beside it. Without it a narrow window is a
+						    one-way trip into an entry. */}
+						{onBack && (
+							<button
+								type="button"
+								onClick={onBack}
+								aria-label="Back to the list"
+								title="Back"
+								className="btn btn-quiet -ml-1 flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full"
+								style={{ color: "var(--window-sub-text-fg)" }}
+							>
+								<svg
+									width="18"
+									height="18"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									strokeWidth="2"
+									strokeLinecap="round"
+									aria-hidden
+								>
+									<path d="M15 5l-7 7 7 7" />
+								</svg>
+							</button>
+						)}
 						<span
 							aria-hidden
 							className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full font-semibold"
