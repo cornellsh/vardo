@@ -143,11 +143,8 @@ export function EntryList({
 					aria-label={
 						sort === "name" ? "Sorted by name" : "Sorted by most recent"
 					}
-					className="ml-1 flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors"
-					style={{
-						color: "var(--window-sub-text-fg)",
-						transitionDuration: "var(--duration-universal)",
-					}}
+					className="btn btn-quiet ml-1 flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full"
+					style={{ color: "var(--window-sub-text-fg)" }}
 				>
 					{sort === "name" ? (
 						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
@@ -167,11 +164,8 @@ export function EntryList({
 						onClick={onAdd}
 						title="New entry (Ctrl+N)"
 						aria-label="New entry"
-						className="ml-1 flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full"
-						style={{
-							background: "var(--active-button-bg)",
-							color: "var(--window-fg-active)",
-						}}
+						className="btn btn-accent ml-1 flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full"
+						style={{ color: "var(--window-fg-active)" }}
 					>
 						<svg
 							width="16"
@@ -297,14 +291,15 @@ function Row({
 				onClick={onClick}
 				aria-current={active ? "true" : undefined}
 				{...ripple.handlers}
-				className="relative flex w-full cursor-pointer items-center gap-3 overflow-hidden text-left"
+				// `row`, not a button style. A row is a place you are, not a
+				// control you press, and the difference matters for the selected
+				// one: hovering it must not repaint it, or the row you are looking
+				// at appears to be about to change into something else.
+				className="row relative flex w-full cursor-pointer items-center gap-3 overflow-hidden text-left"
 				style={{
 					height: "var(--dialogs-row-height)",
 					padding: "0 var(--dialogs-padding-x)",
 					background: active ? "var(--dialogs-bg-active)" : "transparent",
-					// Telegram transitions the row background rather than snapping
-					// it, at the universal tempo.
-					transition: "background-color var(--duration-universal) linear",
 				}}
 			>
 				{ripple.layer}

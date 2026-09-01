@@ -20,6 +20,7 @@ import type {
 	GroupNode,
 	Ipc,
 	SaveResult,
+	StorageWarning,
 	SyncOutcome,
 	SyncPreview,
 	TotpCode,
@@ -30,17 +31,38 @@ import type {
 
 const DEMO_PASSWORD = "demopass";
 
-/** Matches what `storage_risk::assess` reports for a real rclone mount. */
-const MOCK_STORAGE_WARNING = {
-	// A synced folder, not a FUSE mount. FUSE is detected and deliberately not
-	// reported: a probe on a live rclone mount showed the save path behaves
-	// exactly as it does on local disk.
-	kind: "name",
-	explanation: "A Google Drive folder can duplicate this file",
-	remedy: "Open it from Google Drive instead",
-	providerHint: "google-drive",
-	why: 'A sync daemon watching this folder can upload its own copy while Vardo is writing, which is how KeePass databases end up duplicated as "vault (1).kdbx". Vardo talking to the provider directly avoids the race entirely.',
-} as const;
+/**
+ * Mirrors `storage_risk::assess`, rather than hardcoding a warning.
+ *
+ * It used to return the same synced-folder warning for every vault, including
+ * one at `/vaults`, so the tooltip claimed a path was a Google Drive folder
+ * while the line directly above it said otherwise. That is worse than a
+ * cosmetic bug: every screenshot taken to judge this UI was of a lie, and I
+ * reviewed several of them without noticing.
+ *
+ * Name-based only, because that is the only signal a browser has. FUSE
+ * detection needs a mount table and is deliberately not reported anyway.
+ */
+function storageWarningFor(path: string): StorageWarning | null {
+	const providers: [RegExp, string][] = [
+		[/google[ _-]?drive/i, "Google Drive"],
+		[/dropbox/i, "Dropbox"],
+		[/onedrive/i, "OneDrive"],
+		[/\bicloud/i, "iCloud Drive"],
+	];
+
+	for (const [pattern, provider] of providers) {
+		if (!pattern.test(path)) continue;
+		return {
+			kind: "name",
+			explanation: `A ${provider} folder can duplicate this file`,
+			remedy: "Open it from Google Drive instead",
+			providerHint: provider === "Google Drive" ? "google-drive" : null,
+			why: `A sync daemon watching this folder can upload its own copy while Vardo is writing, which is how KeePass databases end up duplicated as "vault (1).kdbx". Vardo talking to ${provider} directly avoids the race entirely.`,
+		};
+	}
+	return null;
+}
 
 /**
  * Deterministic PRNG, so the mock vault is identical between reloads.
@@ -288,17 +310,26 @@ export class MockIpc implements Ipc {
 			kind: "file" as const,
 			path: "/vaults/demo.kdbx",
 		};
+		const stem = (name: string) => name.replace(/\.kdbx$/i, "");
+		const leaf = (path: string) => stem(path.split("/").pop() ?? path);
+		const folder = (path: string) =>
+			path.split("/").slice(0, -1).join("/") || "/";
+
 		return {
-			name:
-				source.kind === "file" ? "demo" : source.name.replace(/\.kdbx$/i, ""),
-			path:
-				source.kind === "file" ? "demo" : source.name.replace(/\.kdbx$/i, ""),
-			location: source.kind === "file" ? "/vaults" : "Google Drive",
+			name: source.kind === "file" ? leaf(source.path) : stem(source.name),
+			path: source.kind === "file" ? leaf(source.path) : stem(source.name),
+			// Derived from the actual source, not fixed strings. The old version
+			// reported "/vaults" no matter which vault was open, so opening a
+			// different one changed nothing on screen.
+			location:
+				source.kind === "file" ? folder(source.path) : "Google Drive",
 			source,
-			// Only a local file can sit on a suspect mount, so a Drive vault must
-			// never show this - warning about a mount that does not exist is how
-			// people learn to dismiss warnings without reading them.
-			storageWarning: source.kind === "file" ? MOCK_STORAGE_WARNING : null,
+			// Only a local file can sit in someone else's synced folder. A vault
+			// reached through Drive's own API is not in a folder we can see, and
+			// warning about one that does not exist is how people learn to
+			// dismiss warnings without reading them.
+			storageWarning:
+				source.kind === "file" ? storageWarningFor(source.path) : null,
 			entryCount: ENTRIES.length,
 			format: "KDBX 4.0",
 			writable: true,

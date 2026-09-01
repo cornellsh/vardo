@@ -71,7 +71,7 @@ export function TotpCode({ uuid, onCopy }: Props) {
 				type="button"
 				onClick={onCopy}
 				title="Copy one-time code"
-				className="secret cursor-pointer rounded-[var(--button-radius)] px-1 text-[15px] tracking-[0.08em] transition-colors"
+				className="btn btn-quiet secret cursor-pointer rounded-[var(--button-radius)] px-1 text-[15px] tracking-[0.08em] transition-colors"
 				style={{
 					color: urgent ? "var(--attention-button-fg)" : "var(--window-fg)",
 					transitionDuration: "var(--duration-universal)",

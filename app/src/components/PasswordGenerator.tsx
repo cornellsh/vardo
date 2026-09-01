@@ -68,7 +68,7 @@ export function PasswordGenerator({ onUse, onClose }: Props) {
 				<button
 					type="button"
 					onClick={() => void regenerate()}
-					className="cursor-pointer rounded-[6px] px-2 py-1"
+					className="btn btn-quiet cursor-pointer rounded-[6px] px-2 py-1"
 					style={{ color: "var(--window-active-text-fg)" }}
 				>
 					Again
@@ -128,9 +128,8 @@ export function PasswordGenerator({ onUse, onClose }: Props) {
 					type="button"
 					disabled={!value}
 					onClick={() => onUse(value)}
-					className="cursor-pointer rounded-[6px] px-3 py-1.5 font-semibold disabled:opacity-45"
+					className="btn btn-accent cursor-pointer rounded-[6px] px-3 py-1.5 font-semibold"
 					style={{
-						background: "var(--active-button-bg)",
 						color: "var(--window-fg-active)",
 					}}
 				>
@@ -139,7 +138,7 @@ export function PasswordGenerator({ onUse, onClose }: Props) {
 				<button
 					type="button"
 					onClick={onClose}
-					className="cursor-pointer rounded-[6px] px-3 py-1.5"
+					className="btn btn-quiet cursor-pointer rounded-[6px] px-3 py-1.5"
 					style={{ color: "var(--window-sub-text-fg)" }}
 				>
 					Cancel

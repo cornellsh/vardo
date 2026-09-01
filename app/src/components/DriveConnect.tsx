@@ -89,7 +89,7 @@ export function DriveConnect() {
 						type="button"
 						disabled={busy}
 						onClick={() => void (status.connected ? disconnect() : connect())}
-						className="shrink-0 cursor-pointer rounded-[var(--button-radius)] px-3 py-1.5 font-semibold transition-colors disabled:opacity-45"
+						className="btn btn-quiet shrink-0 cursor-pointer rounded-[var(--button-radius)] px-3 py-1.5 font-semibold transition-colors disabled:opacity-45"
 						style={{
 							background: status.connected
 								? "transparent"

@@ -97,7 +97,7 @@ export function VaultPicker({ selected, onSelect, disabled }: Props) {
 							type="button"
 							disabled={disabled}
 							onClick={() => choose(source)}
-							className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-[6px] px-3 py-2 text-left transition-colors disabled:cursor-default"
+							className="btn btn-quiet flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-[6px] px-3 py-2 text-left transition-colors disabled:cursor-default"
 							style={{
 								background: isSelected
 									? "var(--window-bg-active)"
@@ -135,7 +135,7 @@ export function VaultPicker({ selected, onSelect, disabled }: Props) {
 							aria-label={`Remove ${sourceName(source)} from this list`}
 							title="Remove from this list"
 							onClick={() => void forget(source)}
-							className="absolute top-0 right-1 bottom-0 my-auto h-7 w-7 cursor-pointer rounded-[var(--button-radius)] opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
+							className="btn btn-quiet absolute top-0 right-1 bottom-0 my-auto h-7 w-7 cursor-pointer rounded-[var(--button-radius)] opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
 							style={{
 								color: isSelected
 									? "var(--window-fg-active)"
@@ -154,7 +154,7 @@ export function VaultPicker({ selected, onSelect, disabled }: Props) {
 					type="button"
 					disabled={disabled}
 					onClick={() => void browse()}
-					className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-[6px] py-2 font-semibold transition-colors"
+					className="btn btn-quiet flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-[6px] py-2 font-semibold transition-colors"
 					style={{
 						background: "var(--window-bg-over)",
 						color: "var(--window-active-text-fg)",
@@ -168,7 +168,7 @@ export function VaultPicker({ selected, onSelect, disabled }: Props) {
 					disabled={disabled}
 					onClick={() => setDriveOpen((o) => !o)}
 					aria-expanded={driveOpen}
-					className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-[6px] py-2 font-semibold transition-colors"
+					className="btn btn-quiet flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-[6px] py-2 font-semibold transition-colors"
 					style={{
 						background: "var(--window-bg-over)",
 						color: "var(--window-active-text-fg)",
@@ -311,9 +311,8 @@ function DriveList({ onPick }: { onPick: (s: VaultSource) => void }) {
 					<button
 						type="button"
 						onClick={() => void connect()}
-						className="mt-2 flex cursor-pointer items-center gap-2 rounded-[var(--button-radius)] px-3 py-1.5 font-semibold"
+						className="btn btn-quiet mt-2 flex cursor-pointer items-center gap-2 rounded-[var(--button-radius)] px-3 py-1.5 font-semibold"
 						style={{
-							background: "var(--active-button-bg)",
 							color: "var(--window-fg-active)",
 						}}
 					>
@@ -349,7 +348,7 @@ function DriveList({ onPick }: { onPick: (s: VaultSource) => void }) {
 					<button
 						type="button"
 						onClick={() => void pickFromDrive()}
-						className="cursor-pointer font-semibold"
+						className="btn btn-quiet cursor-pointer font-semibold"
 						style={{ color: "var(--window-active-text-fg)" }}
 					>
 						Choose from Drive&hellip;
@@ -357,7 +356,7 @@ function DriveList({ onPick }: { onPick: (s: VaultSource) => void }) {
 					<button
 						type="button"
 						onClick={() => void uploadExisting()}
-						className="cursor-pointer"
+						className="btn btn-quiet cursor-pointer"
 						style={{ color: "var(--window-sub-text-fg)" }}
 					>
 						Upload one from here&hellip;
@@ -373,7 +372,7 @@ function DriveList({ onPick }: { onPick: (s: VaultSource) => void }) {
 						onClick={() =>
 							onPick({ kind: "googleDrive", fileId: v.fileId, name: v.name })
 						}
-						className="flex w-full cursor-pointer items-center gap-3 rounded-[6px] px-2 py-2 text-left transition-colors hover:bg-[var(--window-bg-ripple)]"
+						className="btn btn-quiet flex w-full cursor-pointer items-center gap-3 rounded-[6px] px-2 py-2 text-left transition-colors hover:bg-[var(--window-bg-ripple)]"
 						style={{ transitionDuration: "var(--duration-universal)" }}
 					>
 						<DriveLogo size={18} />

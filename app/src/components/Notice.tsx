@@ -64,7 +64,7 @@ export function Notice({
 			{technical && (
 				<details className="mt-1.5">
 					<summary
-						className="cursor-pointer"
+						className="btn btn-quiet cursor-pointer"
 						style={{ color: "var(--window-sub-text-fg)", fontSize: "12px" }}
 					>
 						Details
@@ -86,9 +86,8 @@ export function Notice({
 				<button
 					type="button"
 					onClick={action.onClick}
-					className="mt-2 cursor-pointer rounded-[var(--button-radius)] px-3 py-1.5 font-semibold transition-colors"
+					className="btn btn-accent mt-2 cursor-pointer rounded-[var(--button-radius)] px-3 py-1.5 font-semibold"
 					style={{
-						background: "var(--active-button-bg)",
 						color: "var(--window-fg-active)",
 						transitionDuration: "var(--duration-universal)",
 					}}

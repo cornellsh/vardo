@@ -7,7 +7,11 @@ import { PasswordGenerator } from "./PasswordGenerator";
 
 interface Props {
 	entry: EntryDetail;
-	onSaved: () => void;
+	/**
+	 * Commits the edit and stores the vault. Awaited, so the button stays busy
+	 * until the bytes are really written and the word Save is not a lie.
+	 */
+	onSaved: () => Promise<void> | void;
 	onCancel: () => void;
 }
 
@@ -82,7 +86,13 @@ export function EntryEditor({ entry, onSaved, onCancel }: Props) {
 			const api = await ipc();
 			if (edits.length > 0) await api.updateEntry(entry.uuid, edits);
 			setPassword(null);
-			onSaved();
+			// Save means saved. This used to say Apply, commit to the open vault,
+			// and leave a bar demanding a second, differently named action - two
+			// verbs for one intention, where the first sounded final and was not.
+			// The split existed because re-encrypting costs a second or two, which
+			// is a fact about Argon2 and not something a person should have to
+			// hold in their head while typing a password in.
+			await onSaved();
 		} catch (err) {
 			setError(errorText(err));
 		} finally {
@@ -127,7 +137,7 @@ export function EntryEditor({ entry, onSaved, onCancel }: Props) {
 						<button
 							type="button"
 							onClick={() => setShowGenerator((s) => !s)}
-							className="shrink-0 cursor-pointer rounded-[6px] px-2 py-1"
+							className="btn btn-quiet shrink-0 cursor-pointer rounded-[6px] px-2 py-1"
 							style={{ color: "var(--window-active-text-fg)" }}
 						>
 							Generate
@@ -192,29 +202,21 @@ export function EntryEditor({ entry, onSaved, onCancel }: Props) {
 				<button
 					type="submit"
 					disabled={saving}
-					className="cursor-pointer rounded-[6px] px-3 py-1.5 font-semibold disabled:opacity-45"
+					className="btn btn-accent cursor-pointer rounded-[6px] px-3 py-1.5 font-semibold"
 					style={{
-						background: "var(--active-button-bg)",
 						color: "var(--window-fg-active)",
 					}}
 				>
-					{saving ? "Applying…" : "Apply"}
+					{saving ? "Saving…" : "Save"}
 				</button>
 				<button
 					type="button"
 					onClick={onCancel}
-					className="cursor-pointer rounded-[6px] px-3 py-1.5"
+					className="btn btn-quiet cursor-pointer rounded-[6px] px-3 py-1.5"
 					style={{ color: "var(--window-sub-text-fg)" }}
 				>
 					Cancel
 				</button>
-				{/* "to disk" was wrong for half of them: a vault in Drive has no
-				    disk here at all. The distinction that matters is the one this
-				    now makes - Apply changes the open vault, saving writes it back
-				    to wherever it came from. */}
-				<span className="ml-auto text-[var(--window-sub-text-fg)] text-[12px]">
-					Apply keeps this in the open vault. Save stores it.
-				</span>
 			</div>
 		</form>
 	);
