@@ -269,3 +269,18 @@ pub struct DriveVault {
     pub size: u64,
     pub modified_unix: Option<i64>,
 }
+
+/// An earlier version of an entry, as stored by KDBX.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HistoryVersion {
+    /// Position in the stored history, needed to fetch the password later.
+    /// Not the display order, which is reversed.
+    pub index: usize,
+    pub title: String,
+    pub username: String,
+    pub url: String,
+    pub modified: i64,
+    /// Whether revealing would show anything.
+    pub has_password: bool,
+}

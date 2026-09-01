@@ -196,6 +196,23 @@ export interface HealthReport {
 	checked: number;
 }
 
+/**
+ * An earlier version of an entry.
+ *
+ * Carries no password, only whether there is one to reveal. An old password is
+ * not a lesser secret: it is very often still in use somewhere its owner has
+ * forgotten about.
+ */
+export interface HistoryVersion {
+	/** Position in stored order, for fetching the password. Not display order. */
+	index: number;
+	title: string;
+	username: string;
+	url: string;
+	modified: Millis;
+	hasPassword: boolean;
+}
+
 export interface TotpCode {
 	code: string;
 	secondsRemaining: number;
@@ -377,6 +394,24 @@ export interface Ipc {
 
 	/** Reused, weak, expired and stale passwords. Never includes a password. */
 	health(): Promise<HealthReport>;
+
+	/** Earlier versions of an entry, newest first. Never includes a password. */
+	history(uuid: Uuid): Promise<HistoryVersion[]>;
+
+	/**
+	 * Whether a string would produce one-time codes.
+	 *
+	 * Runs the parser that will later read it back, so the answer cannot drift
+	 * from what actually happens. No session needed: it is a question about a
+	 * string.
+	 */
+	checkTotpSeed(text: string): Promise<boolean>;
+
+	/** Copies an old password, cleared on the same schedule as any other. */
+	copyHistoryPassword(
+		uuid: Uuid,
+		index: number,
+	): Promise<{ clearAfterSeconds: number }>;
 
 	/**
 	 * Writes an attachment to a path the user chose. Returns the byte count,

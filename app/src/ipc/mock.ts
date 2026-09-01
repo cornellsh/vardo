@@ -21,6 +21,7 @@ import type {
 	Ipc,
 	Finding,
 	HealthReport,
+	HistoryVersion,
 	SaveResult,
 	StorageWarning,
 	SyncOutcome,
@@ -323,8 +324,7 @@ export class MockIpc implements Ipc {
 			// Derived from the actual source, not fixed strings. The old version
 			// reported "/vaults" no matter which vault was open, so opening a
 			// different one changed nothing on screen.
-			location:
-				source.kind === "file" ? folder(source.path) : "Google Drive",
+			location: source.kind === "file" ? folder(source.path) : "Google Drive",
 			source,
 			// Only a local file can sit in someone else's synced folder. A vault
 			// reached through Drive's own API is not in a folder we can see, and
@@ -780,6 +780,44 @@ export class MockIpc implements Ipc {
 
 	async entriesMissingIcons(): Promise<Uuid[]> {
 		return [];
+	}
+
+	async history(uuid: Uuid): Promise<HistoryVersion[]> {
+		this.assertUnlocked();
+		await delay(120);
+		const e = ENTRIES.find((x) => x.summary.uuid === uuid);
+		if (!e) return [];
+
+		// Derived from the entry's own count, so an entry claiming two earlier
+		// versions produces exactly two. A fixed number here would have made
+		// the header and the list disagree, which is the sort of thing that
+		// looks like a bug in the data rather than in the mock.
+		const count = e.historyCount ?? 0;
+		const day = 86_400_000;
+		return Array.from({ length: count }, (_, i) => ({
+			index: count - 1 - i,
+			title: e.summary.title,
+			username: e.summary.username,
+			url: e.summary.urlHost ? `https://${e.summary.urlHost}` : "",
+			modified: e.summary.modified - (i + 1) * 47 * day,
+			hasPassword: true,
+		}));
+	}
+
+	async copyHistoryPassword(): Promise<{ clearAfterSeconds: number }> {
+		await delay(80);
+		return { clearAfterSeconds: 12 };
+	}
+
+	async checkTotpSeed(text: string): Promise<boolean> {
+		await delay(60);
+		const t = text.trim();
+		if (t.startsWith("otpauth://")) return t.includes("secret=");
+		// Base32 with optional padding, and long enough to be a real secret.
+		// Crude next to the Rust parser on purpose: the mock exists to exercise
+		// both branches of the UI, not to be a second implementation that can
+		// disagree with the first.
+		return /^[A-Z2-7]{16,}=*$/i.test(t.replace(/\s+/g, ""));
 	}
 
 	async health(): Promise<HealthReport> {

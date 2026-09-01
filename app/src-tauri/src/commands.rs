@@ -521,3 +521,48 @@ pub fn save_attachment(
 pub fn health(state: tauri::State<'_, AppState>) -> CmdResult<vardo_core::health::Report> {
     with_session(&state, |s| Ok(s.health()))
 }
+
+/// Earlier versions of an entry, newest first.
+///
+/// Carries no passwords, only whether each version has one. Listing must never
+/// hand out a secret, and an old password is not a lesser secret: it is very
+/// often still in use somewhere the user has forgotten about.
+#[tauri::command]
+pub fn history(
+    state: tauri::State<'_, AppState>,
+    uuid: String,
+) -> CmdResult<Vec<vardo_core::model::HistoryVersion>> {
+    with_session(&state, |s| s.history(&uuid))
+}
+
+/// Copies an old password, on the same clipboard-clearing schedule as any other.
+#[tauri::command]
+pub fn copy_history_password(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    uuid: String,
+    index: usize,
+) -> CmdResult<vardo_core::model::CopyResult> {
+    let value = with_session(&state, |s| s.history_password(&uuid, index))?;
+    crate::clipboard::copy_and_schedule_clear(&app, &value, vardo_core::CLIPBOARD_CLEAR_SECONDS)
+        .map_err(|detail| CoreError::Io { detail })?;
+    Ok(vardo_core::model::CopyResult {
+        clear_after_seconds: vardo_core::CLIPBOARD_CLEAR_SECONDS,
+    })
+}
+
+/// Whether a string would produce one-time codes.
+///
+/// Answered while it is being typed, because a mistyped seed produces codes
+/// that look perfectly plausible and are simply wrong. You find that out when
+/// you are locked out and in a hurry, with no way to tell whether the seed or
+/// the clock is at fault.
+///
+/// Runs the same parser that will read it back, so the answer cannot drift
+/// from what actually happens later. Takes no session: this is a question
+/// about a string, and requiring an unlocked vault to ask it would be an odd
+/// coupling.
+#[tauri::command]
+pub fn check_totp_seed(text: String) -> bool {
+    vardo_core::totp::Totp::from_fields(Some(&text), None, None).is_some()
+}

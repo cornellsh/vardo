@@ -21,6 +21,7 @@ import type {
 	DriveVault,
 	GroupNode,
 	HealthReport,
+	HistoryVersion,
 	VaultSource,
 	Ipc,
 	SaveResult,
@@ -196,6 +197,21 @@ export class TauriIpc implements Ipc {
 
 	health(): Promise<HealthReport> {
 		return invoke("health");
+	}
+
+	history(uuid: Uuid): Promise<HistoryVersion[]> {
+		return invoke("history", { uuid });
+	}
+
+	checkTotpSeed(text: string): Promise<boolean> {
+		return invoke("check_totp_seed", { text });
+	}
+
+	copyHistoryPassword(
+		uuid: Uuid,
+		index: number,
+	): Promise<{ clearAfterSeconds: number }> {
+		return invoke("copy_history_password", { uuid, index });
 	}
 
 	forgetVault(source: VaultSource): Promise<void> {

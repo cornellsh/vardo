@@ -7,7 +7,9 @@ use std::collections::HashMap;
 
 use vardo_vault::{Entry, Group, Timestamp, Uuid, Vault};
 
-use crate::model::{Attachment, EntryDetail, EntrySummary, Field, GroupNode, Times};
+use crate::model::{
+    Attachment, EntryDetail, EntrySummary, Field, GroupNode, HistoryVersion, Times,
+};
 
 /// The single string form of a UUID on the wire.
 ///
@@ -306,6 +308,57 @@ fn path_to(vault: &Vault, uuid: &str) -> Vec<String> {
         descend(root, uuid, &mut trail);
     }
     trail
+}
+
+/// Earlier versions of an entry, newest first.
+///
+/// KDBX keeps a full copy of the entry each time it changes, and Vardo has
+/// been writing them faithfully and showing a count. A count you cannot open
+/// is a tease: the reason anyone wants this is that they changed a password,
+/// the site did not accept it, and the old one is now the only way back in.
+///
+/// Newest first because that is the one people want. Reverse chronological is
+/// also what "2 earlier versions" implies you will get.
+pub fn history(vault: &Vault, uuid: &str) -> Option<Vec<HistoryVersion>> {
+    let entry = find(vault, uuid)?;
+    let icons = icon_index(vault);
+
+    let mut versions: Vec<HistoryVersion> = entry
+        .history()
+        .into_iter()
+        .enumerate()
+        .map(|(index, old)| {
+            let summary = summary_of(old, &icons);
+            HistoryVersion {
+                index,
+                title: summary.title,
+                username: summary.username,
+                url: old.url(),
+                modified: summary.modified,
+                // Whether there is anything under the dots. An empty password
+                // in an old version is normal - a note that later gained one -
+                // and offering to reveal nothing is worse than saying so.
+                has_password: old
+                    .password()
+                    .map(|p| !p.expose().is_empty())
+                    .unwrap_or(false),
+            }
+        })
+        .collect();
+
+    versions.reverse();
+    Some(versions)
+}
+
+/// One earlier version's password, in the clear.
+///
+/// Separate from [`history`] for the same reason the current password is:
+/// listing an entry must never carry its secret, or every list becomes a leak
+/// waiting for a log line.
+pub fn history_password(vault: &Vault, uuid: &str, index: usize) -> Option<String> {
+    let entry = find(vault, uuid)?;
+    let old = entry.history().into_iter().nth(index)?;
+    Some(old.password()?.expose().to_string())
 }
 
 #[cfg(test)]
