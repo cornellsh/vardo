@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { humanDate, identityOf, initialOf, tintFor } from "../lib/identity";
 import { errorText } from "../ipc/error";
 import { ipc } from "../ipc";
-import type { EntryDetail, Uuid } from "../ipc";
+import type { EntryDetail, HistoryVersion, Uuid } from "../ipc";
 import { EntryEditor } from "./EntryEditor";
 import { Notice, splitTechnical } from "./Notice";
 import { Presence } from "./Presence";
@@ -324,12 +324,12 @@ export function EntryDetailPane({
 								>
 									Edited {humanDate(entry.times.modified)}
 								</p>
+								{/* Openable. This was a count and nothing else, which is a
+								    tease: the reason anyone reads it is that they changed a
+								    password, the site did not take it, and the old one is
+								    now the only way back in. */}
 								{entry.historyCount > 0 && (
-									<p className="text-[var(--window-sub-text-fg)]">
-										{entry.historyCount === 1
-											? "1 earlier version"
-											: `${entry.historyCount} earlier versions`}
-									</p>
+									<EntryHistory uuid={entry.uuid} count={entry.historyCount} />
 								)}
 							</div>
 
@@ -500,6 +500,118 @@ function formatBytes(bytes: number): string {
 	if (bytes < 1024) return `${bytes} B`;
 	if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
 	return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+/**
+ * Earlier versions of this entry.
+ *
+ * Collapsed by default and loaded only when opened, because history holds old
+ * passwords and there is no reason to have them in memory while someone is
+ * looking at something else.
+ *
+ * Copy, not restore. Restoring would be another write and another way to lose
+ * the current password by accident; what people actually need is to paste the
+ * old one into a site that rejected the change.
+ */
+function EntryHistory({ uuid, count }: { uuid: Uuid; count: number }) {
+	const [open, setOpen] = useState(false);
+	const [versions, setVersions] = useState<HistoryVersion[] | null>(null);
+	const [copiedFor, setCopiedFor] = useState<number | null>(null);
+
+	// Closed and forgotten whenever the entry changes, so old passwords for one
+	// account are never sitting in memory while another is on screen.
+	useEffect(() => {
+		setOpen(false);
+		setVersions(null);
+	}, [uuid]);
+
+	useEffect(() => {
+		if (!open || versions) return;
+		let cancelled = false;
+		void (async () => {
+			try {
+				const v = await (await ipc()).history(uuid);
+				if (!cancelled) setVersions(v);
+			} catch {
+				if (!cancelled) setVersions([]);
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, [open, uuid, versions]);
+
+	useEffect(() => {
+		if (copiedFor === null) return;
+		const t = window.setTimeout(() => setCopiedFor(null), copiedFor * 1000);
+		return () => window.clearTimeout(t);
+	}, [copiedFor]);
+
+	return (
+		<div className="mt-1">
+			<button
+				type="button"
+				onClick={() => setOpen((o) => !o)}
+				aria-expanded={open}
+				className="btn btn-quiet -mx-2 cursor-pointer rounded-[6px] px-2 py-1"
+				style={{ color: "var(--window-active-text-fg)" }}
+			>
+				{count === 1 ? "1 earlier version" : `${count} earlier versions`}
+			</button>
+
+			<Presence show={open}>
+				{versions === null ? (
+					<p className="py-1 text-[var(--window-sub-text-fg)]">Loading…</p>
+				) : (
+					<div className="mt-1">
+						{versions.map((v) => (
+							<div
+								key={v.index}
+								className="group btn btn-quiet -mx-2 flex items-center gap-2 rounded-[6px] px-2 py-1.5"
+							>
+								<span className="min-w-0 flex-1">
+									<span className="block truncate text-[var(--window-fg)]">
+										{v.username || v.title || "Untitled"}
+									</span>
+									<FieldLabel>{humanDate(v.modified)}</FieldLabel>
+								</span>
+								{v.hasPassword ? (
+									<button
+										type="button"
+										onClick={async () => {
+											const { clearAfterSeconds } = await (
+												await ipc()
+											).copyHistoryPassword(uuid, v.index);
+											setCopiedFor(clearAfterSeconds);
+										}}
+										className="on-hover shrink-0 cursor-pointer rounded-[6px] px-2 py-0.5"
+										style={{ color: "var(--window-active-text-fg)" }}
+									>
+										Copy password
+									</button>
+								) : (
+									// Said rather than left blank. An old version with no
+									// password is ordinary - a note that later gained one -
+									// and a missing button reads as a broken one.
+									<span
+										className="shrink-0 text-[12px]"
+										style={{ color: "var(--window-sub-text-fg)" }}
+									>
+										No password
+									</span>
+								)}
+							</div>
+						))}
+						{copiedFor !== null && (
+							<p className="pt-1 text-[var(--window-sub-text-fg)] text-[12px]">
+								Copied. Clipboard clears in {copiedFor}s
+							</p>
+						)}
+					</div>
+				)}
+			</Presence>
+		</div>
+	);
 }
 
 function GroupHeading({ children }: { children: React.ReactNode }) {

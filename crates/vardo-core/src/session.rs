@@ -654,3 +654,28 @@ impl Session {
         crate::health::review(&self.vault, now)
     }
 }
+
+impl Session {
+    pub fn history(&self, uuid: &str) -> Result<Vec<crate::model::HistoryVersion>, CoreError> {
+        entries::history(&self.vault, uuid).ok_or(CoreError::NotFound {
+            path: uuid.to_string(),
+        })
+    }
+
+    /// An old password, for putting on the clipboard.
+    ///
+    /// Returns `Zeroizing` so it does not outlive the call by accident, the
+    /// same as the current password. An old password is not a lesser secret:
+    /// it is very often still in use somewhere the user has forgotten about.
+    pub fn history_password(
+        &self,
+        uuid: &str,
+        index: usize,
+    ) -> Result<zeroize::Zeroizing<String>, CoreError> {
+        entries::history_password(&self.vault, uuid, index)
+            .map(zeroize::Zeroizing::new)
+            .ok_or(CoreError::NotFound {
+                path: uuid.to_string(),
+            })
+    }
+}

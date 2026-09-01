@@ -365,13 +365,13 @@ export function Vault({ info, onLock }: Props) {
 									}
 								: {})}
 							onSettings={() => setSettings((s) => !s)}
-					onHealth={() => {
-						setSettings(false);
-						setReviewing(false);
-						setHealth(true);
-						setRailOpen(false);
-					}}
-					{...(healthCount !== null ? { healthCount } : {})}
+							onHealth={() => {
+								setSettings(false);
+								setReviewing(false);
+								setHealth(true);
+								setRailOpen(false);
+							}}
+							{...(healthCount !== null ? { healthCount } : {})}
 							location={live.location}
 							remote={live.source.kind === "googleDrive"}
 							{...(live.storageWarning
