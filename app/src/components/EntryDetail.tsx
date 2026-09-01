@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 
 import { humanDate, identityOf, initialOf, tintFor } from "../lib/identity";
+import { errorText } from "../ipc/error";
 import { ipc } from "../ipc";
 import type { EntryDetail, Uuid } from "../ipc";
 import { EntryEditor } from "./EntryEditor";
+import { Notice, splitTechnical } from "./Notice";
 import { TotpCode } from "./TotpCode";
 
 interface Props {
@@ -11,6 +13,8 @@ interface Props {
 	writable: boolean;
 	/** Called after any change, so the list and dirty state refresh. */
 	onChanged: () => void;
+	/** Writes the vault to its source. Rejects if the write failed. */
+	onSaveVault: () => Promise<void>;
 	/** Opened straight into edit mode, for a freshly created entry. */
 	editing: boolean;
 	onEditing: (editing: boolean) => void;
@@ -20,12 +24,15 @@ export function EntryDetailPane({
 	uuid,
 	writable,
 	onChanged,
+	onSaveVault,
 	editing,
 	onEditing,
 }: Props) {
 	const [entry, setEntry] = useState<EntryDetail | null>(null);
 	const [reload, setReload] = useState(0);
 	const [confirmingDelete, setConfirmingDelete] = useState(false);
+	/** A failed delete, shown here rather than in a bar somewhere else. */
+	const [actionError, setActionError] = useState<string | null>(null);
 	/** Entries already tried, so a site with no icon is asked once per session. */
 	const tried = useRef(new Set<string>());
 
@@ -77,9 +84,18 @@ export function EntryDetailPane({
 
 	async function remove() {
 		if (!uuid) return;
-		await (await ipc()).deleteEntry(uuid);
-		setConfirmingDelete(false);
-		onChanged();
+		setActionError(null);
+		try {
+			await (await ipc()).deleteEntry(uuid);
+			// Stored straight away, like every other change. A deletion that
+			// lived only in memory left the vault in a state no screen described:
+			// the entry gone from the list, still present in the file.
+			await onSaveVault();
+			setConfirmingDelete(false);
+			onChanged();
+		} catch (err) {
+			setActionError(errorText(err));
+		}
 	}
 
 	return (
@@ -149,7 +165,7 @@ export function EntryDetailPane({
 								<button
 									type="button"
 									onClick={() => onEditing(true)}
-									className="cursor-pointer rounded-[6px] px-2 py-1"
+									className="btn btn-quiet cursor-pointer rounded-[6px] px-2 py-1"
 									style={{ color: "var(--window-active-text-fg)" }}
 								>
 									Edit
@@ -162,7 +178,7 @@ export function EntryDetailPane({
 										<button
 											type="button"
 											onClick={() => void remove()}
-											className="cursor-pointer rounded-[6px] px-2 py-1 font-semibold"
+											className="btn btn-quiet cursor-pointer rounded-[6px] px-2 py-1 font-semibold"
 											style={{ color: "var(--attention-button-fg)" }}
 										>
 											Confirm
@@ -170,7 +186,7 @@ export function EntryDetailPane({
 										<button
 											type="button"
 											onClick={() => setConfirmingDelete(false)}
-											className="cursor-pointer rounded-[6px] px-2 py-1"
+											className="btn btn-quiet cursor-pointer rounded-[6px] px-2 py-1"
 											style={{ color: "var(--window-sub-text-fg)" }}
 										>
 											Keep
@@ -180,7 +196,7 @@ export function EntryDetailPane({
 									<button
 										type="button"
 										onClick={() => setConfirmingDelete(true)}
-										className="cursor-pointer rounded-[6px] px-2 py-1"
+										className="btn btn-quiet cursor-pointer rounded-[6px] px-2 py-1"
 										style={{ color: "var(--attention-button-fg)" }}
 									>
 										Delete
@@ -190,10 +206,31 @@ export function EntryDetailPane({
 						)}
 					</header>
 
+					{/* Failures appear next to the thing that failed, rather than in a
+					    bar at the top of the window. A delete that could not be stored
+					    is about this entry, and the entry is on screen. */}
+					{actionError &&
+						(() => {
+							const { message, technical } = splitTechnical(actionError);
+							return (
+								<div className="px-4 pt-3">
+									<Notice
+										title={message}
+										detail="The vault is unchanged."
+										{...(technical ? { technical } : {})}
+									/>
+								</div>
+							);
+						})()}
+
 					{editing ? (
 						<EntryEditor
 							entry={entry}
-							onSaved={() => {
+							onSaved={async () => {
+								// Stored before the editor closes. Closing first and
+								// writing after would put the word Saved on screen while
+								// the write could still fail.
+								await onSaveVault();
 								onEditing(false);
 								setReload((n) => n + 1);
 								onChanged();
@@ -281,8 +318,11 @@ function TotpRow({ uuid }: { uuid: Uuid }) {
 	if (!present) return null;
 
 	return (
+		// The rule sits below its own padding and above a margin, so the first
+		// field's highlight has somewhere to be. Flush against the border it read
+		// as the hover box colliding with the line rather than sitting under it.
 		<div
-			className="flex items-start gap-2 py-2"
+			className="mb-3 flex items-start gap-2 pt-1 pb-3"
 			style={{ borderBottom: "1px solid var(--shadow-fg)" }}
 		>
 			<div className="min-w-0 flex-1">
@@ -380,7 +420,7 @@ function AttachmentRow({
 				type="button"
 				onClick={() => void save()}
 				disabled={state === "saving"}
-				className="shrink-0 cursor-pointer rounded-[6px] px-2 py-0.5 opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
+				className="btn btn-quiet shrink-0 cursor-pointer rounded-[6px] px-2 py-0.5 opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
 				style={{
 					color:
 						state === "failed"
@@ -509,17 +549,20 @@ function FieldRow({
 		? (revealed ?? "••••••••••••")
 		: (field.value ?? "");
 
+	// Hover is handled by the stylesheet rather than by two mouse handlers
+	// writing inline styles. Those worked, and were a small state machine per
+	// row that gets it wrong whenever a pointer leaves the window mid-hover.
 	return (
-		<div
-			className="group flex items-center gap-2 rounded-[6px] py-2 pr-1 pl-2 transition-colors"
-			style={{ transitionDuration: "var(--duration-universal)" }}
-			onMouseEnter={(e) => {
-				e.currentTarget.style.background = "var(--window-bg-over)";
-			}}
-			onMouseLeave={(e) => {
-				e.currentTarget.style.background = "transparent";
-			}}
-		>
+		// `-mx-2 px-2` rather than plain padding. Padding alone pushed the value
+		// eight pixels right of every heading and of the footer, so the column had
+		// two left edges depending on whether a line happened to be hoverable.
+		// Pulling the box out by the same amount it pads back in keeps the text on
+		// one edge and lets the highlight extend into the gutter.
+		//
+		// `my-0.5` because the box was landing flush against the countdown ring
+		// above it, which read as two things touching rather than one thing
+		// lighting up.
+		<div className="group btn btn-quiet -mx-2 my-0.5 flex items-center gap-2 rounded-[6px] px-2 py-2">
 			{/* The whole row copies, the way tapping a phone number in Telegram
 			    does. The buttons stay for discoverability and for anyone using a
 			    keyboard, but the common action does not require aiming. */}
@@ -527,6 +570,9 @@ function FieldRow({
 				type="button"
 				onClick={copy}
 				title={`Copy ${field.key.toLowerCase()}`}
+				// No hover of its own: the row it sits in already has one, and two
+				// nested hover backgrounds make the inner one look like a
+				// separate control floating on the row.
 				className="min-w-0 flex-1 cursor-pointer text-left"
 			>
 				<div
@@ -584,7 +630,7 @@ function GlyphButton({
 			aria-pressed={pressed}
 			aria-label={label}
 			title={label}
-			className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-[6px] opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
+			className="btn btn-quiet flex h-7 w-7 cursor-pointer items-center justify-center rounded-[6px] opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
 			style={{
 				color: pressed
 					? "var(--window-active-text-fg)"

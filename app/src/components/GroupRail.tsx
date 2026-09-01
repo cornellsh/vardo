@@ -106,7 +106,7 @@ export function GroupRail({
 									onClick={onStorageNote}
 									title={storageNote}
 									aria-label={storageNote}
-									className="flex shrink-0 cursor-pointer items-center"
+									className="btn btn-quiet flex shrink-0 cursor-pointer items-center"
 								>
 									<svg
 										width="12"
@@ -133,7 +133,7 @@ export function GroupRail({
 							onClick={onSync}
 							title="Review and sync"
 							aria-label="Review and sync"
-							className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-[6px]"
+							className="btn btn-quiet flex h-7 w-7 cursor-pointer items-center justify-center rounded-[6px]"
 							style={{ color: "var(--window-sub-text-fg)" }}
 						>
 							<svg
@@ -157,7 +157,7 @@ export function GroupRail({
 						onClick={onSettings}
 						title="Settings"
 						aria-label="Settings"
-						className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-[var(--button-radius)]"
+						className="btn btn-quiet flex h-7 w-7 cursor-pointer items-center justify-center rounded-[var(--button-radius)]"
 						style={{ color: "var(--window-sub-text-fg)" }}
 					>
 						<svg
@@ -179,7 +179,7 @@ export function GroupRail({
 						onClick={onLock}
 						title="Lock (Ctrl+L)"
 						aria-label="Lock vault"
-						className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-[6px]"
+						className="btn btn-quiet flex h-7 w-7 cursor-pointer items-center justify-center rounded-[6px]"
 						style={{ color: "var(--window-sub-text-fg)" }}
 					>
 						<svg
@@ -304,7 +304,10 @@ function GroupItem({
 				onClick={onClick}
 				aria-current={active ? "true" : undefined}
 				{...ripple.handlers}
-				className="relative flex w-full cursor-pointer items-center gap-2 overflow-hidden px-3 text-left"
+				// A row, like the entry list: somewhere you are rather than a
+				// control you press, so the selected group does not repaint under
+				// the pointer.
+				className="row relative flex w-full cursor-pointer items-center gap-2 overflow-hidden px-3 text-left"
 				style={{
 					height: "34px",
 					// Indent by depth. 14px is enough to read as hierarchy without

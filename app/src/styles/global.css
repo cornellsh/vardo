@@ -172,3 +172,97 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* --- Interaction states -----------------------------------------------------
+
+   Thirty-nine buttons in this app and five of them had any hover feedback. The
+   tokens for it existed and went unused, because almost every button sets its
+   background with an inline style and an inline style beats a stylesheet rule.
+   Adding `hover:` to each one by hand is how you get thirty-nine slightly
+   different hovers and forget the fortieth.
+
+   So the background is declared once here, reading a custom property that the
+   component sets. Inline sets the variable, the stylesheet owns the states, and
+   a new button gets the right behaviour by naming its kind.
+
+   Durations are Telegram's universal 120ms. That is roughly half what a web UI
+   usually picks, and it is deliberate: below about 100ms a transition reads as
+   a jump, above about 200ms it reads as lag. */
+
+.btn {
+  background: var(--btn-bg, transparent);
+  transition:
+    background-color var(--duration-universal) linear,
+    color var(--duration-universal) linear,
+    opacity var(--duration-universal) linear;
+}
+.btn:hover:not(:disabled) {
+  background: var(--btn-bg-over, var(--window-bg-over));
+}
+.btn:active:not(:disabled) {
+  background: var(--btn-bg-down, var(--btn-bg-over, var(--window-bg-ripple)));
+  /* No transition on the way down. A press should feel like contact, and
+     easing into it makes the button feel like it is made of rubber. */
+  transition: none;
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* An icon or text button with no resting background of its own. */
+.btn-quiet {
+  --btn-bg: transparent;
+  --btn-bg-over: var(--window-bg-over);
+  --btn-bg-down: var(--window-bg-ripple);
+}
+
+/* The accent button. Darkens rather than brightens: Telegram brightens
+   (activeButtonBgOver), which drops white text under 4.5:1 on our palette, and
+   the contrast check is a gate rather than a preference. */
+.btn-accent {
+  --btn-bg: var(--active-button-bg);
+  --btn-bg-over: var(--active-button-bg-over);
+  --btn-bg-down: var(--active-button-bg-ripple);
+}
+
+/* Destructive. Same shape, different tint, so it never looks like a variant of
+   the accent button that happens to be red. */
+.btn-danger {
+  --btn-bg: transparent;
+  --btn-bg-over: color-mix(in srgb, var(--attention-button-fg) 14%, transparent);
+  --btn-bg-down: color-mix(in srgb, var(--attention-button-fg) 22%, transparent);
+}
+
+/* A row in a list. Selection wins over hover, so pointing at the selected row
+   does not make it look like it is about to change. */
+.row {
+  transition: background-color var(--duration-universal) linear;
+}
+.row:hover:not([aria-current='true']):not([data-active='true']) {
+  background: var(--dialogs-bg-over) !important;
+}
+
+/* Controls that appear on hover. Held visible while focused, or a keyboard user
+   can never reach them at all. */
+.on-hover {
+  opacity: 0;
+  transition: opacity var(--duration-universal) linear;
+}
+.group:hover .on-hover,
+.on-hover:focus-visible {
+  opacity: 1;
+}
+
+/* Respect the system setting. Motion here is feedback rather than decoration,
+   so it is reduced to instant rather than removed - the state still changes,
+   it just stops being animated. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

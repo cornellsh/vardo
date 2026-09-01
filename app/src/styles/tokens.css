@@ -31,12 +31,22 @@
 	--window-bg-active: #1f92d5;
 
 	/* deviation: #999999 on #ffffff = 2.85:1, fails AA. Entry-list subtitles are
-     13px body text, so 4.5:1 applies. Solved against the hover background too,
-     which is the worse case at #f1f1f1. */
-	--window-sub-text-fg: #6a6e74;
+     13px body text, so 4.5:1 applies.
 
-	/* deviation: #168acd on #ffffff = 3.78:1, fails AA. */
-	--window-active-text-fg: #147cb9;
+     Darkened a second time when quiet buttons gained a pressed state. #6a6e74
+     cleared the hover grey at 4.54 but only managed 4.07 on the ripple, and
+     the alternatives were both worse: lightening the ripple until the text
+     passed left it indistinguishable from hover, so a press stopped looking
+     like anything. Solved against the darkest background the text ever sits
+     on, which keeps Telegram's own ripple value intact. */
+	--window-sub-text-fg: #63666c;
+
+	/* deviation: #168acd on #ffffff = 3.78:1, fails AA. Darkened again once
+     quiet buttons gained a hover tint: #147cb9 was 4.55:1 on white, which has
+     no headroom at all, so the same link on a hovered button dropped to 4.03
+     and failed. A link that becomes harder to read when you point at it is the
+     wrong way round. */
+	--window-active-text-fg: #1272aa;
 
 	/* deviation: #d14e4e on #ffffff = 4.28:1, fails AA. */
 	--attention-button-fg: #cf4747;
@@ -128,7 +138,10 @@
 	--window-bg: #17212b;
 	--window-fg: #f5f5f5;
 	--window-bg-over: #232e3c;
-	--window-bg-ripple: #2b3846;
+	/* deviation: Telegram's #2b3846 puts secondary text at 3.93:1, failing AA
+     at exactly the moment a button is being pressed. Darkened toward the base
+     until the label it carries clears 4.5. */
+	--window-bg-ripple: #252e38;
 	--window-bold-fg: #e9e8e8;
 	--window-fg-active: #ffffff;
 	--window-active-text-fg: #6ab3f3; /* 7.26:1, passes as-is */

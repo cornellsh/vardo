@@ -119,6 +119,34 @@ const PAIRS = [
 		AA_NORMAL,
 		"primary button, hovered",
 	],
+	// The pressed states arrived with the shared .btn rules and went unchecked.
+	// A button is at its darkest under the finger, which is exactly the moment
+	// its label is hardest to read, so the down state needs the gate at least
+	// as much as the resting one does.
+	[
+		"window-fg-active",
+		"active-button-bg-ripple",
+		AA_NORMAL,
+		"primary button, pressed",
+	],
+	[
+		"window-sub-text-fg",
+		"window-bg-ripple",
+		AA_NORMAL,
+		"secondary text on a pressed quiet button",
+	],
+	[
+		"window-active-text-fg",
+		"window-bg-over",
+		AA_NORMAL,
+		"link on a hovered quiet button",
+	],
+	[
+		"window-bold-fg",
+		"dialogs-bg-over",
+		AA_NORMAL,
+		"group name on a hovered rail row",
+	],
 	["attention-button-fg", "window-bg", AA_NORMAL, "destructive"],
 	["attention-button-fg", "box-bg", AA_NORMAL, "destructive in a dialog"],
 	["window-fg-active", "dialogs-unread-bg", AA_NORMAL, "badge"],

@@ -200,9 +200,8 @@ export function Unlock({ onUnlocked, lockedReason }: Props) {
 				<button
 					type="submit"
 					disabled={busy || !password || !source}
-					className="mt-4 w-full cursor-pointer rounded-[6px] px-3 py-2.5 font-semibold transition-colors disabled:cursor-default disabled:opacity-45"
+					className="btn btn-accent mt-4 w-full cursor-pointer rounded-[6px] px-3 py-2.5 font-semibold"
 					style={{
-						background: "var(--active-button-bg)",
 						color: "var(--window-fg-active)",
 					}}
 				>

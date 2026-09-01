@@ -34,8 +34,7 @@ export function Vault({ info, onLock }: Props) {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [dirty, setDirty] = useState(false);
-	const [saving, setSaving] = useState(false);
-	const [saveError, setSaveError] = useState<string | null>(null);
+
 	const [editing, setEditing] = useState(false);
 	const [reload, setReload] = useState(0);
 	const [reviewing, setReviewing] = useState(false);
@@ -46,31 +45,27 @@ export function Vault({ info, onLock }: Props) {
 	// change the vault's shape.
 	const [live, setLive] = useState<VaultInfo>(info);
 
+	/**
+	 * Writes the vault, and throws if it could not.
+	 *
+	 * It used to swallow the reason and return false, which was fine while a bar
+	 * at the top of the window held the message. Now that failures are shown
+	 * beside whatever caused them, the caller needs the actual error rather than
+	 * a boolean it can only turn back into "something went wrong".
+	 */
 	const save = useCallback(async () => {
-		setSaving(true);
-		setSaveError(null);
 		try {
 			await (await ipc()).saveVault();
 			setDirty(false);
-			return true;
 		} catch (err) {
 			// A vault changed elsewhere is not a failure and must not read like
 			// one. Nothing is wrong, there is simply a newer copy, and the answer
-			// is the merge screen rather than a message telling someone their
-			// save broke.
+			// is the merge screen rather than a message about a broken save.
 			if ((err as { kind?: string })?.kind === "remote-changed") {
-				setSaveError(null);
 				setSaveBlocked(true);
 				setReviewing(true);
-				return false;
 			}
-			// The core verifies its own output before replacing anything, so a
-			// failed save means the file on disk is untouched. Say so, because
-			// "save failed" otherwise reads as "your vault may be broken".
-			setSaveError(`${errorText(err)} — the file on disk is unchanged.`);
-			return false;
-		} finally {
-			setSaving(false);
+			throw err;
 		}
 	}, []);
 
@@ -79,8 +74,27 @@ export function Vault({ info, onLock }: Props) {
 	// throwing away work is neither. If the save fails we do not lock, because
 	// locking would then be the thing that loses the data.
 	const lockAfterIdle = useCallback(async () => {
-		if (dirty && !(await save())) return;
+		// A failed save must not be followed by locking, or locking becomes the
+		// thing that loses the data.
+		try {
+			if (dirty) await save();
+		} catch {
+			return;
+		}
 		onLock("idle");
+	}, [dirty, save, onLock]);
+
+	// Manual lock takes the same route. It used to lock immediately and leave a
+	// "Lock and discard" button as the way to deal with unsaved work, which put
+	// losing an edit one click away from keeping it. Nobody intends to throw
+	// away a password they just typed, so the button is gone and locking saves.
+	const lockNow = useCallback(async () => {
+		try {
+			if (dirty) await save();
+		} catch {
+			return;
+		}
+		onLock("manual");
 	}, [dirty, save, onLock]);
 
 	useAutoLock(AUTO_LOCK_MINUTES, lockAfterIdle);
@@ -159,7 +173,12 @@ export function Vault({ info, onLock }: Props) {
 			const mod = e.ctrlKey || e.metaKey;
 			if (e.key === "s" && mod) {
 				e.preventDefault();
-				if (dirty) void save();
+				// Kept, because muscle memory is real and the shortcut existing
+				// costs nothing. It is a safety net rather than the way anything
+				// gets saved: every change already writes where it is made, so
+				// `dirty` is normally false and this does nothing. A rejection is
+				// surfaced by whatever the user was doing, not from here.
+				if (dirty) void save().catch(() => {});
 				return;
 			}
 			if (e.key === "n" && mod && info.writable) {
@@ -169,16 +188,17 @@ export function Vault({ info, onLock }: Props) {
 			}
 			if (e.key === "l" && mod) {
 				e.preventDefault();
-				// Manual lock is an explicit request, so it does not silently save;
-				// the confirmation bar makes the choice instead.
-				if (!dirty) onLock("manual");
+				// Saves first, like every other route to locking. This used to do
+				// nothing at all while there were unsaved edits, so the shortcut
+				// appeared broken at exactly the moment it mattered most.
+				void lockNow();
 				return;
 			}
 			if (e.key === "Escape" && query) setQuery("");
 		}
 		window.addEventListener("keydown", onKey);
 		return () => window.removeEventListener("keydown", onKey);
-	}, [onLock, query, dirty, save, addEntry, info.writable]);
+	}, [lockNow, query, dirty, save, addEntry, info.writable]);
 
 	// A close while dirty is the other way edits get lost. The browser needs a
 	// returnValue; Tauri surfaces this as a close-request the shell can veto.
@@ -192,48 +212,18 @@ export function Vault({ info, onLock }: Props) {
 	return (
 		<div className="flex h-full flex-col">
 
-			{(dirty || saveError) && (
-				<div
-					className="flex shrink-0 items-center gap-3 px-4"
-					style={{
-						height: "38px",
-						background: saveError
-							? "var(--window-bg-over)"
-							: "var(--active-button-bg)",
-						color: saveError
-							? "var(--attention-button-fg)"
-							: "var(--window-fg-active)",
-					}}
-				>
-					<span className="min-w-0 flex-1 truncate">
-						{saveError ?? "Unsaved changes"}
-					</span>
-					{dirty && (
-						<>
-							<button
-								type="button"
-								disabled={saving}
-								onClick={() => void save()}
-								className="shrink-0 cursor-pointer rounded-[6px] px-2 py-1 font-semibold disabled:opacity-60"
-								style={{
-									background: "rgba(255,255,255,0.18)",
-									color: "inherit",
-								}}
-							>
-								{saving ? "Saving…" : "Save  (Ctrl+S)"}
-							</button>
-							<button
-								type="button"
-								onClick={() => onLock("manual")}
-								className="shrink-0 cursor-pointer rounded-[6px] px-2 py-1"
-								style={{ color: "inherit", opacity: 0.85 }}
-							>
-								Lock and discard
-							</button>
-						</>
-					)}
-				</div>
-			)}
+			{/* There is no unsaved-changes bar.
+
+			    There was one, and it made no sense once you looked at it: a strip
+			    across the top offering Save beside "Lock and discard", while the
+			    editor you had just used had its own confirm and cancel. Two places
+			    to commit one edit, two vocabularies for it, and losing the work one
+			    click from keeping it at the same size.
+
+			    It existed because saving was a second step. It is not any more:
+			    every change writes where it is made, so there is no in-between
+			    state left for a bar to describe. Failures appear next to whatever
+			    failed, and locking saves rather than asking. */}
 
 			<div
 				className="flex min-h-0 flex-1"
@@ -248,7 +238,7 @@ export function Vault({ info, onLock }: Props) {
 					// usually 0 and "All entries" would read as empty.
 					totalEntries={live.entryCount}
 					vaultName={live.name}
-					onLock={() => onLock("manual")}
+					onLock={() => void lockNow()}
 					// Sync belongs to a vault something else can change, which means
 					// a vault in Drive. Offering it on a file on this machine's disk
 					// merged two models: there is no other copy to reconcile, so the
@@ -310,7 +300,7 @@ export function Vault({ info, onLock }: Props) {
 							<button
 								type="button"
 								onClick={() => setSettings(false)}
-								className="cursor-pointer rounded-[var(--button-radius)] px-2 py-1"
+								className="btn btn-quiet cursor-pointer rounded-[var(--button-radius)] px-2 py-1"
 								style={{ color: "var(--window-sub-text-fg)" }}
 							>
 								Close
@@ -357,6 +347,9 @@ export function Vault({ info, onLock }: Props) {
 						uuid={selected}
 						writable={info.writable}
 						onChanged={refresh}
+						// Throws on failure, so the editor can keep the form open and
+						// its button honest instead of closing over a failed write.
+						onSaveVault={save}
 						editing={editing}
 						onEditing={setEditing}
 					/>
