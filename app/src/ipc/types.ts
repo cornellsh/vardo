@@ -174,6 +174,28 @@ export interface DriveStatus {
 	connected: boolean;
 }
 
+/**
+ * What is wrong with a password.
+ *
+ * Ordered by consequence, not alphabetically: reuse means one breach opens
+ * several accounts, which is worse than a password nobody has changed.
+ */
+export type Issue = "reused" | "weak" | "expired" | "stale";
+
+export interface Finding {
+	uuid: Uuid;
+	title: string;
+	issue: Issue;
+	/** How many entries share this password. Only ever set for "reused". */
+	sharedWith: number | null;
+}
+
+export interface HealthReport {
+	findings: Finding[];
+	/** Entries examined, so a count can be stated against a total. */
+	checked: number;
+}
+
 export interface TotpCode {
 	code: string;
 	secondsRemaining: number;
@@ -352,6 +374,9 @@ export interface Ipc {
 
 	/** Entries with a web address and no icon yet. */
 	entriesMissingIcons(): Promise<Uuid[]>;
+
+	/** Reused, weak, expired and stale passwords. Never includes a password. */
+	health(): Promise<HealthReport>;
 
 	/**
 	 * Writes an attachment to a path the user chose. Returns the byte count,

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
+import { Presence } from "../components/Presence";
+import { VardoMark } from "../components/VardoMark";
 import { VaultPicker } from "../components/VaultPicker";
 import { errorText } from "../ipc/error";
 import { ipc } from "../ipc";
@@ -28,6 +30,8 @@ export function Unlock({ onUnlocked, lockedReason }: Props) {
 	const [password, setPassword] = useState("");
 	const [phase, setPhase] = useState<UnlockPhase | null>(null);
 	const [error, setError] = useState<string | null>(null);
+	/** Held after `error` clears, so the exit animation has text to play on. */
+	const [lastError, setLastError] = useState("");
 	/** Bumped on every failure, to re-trigger the shake. */
 	const [shakeKey, setShakeKey] = useState(0);
 	const passwordRef = useRef<HTMLInputElement>(null);
@@ -54,7 +58,7 @@ export function Unlock({ onUnlocked, lockedReason }: Props) {
 			// field value. Without this an unrecognised kind is indistinguishable
 			// from a wrong password, which makes a bridge bug look like user error.
 			console.error("unlock failed", JSON.stringify(err));
-			setError(
+			const message =
 				kind === "wrong-password"
 					? "Wrong password."
 					: kind === "not-found"
@@ -74,8 +78,9 @@ export function Unlock({ onUnlocked, lockedReason }: Props) {
 									: // An unrecognised failure shows its reason rather than a
 										// generic sentence. "Could not open the database" on its own
 										// is untriageable for the user and for us.
-										`Could not open the database: ${errorText(err)}`,
-			);
+										`Could not open the database: ${errorText(err)}`;
+			setLastError(message);
+			setError(message);
 			setPassword("");
 			setPhase(null);
 			setShakeKey((k) => k + 1);
@@ -88,26 +93,14 @@ export function Unlock({ onUnlocked, lockedReason }: Props) {
 	return (
 		<div className="flex h-full items-center justify-center bg-[var(--window-bg)] px-6">
 			<form onSubmit={submit} className="w-full max-w-[320px]">
+				{/* The mark, standing on its own. It used to be a stock padlock
+				    inside a filled circle, which is what you reach for when the glyph
+				    is generic and needs something to make it look deliberate. */}
 				<div className="mb-7 text-center">
-					<div
-						aria-hidden
-						className="mx-auto mb-4 flex h-[64px] w-[64px] items-center justify-center rounded-full"
-						style={{ background: "var(--accent-behind-text)" }}
-					>
-						<svg
-							width="28"
-							height="28"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="var(--window-fg-active)"
-							strokeWidth="2"
-							strokeLinecap="round"
-						>
-							<rect x="4" y="10" width="16" height="10" rx="2" />
-							<path d="M8 10V7a4 4 0 0 1 8 0v3" />
-						</svg>
+					<div className="mb-4 flex justify-center">
+						<VardoMark size={56} />
 					</div>
-					<h1 className="text-[20px] font-semibold text-[var(--window-bold-fg)]">
+					<h1 className="font-semibold text-[20px] text-[var(--window-bold-fg)]">
 						Vardo
 					</h1>
 				</div>
@@ -162,15 +155,26 @@ export function Unlock({ onUnlocked, lockedReason }: Props) {
 					key={shakeKey}
 				/>
 
+				{/* A fade rather than a collapse, because the row already reserves
+				    its height. Animating the box would move the button below it,
+				    and a button that shifts as you are told why the last attempt
+				    failed is how you click the wrong thing. */}
 				<div aria-live="polite" className="min-h-[20px] pt-2 text-center">
-					{error && (
+					<Presence
+						show={!!error}
+						enter="fade-in"
+						exit="fade-out"
+						enterDuration="var(--duration-universal)"
+						exitDuration="var(--duration-universal)"
+						exitMs={120}
+					>
 						<span
 							id="unlock-error"
 							className="text-[var(--attention-button-fg)]"
 						>
-							{error}
+							{lastError}
 						</span>
-					)}
+					</Presence>
 					{phase && (
 						<span className="text-[var(--window-sub-text-fg)]">
 							{PHASE_LABEL[phase.phase]}…

@@ -639,3 +639,18 @@ fn write_private(dest: &Path, bytes: &[u8]) -> Result<(), CoreError> {
         detail: e.to_string(),
     })
 }
+
+impl Session {
+    /// What is wrong with the passwords in this vault.
+    ///
+    /// Computed on demand rather than cached: it is a single pass over entries
+    /// already in memory, and a cache would need invalidating on every edit,
+    /// which is exactly when the answer has changed and matters most.
+    pub fn health(&self) -> crate::health::Report {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+        crate::health::review(&self.vault, now)
+    }
+}

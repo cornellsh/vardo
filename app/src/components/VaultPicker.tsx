@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { DriveLogo } from "./DriveLogo";
 import { Notice, splitTechnical } from "./Notice";
+import { Presence } from "./Presence";
 import { errorText } from "../ipc/error";
 import { ipc } from "../ipc";
 import type { DriveVault, VaultSource } from "../ipc";
@@ -180,7 +181,12 @@ export function VaultPicker({ selected, onSelect, disabled }: Props) {
 				</button>
 			</div>
 
-			{driveOpen && <DriveList onPick={choose} />}
+			{/* Kept mounted while it closes. Collapsing it out matches the way it
+			    arrived, and without this the panel vanished mid-slide, which made
+			    the entrance look like an accident. */}
+			<Presence show={driveOpen}>
+				<DriveList onPick={choose} />
+			</Presence>
 		</div>
 	);
 }

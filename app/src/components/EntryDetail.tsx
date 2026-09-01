@@ -6,6 +6,7 @@ import { ipc } from "../ipc";
 import type { EntryDetail, Uuid } from "../ipc";
 import { EntryEditor } from "./EntryEditor";
 import { Notice, splitTechnical } from "./Notice";
+import { Presence } from "./Presence";
 import { TotpCode } from "./TotpCode";
 
 interface Props {
@@ -36,6 +37,13 @@ export function EntryDetailPane({
 	const [confirmingDelete, setConfirmingDelete] = useState(false);
 	/** A failed delete, shown here rather than in a bar somewhere else. */
 	const [actionError, setActionError] = useState<string | null>(null);
+	/**
+	 * The last message, kept after `actionError` clears.
+	 *
+	 * Something has to hold the text while the notice animates away, or the
+	 * exit plays on an empty box.
+	 */
+	const [lastActionError, setLastActionError] = useState("");
 	/** Entries already tried, so a site with no icon is asked once per session. */
 	const tried = useRef(new Set<string>());
 
@@ -97,7 +105,9 @@ export function EntryDetailPane({
 			setConfirmingDelete(false);
 			onChanged();
 		} catch (err) {
-			setActionError(errorText(err));
+			const text = errorText(err);
+			setLastActionError(text);
+			setActionError(text);
 		}
 	}
 
@@ -113,7 +123,22 @@ export function EntryDetailPane({
 			{!entry ? (
 				<EmptyState />
 			) : (
-				<>
+				// Keyed on the entry, so moving down the list replays the entrance
+				// rather than swapping text inside a pane that never moves. Without
+				// it, arrowing through entries changed everything at once with no
+				// sense that anything had been navigated.
+				//
+				// Entry only, no exit: the outgoing entry is replaced in the same
+				// frame by the incoming one, so there is nothing to animate away and
+				// holding the old one would show two entries at once.
+				<div
+					key={entry.uuid}
+					className="flex min-h-0 flex-1 flex-col"
+					style={{
+						animation:
+							"fade-in var(--duration-universal) var(--ease-out-circ)",
+					}}
+				>
 					<header
 						className="flex items-center gap-3 px-4"
 						style={{
@@ -238,19 +263,19 @@ export function EntryDetailPane({
 					{/* Failures appear next to the thing that failed, rather than in a
 					    bar at the top of the window. A delete that could not be stored
 					    is about this entry, and the entry is on screen. */}
-					{actionError &&
-						(() => {
-							const { message, technical } = splitTechnical(actionError);
-							return (
-								<div className="px-4 pt-3">
-									<Notice
-										title={message}
-										detail="The vault is unchanged."
-										{...(technical ? { technical } : {})}
-									/>
-								</div>
-							);
-						})()}
+					<Presence show={!!actionError} className="px-4 pt-3">
+						{/* `lastActionError` rather than `actionError`, so the text is
+						    still there to read while the notice fades. Reading the live
+						    value would empty the box on the first frame of the exit and
+						    animate a blank rectangle away. */}
+						<Notice
+							title={splitTechnical(lastActionError).message}
+							detail="The vault is unchanged."
+							{...(splitTechnical(lastActionError).technical
+								? { technical: splitTechnical(lastActionError).technical }
+								: {})}
+						/>
+					</Presence>
 
 					{editing ? (
 						<EntryEditor
@@ -315,7 +340,7 @@ export function EntryDetailPane({
 							)}
 						</div>
 					)}
-				</>
+				</div>
 			)}
 		</section>
 	);

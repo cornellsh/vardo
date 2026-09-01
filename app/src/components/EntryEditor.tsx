@@ -4,6 +4,7 @@ import { errorText } from "../ipc/error";
 import { ipc } from "../ipc";
 import type { EntryDetail, FieldEdit } from "../ipc";
 import { PasswordGenerator } from "./PasswordGenerator";
+import { Presence } from "./Presence";
 
 interface Props {
 	entry: EntryDetail;
@@ -143,17 +144,15 @@ export function EntryEditor({ entry, onSaved, onCancel }: Props) {
 							Generate
 						</button>
 					</div>
-					{showGenerator && (
-						<div className="mt-2">
-							<PasswordGenerator
-								onUse={(pw) => {
-									setPassword(pw);
-									setShowGenerator(false);
-								}}
-								onClose={() => setShowGenerator(false)}
-							/>
-						</div>
-					)}
+					<Presence show={showGenerator} className="mt-2">
+						<PasswordGenerator
+							onUse={(pw) => {
+								setPassword(pw);
+								setShowGenerator(false);
+							}}
+							onClose={() => setShowGenerator(false)}
+						/>
+					</Presence>
 				</Row>
 
 				<Row label="URL">
@@ -188,11 +187,9 @@ export function EntryEditor({ entry, onSaved, onCancel }: Props) {
 					</Row>
 				))}
 
-				{error && (
-					<p className="mt-3" style={{ color: "var(--attention-button-fg)" }}>
-						{error}
-					</p>
-				)}
+				<Presence show={!!error} className="mt-3">
+					<p style={{ color: "var(--attention-button-fg)" }}>{error}</p>
+				</Presence>
 			</div>
 
 			<div

@@ -515,3 +515,9 @@ pub fn save_attachment(
         s.save_attachment(&uuid, &name, std::path::Path::new(&dest))
     })
 }
+
+/// Reused, weak, expired and stale passwords.
+#[tauri::command]
+pub fn health(state: tauri::State<'_, AppState>) -> CmdResult<vardo_core::health::Report> {
+    with_session(&state, |s| Ok(s.health()))
+}

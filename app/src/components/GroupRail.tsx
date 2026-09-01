@@ -29,6 +29,10 @@ interface Props {
 	/** Absent on a read-only database, so no button that always fails. */
 	onSync?: () => void;
 	onSettings: () => void;
+	/** Opens the password health review. */
+	onHealth: () => void;
+	/** How many problems were found, or null before it has been checked. */
+	healthCount?: number | undefined;
 }
 
 /**
@@ -45,6 +49,8 @@ export function GroupRail({
 	onLock,
 	onSync,
 	onSettings,
+	onHealth,
+	healthCount,
 	location,
 	remote,
 	storageNote,
@@ -206,6 +212,41 @@ export function GroupRail({
 					active={selected === undefined}
 					onClick={() => onSelect(undefined)}
 				/>
+				{/* Health sits with the groups because it is another way of asking
+				    which entries you want, not a mode you enter. Putting it behind
+				    settings would bury the one thing here that goes looking for
+				    problems on your behalf. */}
+				<li>
+					<button
+						type="button"
+						onClick={onHealth}
+						className="row relative flex w-full cursor-pointer items-center gap-2 overflow-hidden px-3 text-left"
+						style={{
+							height: "34px",
+							color: "var(--window-bold-fg)",
+						}}
+					>
+						<span className="relative w-3 shrink-0" aria-hidden />
+						<span className="relative flex-1 truncate">Password health</span>
+						{/* Nothing rather than a zero. A "0" beside a health check
+						    reads as the check having failed to run. */}
+						{!!healthCount && healthCount > 0 && (
+							<span
+								className="relative shrink-0 tabular-nums text-[12px]"
+								style={{ color: "var(--attention-button-fg)" }}
+							>
+								{healthCount}
+							</span>
+						)}
+					</button>
+				</li>
+
+				<li
+					aria-hidden
+					className="my-1 mx-3"
+					style={{ borderTop: "1px solid var(--shadow-fg)" }}
+				/>
+
 				{/* The whole tree, not just its first level. Only the root's
 				    direct children were drawn, so anything nested was invisible -
 				    and a vault organised into Work / Clients / Acme simply had no

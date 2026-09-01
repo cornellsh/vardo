@@ -278,3 +278,54 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* --- Leaving --------------------------------------------------------------
+
+   Every animation in here had an entrance and no exit, so things arrived
+   deliberately and then blinked out of existence. Each of these is the inverse
+   of the entrance it pairs with, and each is a little quicker: leaving should
+   not hold you up, and Telegram's own hide durations are shorter than its show
+   durations for the same reason. */
+
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes slide-down {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes slide-out-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+/* Used where something is removed from a stack and the gap should close rather
+   than be left behind. Height cannot be animated from `auto`, so this leans on
+   the element having a bounded height already, which every notice does. */
+@keyframes collapse-out {
+  from {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+  to {
+    opacity: 0;
+    transform: scaleY(0.96);
+  }
+}

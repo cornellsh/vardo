@@ -19,6 +19,8 @@ import type {
 	GeneratorOptions,
 	GroupNode,
 	Ipc,
+	Finding,
+	HealthReport,
 	SaveResult,
 	StorageWarning,
 	SyncOutcome,
@@ -778,6 +780,54 @@ export class MockIpc implements Ipc {
 
 	async entriesMissingIcons(): Promise<Uuid[]> {
 		return [];
+	}
+
+	async health(): Promise<HealthReport> {
+		this.assertUnlocked();
+		await delay(180);
+
+		// Derived from the mock vault rather than invented, so the panel is
+		// exercised against the same messy titles as everything else: long ones,
+		// CJK, emoji, duplicates. A findings list of three tidy examples would
+		// prove the layout works on data that does not exist.
+		const rows = ENTRIES.map((e) => e.summary);
+		const findings: Finding[] = [];
+
+		const reused = rows.slice(0, 6);
+		for (const r of reused) {
+			findings.push({
+				uuid: r.uuid,
+				title: r.title,
+				issue: "reused",
+				sharedWith: 3,
+			});
+		}
+		for (const r of rows.slice(10, 19)) {
+			findings.push({
+				uuid: r.uuid,
+				title: r.title,
+				issue: "weak",
+				sharedWith: null,
+			});
+		}
+		for (const r of rows.slice(30, 33)) {
+			findings.push({
+				uuid: r.uuid,
+				title: r.title,
+				issue: "expired",
+				sharedWith: null,
+			});
+		}
+		for (const r of rows.slice(40, 68)) {
+			findings.push({
+				uuid: r.uuid,
+				title: r.title,
+				issue: "stale",
+				sharedWith: null,
+			});
+		}
+
+		return { findings, checked: rows.length };
 	}
 
 	async saveAttachment(

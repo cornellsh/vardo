@@ -20,6 +20,7 @@ import type {
 	DriveStatus,
 	DriveVault,
 	GroupNode,
+	HealthReport,
 	VaultSource,
 	Ipc,
 	SaveResult,
@@ -191,6 +192,10 @@ export class TauriIpc implements Ipc {
 
 	entriesMissingIcons(): Promise<Uuid[]> {
 		return invoke("entries_missing_icons");
+	}
+
+	health(): Promise<HealthReport> {
+		return invoke("health");
 	}
 
 	forgetVault(source: VaultSource): Promise<void> {
