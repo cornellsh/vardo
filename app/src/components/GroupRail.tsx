@@ -15,6 +15,16 @@ interface Props {
 	location: string;
 	/** True for a vault in Drive, which gets its mark rather than a folder. */
 	remote: boolean;
+	/**
+	 * A caveat about where the vault is stored, or null.
+	 *
+	 * Sits beside the location because that is the fact it is about. It used
+	 * to be a banner across the top of the window that pushed the whole app
+	 * down on every unlock, which is an interruption's worth of weight for a
+	 * standing condition nobody can act on in that moment.
+	 */
+	storageNote?: string | undefined;
+	onStorageNote?: (() => void) | undefined;
 	onLock: () => void;
 	/** Absent on a read-only database, so no button that always fails. */
 	onSync?: () => void;
@@ -37,6 +47,8 @@ export function GroupRail({
 	onSettings,
 	location,
 	remote,
+	storageNote,
+	onStorageNote,
 }: Props) {
 	/**
 	 * Which branches are open.
@@ -81,11 +93,36 @@ export function GroupRail({
 						>
 							{vaultName}
 						</div>
-						<div
-							className="truncate text-[12px] text-[var(--window-sub-text-fg)]"
-							title={location}
-						>
-							{location}
+						<div className="flex items-center gap-1">
+							<span
+								className="truncate text-[12px] text-[var(--window-sub-text-fg)]"
+								title={location}
+							>
+								{location}
+							</span>
+							{storageNote && (
+								<button
+									type="button"
+									onClick={onStorageNote}
+									title={storageNote}
+									aria-label={storageNote}
+									className="flex shrink-0 cursor-pointer items-center"
+								>
+									<svg
+										width="12"
+										height="12"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="#e8a33d"
+										strokeWidth="2.4"
+										strokeLinecap="round"
+										aria-hidden
+									>
+										<path d="M12 4l9 16H3z" />
+										<path d="M12 10v4M12 17.5v.01" />
+									</svg>
+								</button>
+							)}
 						</div>
 					</div>
 				</div>

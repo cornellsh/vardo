@@ -32,10 +32,14 @@ const DEMO_PASSWORD = "demopass";
 
 /** Matches what `storage_risk::assess` reports for a real rclone mount. */
 const MOCK_STORAGE_WARNING = {
-	kind: "fuse",
-	explanation: "Saving here is not atomic (rclone mount)",
-	remedy: "Keep it locally and let Vardo sync it",
-	why: 'A safe save replaces the file by renaming over it, which userspace mounts often cannot do atomically. The usual result is a forked copy such as "vault (1).kdbx", or a save that silently lands on a stale version.',
+	// A synced folder, not a FUSE mount. FUSE is detected and deliberately not
+	// reported: a probe on a live rclone mount showed the save path behaves
+	// exactly as it does on local disk.
+	kind: "name",
+	explanation: "A Google Drive folder can duplicate this file",
+	remedy: "Open it from Google Drive instead",
+	providerHint: "google-drive",
+	why: 'A sync daemon watching this folder can upload its own copy while Vardo is writing, which is how KeePass databases end up duplicated as "vault (1).kdbx". Vardo talking to the provider directly avoids the race entirely.',
 } as const;
 
 /**
@@ -208,7 +212,13 @@ function makeEntries(count: number): MockEntry[] {
 	return out;
 }
 
-const ENTRIES = makeEntries(412);
+/**
+ * Scalable for testing. A vault of 412 hides every problem that only appears
+ * at ten thousand, and "it feels fine here" is not a measurement.
+ */
+const ENTRIES = makeEntries(
+	Number(new URLSearchParams(location.search).get("n")) || 412,
+);
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef } from "react";
 import type { EntrySummary, Uuid } from "../ipc";
 import { useRipple } from "./Ripple";
 import { identityOf, initialOf, tintFor } from "../lib/identity";
+import { useWindowedRows } from "./useWindowedRows";
 
 interface Props {
 	rows: EntrySummary[];
@@ -32,7 +33,8 @@ export function EntryList({
 	onSelect,
 	onAdd,
 }: Props) {
-	const listRef = useRef<HTMLUListElement>(null);
+	// Fixed row height is what makes this arithmetic rather than a library.
+	const windowed = useWindowedRows(rows.length, ROW_HEIGHT);
 	const searchRef = useRef<HTMLInputElement>(null);
 
 	// A vault holds many entries per service, so "Airbnb" ten times over is
@@ -70,9 +72,10 @@ export function EntryList({
 		const row = rows[next];
 		if (!row) return;
 		onSelect(row.uuid);
-		listRef.current
-			?.querySelector(`[data-uuid="${CSS.escape(row.uuid)}"]`)
-			?.scrollIntoView({ block: "nearest" });
+		// By index, not by finding the element: the row being moved to is very
+		// often not rendered yet, which is the whole point of windowing, and
+		// `scrollIntoView` on a node that does not exist silently does nothing.
+		windowed.scrollToRow(next);
 	}
 
 	function onListKey(e: React.KeyboardEvent) {
@@ -187,7 +190,7 @@ export function EntryList({
 			</div>
 
 			<ul
-				ref={listRef}
+				ref={windowed.ref as React.RefObject<HTMLUListElement>}
 				// biome-ignore lint/a11y/noNoninteractiveTabindex: the list is the
 				// keyboard target for arrow navigation between rows.
 				tabIndex={0}
@@ -218,19 +221,39 @@ export function EntryList({
 						)}
 					</li>
 				)}
-				{rows.map((row) => (
-					<Row
-						key={row.uuid}
-						row={row}
-						active={row.uuid === selected}
-						ambiguous={duplicated.has(row.title)}
-						onClick={() => onSelect(row.uuid)}
-					/>
-				))}
+				{/* Only the visible slice is built, held in place by a spacer of
+				    the full list height so the scrollbar still tells the truth
+				    about how much there is. */}
+				{rows.length > 0 && (
+					<li style={{ height: windowed.totalHeight, position: "relative" }}>
+						<ul
+							style={{
+								position: "absolute",
+								top: windowed.offsetTop,
+								left: 0,
+								right: 0,
+							}}
+						>
+							{rows.slice(windowed.start, windowed.end).map((row) => (
+								<Row
+									key={row.uuid}
+									row={row}
+									active={row.uuid === selected}
+									ambiguous={duplicated.has(row.title)}
+									onClick={() => onSelect(row.uuid)}
+								/>
+							))}
+						</ul>
+					</li>
+				)}
 			</ul>
 		</section>
 	);
 }
+
+/** Telegram's `dialogsRowHeight`. Must match the row's own height exactly, or
+ * the windowing drifts from what is painted. */
+const ROW_HEIGHT = 62;
 
 /** Real vaults contain untitled entries; they are not an error. */
 const UNTITLED = "Untitled";

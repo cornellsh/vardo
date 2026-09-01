@@ -36,6 +36,8 @@ export interface StorageWarning {
 	remedy: string;
 	/** The full reasoning, shown only if the user opens it. */
 	why: string;
+	/** Set when Vardo can sync this provider itself, so the banner offers it. */
+	providerHint: string | null;
 }
 
 export interface VaultInfo {

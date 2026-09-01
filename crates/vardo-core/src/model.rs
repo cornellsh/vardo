@@ -34,6 +34,9 @@ pub struct StorageWarning {
     pub remedy: String,
     /// The full reasoning, shown only if the user opens it.
     pub why: String,
+    /// Set when Vardo can sync this provider itself, so the banner can offer
+    /// the fix instead of only describing the hazard.
+    pub provider_hint: Option<String>,
 }
 
 #[derive(Debug, Serialize)]

@@ -3,13 +3,13 @@ import { useCallback, useEffect, useState } from "react";
 import { EntryDetailPane } from "../components/EntryDetail";
 import { EntryList } from "../components/EntryList";
 import { GroupRail } from "../components/GroupRail";
-import { StorageBanner } from "../components/StorageBanner";
 import { useAutoLock } from "../hooks/useAutoLock";
 import { DriveConnect } from "../components/DriveConnect";
 import { MergeReview } from "./MergeReview";
 import { errorText } from "../ipc/error";
 import { ipc } from "../ipc";
 import type { EntrySummary, GroupNode, Uuid, VaultInfo } from "../ipc";
+import { StorageNote } from "../components/StorageNote";
 
 interface Props {
 	info: VaultInfo;
@@ -191,7 +191,6 @@ export function Vault({ info, onLock }: Props) {
 
 	return (
 		<div className="flex h-full flex-col">
-			{live.storageWarning && <StorageBanner warning={live.storageWarning} />}
 
 			{(dirty || saveError) && (
 				<div
@@ -250,7 +249,16 @@ export function Vault({ info, onLock }: Props) {
 					totalEntries={live.entryCount}
 					vaultName={live.name}
 					onLock={() => onLock("manual")}
-					{...(info.writable
+					// Sync belongs to a vault something else can change, which means
+					// a vault in Drive. Offering it on a file on this machine's disk
+					// merged two models: there is no other copy to reconcile, so the
+					// button could only compare the vault against itself.
+					//
+					// A local file can still change underneath us - another window,
+					// another program - and that is handled where it happens, by the
+					// save refusing and offering the merge then. Reactive, because
+					// nobody sits down intending to sync a local file.
+					{...(info.writable && live.source.kind === "googleDrive"
 						? {
 								onSync: () => {
 									setSaveBlocked(false);
@@ -261,6 +269,12 @@ export function Vault({ info, onLock }: Props) {
 					onSettings={() => setSettings((s) => !s)}
 					location={live.location}
 					remote={live.source.kind === "googleDrive"}
+				{...(live.storageWarning
+					? {
+							storageNote: live.storageWarning.explanation,
+							onStorageNote: () => setSettings(true),
+						}
+					: {})}
 				/>
 				<EntryList
 					rows={rows}
@@ -310,6 +324,11 @@ export function Vault({ info, onLock }: Props) {
 							}}
 						>
 							<DriveConnect />
+						{live.storageWarning && (
+							<div className="mt-4">
+								<StorageNote warning={live.storageWarning} />
+							</div>
+						)}
 						</div>
 					</section>
 				) : reviewing ? (
@@ -318,6 +337,7 @@ export function Vault({ info, onLock }: Props) {
 						style={{ minWidth: "var(--column-min-third)" }}
 					>
 						<MergeReview
+							remote={live.source.kind === "googleDrive"}
 							{...(saveBlocked ? { reason: "save-blocked" as const } : {})}
 							onClose={() => {
 								setSaveBlocked(false);

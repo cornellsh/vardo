@@ -529,6 +529,7 @@ fn storage_warning(path: &Path) -> Option<StorageWarning> {
         explanation: risk.explain(),
         remedy: risk.remedy().to_string(),
         why: risk.why().to_string(),
+        provider_hint: risk.provider_hint().map(str::to_string),
     })
 }
 

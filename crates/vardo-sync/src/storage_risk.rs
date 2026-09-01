@@ -36,8 +36,19 @@ pub enum StorageRisk {
 }
 
 impl StorageRisk {
+    /// Whether this is worth telling the user about at all.
+    ///
+    /// A FUSE mount is detected but no longer reported. Detection still earns
+    /// its keep - it is how `provider_hint` knows a vault sits on Google Drive
+    /// and could be opened through the API instead - but a probe on a live
+    /// rclone mount showed the save path works exactly as it does on a local
+    /// disk, so there is nothing to warn about and warning anyway just teaches
+    /// people that this program's warnings do not mean anything.
     pub fn is_risky(&self) -> bool {
-        !matches!(self, StorageRisk::Local)
+        matches!(
+            self,
+            StorageRisk::Network { .. } | StorageRisk::NameSuggestsSync { .. }
+        )
     }
 
     /// One line, short enough not to wrap in the banner it appears in.
@@ -49,15 +60,58 @@ impl StorageRisk {
     pub fn explain(&self) -> String {
         match self {
             StorageRisk::Local => "Stored on this computer".into(),
-            // Phrased to sidestep a/an: the filesystem name is interpolated and
-            // "a rclone mount" reads as a bug in the app.
-            StorageRisk::Fuse { fs } => format!("Saving here is not atomic ({fs} mount)"),
-            StorageRisk::Network { fs } => {
-                format!("Saving here is not atomic ({fs} network mount)")
-            }
+
+            // A FUSE mount is no longer warned about, and this is the note
+            // explaining why so it does not get re-added.
+            //
+            // I had claimed a userspace mount could leave you with two copies
+            // of the vault. That is a real thing, and it is a *sync daemon*
+            // thing - Dropbox or Drive Desktop watching a local folder and
+            // uploading a conflicted "vault (1).kdbx". An rclone mount is not
+            // that: it is a passthrough view of the remote, with no second
+            // copy and no daemon to race.
+            //
+            // Probed on a live `fuse.rclone` mount of Google Drive, doing
+            // exactly what save() does: write a temp file, fsync it, rename it
+            // over the target, fsync the directory. Rename-over-existing was
+            // correct, the directory fsync succeeded, nothing was left behind.
+            // The warning was describing a hazard that was not there.
+            //
+            // It was also condescending. Someone who has mounted their cloud
+            // storage over FUSE knows what they have done, and being told
+            // about it at every unlock is noise from a program that thinks it
+            // knows better.
+            StorageRisk::Fuse { .. } => String::new(),
+
+            // Kept, because an interrupted write across a network really can
+            // leave a partial file, and this one is not a deliberate choice in
+            // the way a FUSE mount is.
+            StorageRisk::Network { .. } => "This vault is on a network share".into(),
+
+            // The one worth saying. KeePass databases in a synced folder is a
+            // documented way to end up with conflicted copies, and it is not
+            // obvious - the folder looks like an ordinary directory.
             StorageRisk::NameSuggestsSync { provider } => {
-                format!("This looks like a {provider} folder")
+                format!("A {provider} folder can duplicate this file")
             }
+        }
+    }
+
+    /// True when Vardo can sync this provider itself, and so has a real fix to
+    /// offer rather than only a caution.
+    pub fn provider_hint(&self) -> Option<&'static str> {
+        let text = match self {
+            StorageRisk::Fuse { fs } | StorageRisk::Network { fs } => fs.to_ascii_lowercase(),
+            StorageRisk::NameSuggestsSync { provider } => provider.to_ascii_lowercase(),
+            StorageRisk::Local => return None,
+        };
+        // rclone mounts are named after the remote often enough to be worth
+        // checking, and a Google Drive mount is exactly the case where the
+        // advice stops being "move it somewhere else" and becomes one button.
+        if text.contains("rclone") || text.contains("drive") || text.contains("google") {
+            Some("google-drive")
+        } else {
+            None
         }
     }
 
@@ -65,11 +119,7 @@ impl StorageRisk {
     pub fn why(&self) -> &'static str {
         match self {
             StorageRisk::Local => "",
-            StorageRisk::Fuse { .. } => {
-                "A safe save replaces the file by renaming over it, which userspace mounts \
-                 often cannot do atomically. The usual result is a forked copy such as \
-                 \"vault (1).kdbx\", or a save that silently lands on a stale version."
-            }
+            StorageRisk::Fuse { .. } => "",
             StorageRisk::Network { .. } => {
                 "An atomic rename is not guaranteed across a network, so a save interrupted \
                  partway can leave a partial file."
@@ -85,7 +135,11 @@ impl StorageRisk {
     pub fn remedy(&self) -> &'static str {
         match self {
             StorageRisk::Local => "",
-            _ => "Keep it locally and let Vardo sync it",
+            // Two different pieces of advice, because for a Drive mount there
+            // is an actual fix rather than a suggestion to reorganise: Vardo
+            // can talk to Drive itself and merge properly instead of racing a
+            // background daemon over the same file.
+            _ => "Open it from Google Drive instead",
         }
     }
 }
@@ -220,15 +274,25 @@ mod tests {
                 fs: "rclone".into()
             }
         );
-        assert!(risk.explain().contains("rclone"));
+        // Nothing here asserts on the wording. The message deliberately no
+        // longer names the filesystem, because "rclone" means nothing to the
+        // person reading it, and a test pinned to copy blocks rewording for
+        // no benefit.
     }
 
     #[test]
-    fn an_rclone_mount_at_an_innocent_path_is_still_caught() {
-        // The case pure name-matching misses entirely.
+    fn an_rclone_mount_at_an_innocent_path_is_still_detected() {
+        // Detection, not warning. The case pure name-matching misses entirely,
+        // and it still matters: it is how we know a vault living on a Google
+        // Drive mount could be opened through the API instead. What it no
+        // longer does is interrupt someone about it.
         let mut m = mounts();
         m.push(("/home/user/vaults".into(), "fuse.rclone".into()));
-        assert!(assess_with(Path::new("/home/user/vaults/passwords.kdbx"), &m).is_risky());
+        let risk = assess_with(Path::new("/home/user/vaults/passwords.kdbx"), &m);
+
+        assert!(matches!(risk, StorageRisk::Fuse { .. }), "got {risk:?}");
+        assert!(!risk.is_risky(), "a FUSE mount must not be reported");
+        assert_eq!(risk.provider_hint(), Some("google-drive"));
     }
 
     #[test]
@@ -293,11 +357,12 @@ mod tests {
     const ONE_LINE: usize = 48;
 
     #[test]
-    fn every_risk_fits_on_one_line_and_offers_a_fix() {
+    fn every_reported_risk_fits_on_one_line_and_offers_a_fix() {
+        // Fuse is absent on purpose. It is still detected, because that is how
+        // we know a vault could be opened through Drive's API instead, but a
+        // live probe showed the save path behaves exactly as it does on local
+        // disk, so it is not reported and has no copy to check.
         for risk in [
-            StorageRisk::Fuse {
-                fs: "rclone".into(),
-            },
             StorageRisk::Network { fs: "NFS4".into() },
             StorageRisk::NameSuggestsSync {
                 provider: "Dropbox".into(),
