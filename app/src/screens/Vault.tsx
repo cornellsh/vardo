@@ -7,6 +7,7 @@ import { useAutoLock } from "../hooks/useAutoLock";
 import { DriveConnect } from "../components/DriveConnect";
 import { MergeReview } from "./MergeReview";
 import { errorText } from "../ipc/error";
+import { useLayoutMode } from "../lib/useLayoutMode";
 import { ipc } from "../ipc";
 import type { EntrySummary, GroupNode, Uuid, VaultInfo } from "../ipc";
 import { StorageNote } from "../components/StorageNote";
@@ -34,6 +35,15 @@ export function Vault({ info, onLock }: Props) {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [dirty, setDirty] = useState(false);
+	const mode = useLayoutMode();
+	/** Whether the group drawer is showing, when it is a drawer at all. */
+	const [railOpen, setRailOpen] = useState(false);
+
+	// A drawer left open across a resize would sit on top of a rail that is now
+	// a permanent column, which is two copies of the same thing.
+	useEffect(() => {
+		if (mode === "three") setRailOpen(false);
+	}, [mode]);
 
 	const [editing, setEditing] = useState(false);
 	const [reload, setReload] = useState(0);
@@ -194,11 +204,17 @@ export function Vault({ info, onLock }: Props) {
 				void lockNow();
 				return;
 			}
-			if (e.key === "Escape" && query) setQuery("");
+			if (e.key === "Escape") {
+				// Innermost thing first. A drawer laid over the content is what
+				// Escape most obviously means while it is open, and clearing the
+				// search behind it instead would look like the key did nothing.
+				if (railOpen) setRailOpen(false);
+				else if (query) setQuery("");
+			}
 		}
 		window.addEventListener("keydown", onKey);
 		return () => window.removeEventListener("keydown", onKey);
-	}, [lockNow, query, dirty, save, addEntry, info.writable]);
+	}, [lockNow, query, dirty, save, addEntry, info.writable, railOpen]);
 
 	// A close while dirty is the other way edits get lost. The browser needs a
 	// returnValue; Tauri surfaces this as a close-request the shell can veto.
@@ -211,7 +227,6 @@ export function Vault({ info, onLock }: Props) {
 
 	return (
 		<div className="flex h-full flex-col">
-
 			{/* There is no unsaved-changes bar.
 
 			    There was one, and it made no sense once you looked at it: a strip
@@ -226,13 +241,50 @@ export function Vault({ info, onLock }: Props) {
 			    failed, and locking saves rather than asking. */}
 
 			<div
-				className="flex min-h-0 flex-1"
+				className="relative flex min-h-0 flex-1"
 				style={{ background: "var(--window-bg)" }}
 			>
+				{/* Below three panes the rail becomes a drawer over the content
+				    rather than a column beside it. Groups need their names, so
+				    shrinking it to icons was never an option; the choice is between
+				    showing it and not, and most of the time you are not changing
+				    group. */}
+				{mode !== "three" && railOpen && (
+					<button
+						type="button"
+						aria-label="Close groups"
+						onClick={() => setRailOpen(false)}
+						className="absolute inset-0 z-10 cursor-default"
+						style={{
+							background: "rgba(0,0,0,0.45)",
+							animation: "fade-in var(--duration-fade-wrap) linear",
+						}}
+					/>
+				)}
+
+				{(mode === "three" || railOpen) && (
+					<div
+						className={mode === "three" ? "contents" : "absolute inset-y-0 left-0 z-20 flex"}
+						style={
+							mode === "three"
+								? undefined
+								: {
+										boxShadow: "0 0 24px rgba(0,0,0,0.5)",
+										animation:
+											"slide-in-left var(--duration-slide) var(--ease-out-circ)",
+									}
+						}
+					>
 				<GroupRail
 					root={groups}
 					selected={group}
-					onSelect={setGroup}
+					// Choosing a group closes the drawer, because the drawer is
+					// covering the list it just filtered. Leaving it open would hide
+					// the only evidence that the choice did anything.
+					onSelect={(uuid) => {
+						setGroup(uuid);
+						setRailOpen(false);
+					}}
 					// The vault's own count, not the root group's direct children:
 					// entries almost always live in subgroups, so root's own count is
 					// usually 0 and "All entries" would read as empty.
@@ -259,25 +311,39 @@ export function Vault({ info, onLock }: Props) {
 					onSettings={() => setSettings((s) => !s)}
 					location={live.location}
 					remote={live.source.kind === "googleDrive"}
-				{...(live.storageWarning
-					? {
-							storageNote: live.storageWarning.explanation,
-							onStorageNote: () => setSettings(true),
-						}
-					: {})}
+					{...(live.storageWarning
+						? {
+								storageNote: live.storageWarning.explanation,
+								onStorageNote: () => setSettings(true),
+							}
+						: {})}
 				/>
-				<EntryList
-					rows={rows}
-					loading={loading}
-					error={error}
-					query={query}
-					onQuery={setQuery}
-					sort={sort}
-					onSort={setSort}
-					selected={selected}
-					onSelect={setSelected}
-					{...(info.writable ? { onAdd: () => void addEntry() } : {})}
-				/>
+					</div>
+				)}
+
+				{/* At one pane the list and the detail take turns. Selecting an
+				    entry replaces the list, and the detail pane's back control
+				    returns to it - the same trade every mail client makes, because
+				    380 and 292 side by side do not fit in 600 and something has to
+				    give. */}
+				{(mode !== "one" || (!selected && !settings && !reviewing)) && (
+					<EntryList
+						rows={rows}
+						loading={loading}
+						error={error}
+						query={query}
+						onQuery={setQuery}
+						sort={sort}
+						onSort={setSort}
+						selected={selected}
+						onSelect={setSelected}
+						fill={mode === "one"}
+						{...(mode !== "three"
+							? { onOpenGroups: () => setRailOpen(true) }
+							: {})}
+						{...(info.writable ? { onAdd: () => void addEntry() } : {})}
+					/>
+				)}
 				{settings ? (
 					<section
 						aria-label="Settings"
@@ -314,11 +380,11 @@ export function Vault({ info, onLock }: Props) {
 							}}
 						>
 							<DriveConnect />
-						{live.storageWarning && (
-							<div className="mt-4">
-								<StorageNote warning={live.storageWarning} />
-							</div>
-						)}
+							{live.storageWarning && (
+								<div className="mt-4">
+									<StorageNote warning={live.storageWarning} />
+								</div>
+							)}
 						</div>
 					</section>
 				) : reviewing ? (
@@ -343,16 +409,26 @@ export function Vault({ info, onLock }: Props) {
 						/>
 					</div>
 				) : (
-					<EntryDetailPane
-						uuid={selected}
-						writable={info.writable}
-						onChanged={refresh}
-						// Throws on failure, so the editor can keep the form open and
-						// its button honest instead of closing over a failed write.
-						onSaveVault={save}
-						editing={editing}
-						onEditing={setEditing}
-					/>
+					// At one pane this only appears once an entry is chosen. Rendering
+					// it alongside the list squeezed the list to 88 pixels at 380 wide
+					// - no overflow, and no usable list either, which is a worse
+					// failure than the overflow it replaced because nothing looks
+					// broken enough to report.
+					(mode !== "one" || !!selected) && (
+						<EntryDetailPane
+							uuid={selected}
+							writable={info.writable}
+							onChanged={refresh}
+							// Throws on failure, so the editor can keep the form open and
+							// its button honest instead of closing over a failed write.
+							onSaveVault={save}
+							{...(mode === "one"
+								? { onBack: () => setSelected(null) }
+								: {})}
+							editing={editing}
+							onEditing={setEditing}
+						/>
+					)
 				)}
 			</div>
 		</div>

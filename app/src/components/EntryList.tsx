@@ -13,6 +13,16 @@ interface Props {
 	onQuery: (q: string) => void;
 	sort: "name" | "recent";
 	onSort: (s: "name" | "recent") => void;
+	/**
+	 * Take the whole width rather than a fixed column.
+	 *
+	 * True when the list is the only pane showing, which happens in a window
+	 * too narrow for two. Holding the column width there would leave dead space
+	 * beside a list that has nothing to sit next to.
+	 */
+	fill?: boolean | undefined;
+	/** Opens the group drawer. Absent when the rail is a permanent column. */
+	onOpenGroups?: (() => void) | undefined;
 	selected: Uuid | null;
 	onSelect: (uuid: Uuid) => void;
 	/** Absent on a read-only database, which hides the button entirely rather
@@ -32,6 +42,8 @@ export function EntryList({
 	selected,
 	onSelect,
 	onAdd,
+	fill,
+	onOpenGroups,
 }: Props) {
 	// Fixed row height is what makes this arithmetic rather than a library.
 	const windowed = useWindowedRows(rows.length, ROW_HEIGHT);
@@ -94,8 +106,14 @@ export function EntryList({
 			className="flex shrink-0 flex-col"
 			style={{
 				// Telegram: clamp(windowWidth * 5/14, min, max), from mainwidget.h.
-				width:
-					"clamp(var(--column-min-main), calc(100vw * 5 / 14), var(--column-max-left))",
+				// Dropped when this is the only pane, because a fixed column in a
+				// window with nothing beside it is just a margin.
+				...(fill
+					? { flex: "1 1 auto", minWidth: 0 }
+					: {
+							width:
+								"clamp(var(--column-min-main), calc(100vw * 5 / 14), var(--column-max-left))",
+						}),
 				background: "var(--dialogs-bg)",
 				borderRight: "1px solid var(--shadow-fg)",
 			}}
@@ -104,6 +122,32 @@ export function EntryList({
 				className="flex items-center px-2"
 				style={{ height: "54px", borderBottom: "1px solid var(--shadow-fg)" }}
 			>
+				{/* Only when the rail is not a column of its own. Otherwise the
+				    groups are already on screen and this would be a button that
+				    opens what you are looking at. */}
+				{onOpenGroups && (
+					<button
+						type="button"
+						onClick={onOpenGroups}
+						aria-label="Groups"
+						title="Groups"
+						className="btn btn-quiet mr-1 flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full"
+						style={{ color: "var(--window-sub-text-fg)" }}
+					>
+						<svg
+							width="18"
+							height="18"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							strokeWidth="2"
+							strokeLinecap="round"
+							aria-hidden
+						>
+							<path d="M4 7h16M4 12h16M4 17h16" />
+						</svg>
+					</button>
+				)}
 				<label htmlFor="search" className="sr-only">
 					Search entries
 				</label>

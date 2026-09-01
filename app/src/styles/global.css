@@ -173,6 +173,18 @@ body {
   }
 }
 
+/* The group drawer, when the window is too narrow for the rail to be a column.
+   From the left, because that is where it lives when there is room for it, and
+   a panel that arrives from somewhere it never sits is disorienting. */
+@keyframes slide-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
 /* --- Interaction states -----------------------------------------------------
 
    Thirty-nine buttons in this app and five of them had any hover feedback. The
