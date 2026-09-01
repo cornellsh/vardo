@@ -191,12 +191,30 @@ export function EntryList({
 					style={{ color: "var(--window-sub-text-fg)" }}
 				>
 					{sort === "name" ? (
-						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+						<svg
+							width="16"
+							height="16"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							strokeWidth="1.8"
+							strokeLinecap="round"
+							aria-hidden
+						>
 							<path d="M6 4v16M6 20l-3-3M6 20l3-3" />
 							<path d="M13 6h8M13 12h6M13 18h4" />
 						</svg>
 					) : (
-						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+						<svg
+							width="16"
+							height="16"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							strokeWidth="1.8"
+							strokeLinecap="round"
+							aria-hidden
+						>
 							<circle cx="12" cy="12" r="8" />
 							<path d="M12 8v4l3 2" />
 						</svg>

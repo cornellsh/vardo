@@ -26,7 +26,9 @@ const THREE_PANE = 1000;
 const TWO_PANE = 700;
 
 export function useLayoutMode(): LayoutMode {
-	const [mode, setMode] = useState<LayoutMode>(() => modeFor(window.innerWidth));
+	const [mode, setMode] = useState<LayoutMode>(() =>
+		modeFor(window.innerWidth),
+	);
 
 	useEffect(() => {
 		// `resize` rather than a media query list, because there are two

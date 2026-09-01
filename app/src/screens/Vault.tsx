@@ -8,6 +8,8 @@ import { DriveConnect } from "../components/DriveConnect";
 import { MergeReview } from "./MergeReview";
 import { errorText } from "../ipc/error";
 import { useLayoutMode } from "../lib/useLayoutMode";
+import { Health } from "./Health";
+import { usePresence } from "../lib/usePresence";
 import { ipc } from "../ipc";
 import type { EntrySummary, GroupNode, Uuid, VaultInfo } from "../ipc";
 import { StorageNote } from "../components/StorageNote";
@@ -45,12 +47,24 @@ export function Vault({ info, onLock }: Props) {
 		if (mode === "three") setRailOpen(false);
 	}, [mode]);
 
+	// Held mounted while it slides back out. `slideWrapDuration` must match the
+	// exit animation below, or the element is torn out mid-movement.
+	const drawer = usePresence(railOpen, 150);
+
 	const [editing, setEditing] = useState(false);
 	const [reload, setReload] = useState(0);
 	const [reviewing, setReviewing] = useState(false);
 	/** Set when the merge screen opened because a save was refused. */
 	const [saveBlocked, setSaveBlocked] = useState(false);
 	const [settings, setSettings] = useState(false);
+	const [health, setHealth] = useState(false);
+	/**
+	 * Problems found, so the rail can carry the number without being opened.
+	 *
+	 * A count in the rail is the only thing that makes this feature exist for
+	 * anyone: a screen nobody visits reports nothing, however good it is.
+	 */
+	const [healthCount, setHealthCount] = useState<number | null>(null);
 	// Starts as what unlock reported and is refreshed after anything that can
 	// change the vault's shape.
 	const [live, setLive] = useState<VaultInfo>(info);
@@ -109,6 +123,19 @@ export function Vault({ info, onLock }: Props) {
 
 	useAutoLock(AUTO_LOCK_MINUTES, lockAfterIdle);
 
+	// The window says which vault is open. It said "Vardo" always, which is no
+	// help at all to someone with a work vault and a personal one side by side
+	// in a task switcher - the one place a title is actually read.
+	//
+	// The name only. Not the path, which can be long and is nobody else's
+	// business when a screen is being shared.
+	useEffect(() => {
+		document.title = `${live.name} \u2014 Vardo`;
+		return () => {
+			document.title = "Vardo";
+		};
+	}, [live.name]);
+
 	useEffect(() => {
 		void (async () => {
 			try {
@@ -117,6 +144,26 @@ export function Vault({ info, onLock }: Props) {
 				setError(errorText(err));
 			}
 		})();
+	}, [reload]);
+
+	// Recounted whenever the vault changes, because the number is only worth
+	// showing if it responds to fixing something. A count that stayed put after
+	// you changed a reused password would teach you to ignore it.
+	useEffect(() => {
+		let cancelled = false;
+		void (async () => {
+			try {
+				const report = await (await ipc()).health();
+				if (!cancelled) setHealthCount(report.findings.length);
+			} catch {
+				// Never blocks the vault. A failed count is a missing badge, not
+				// a reason to interrupt someone looking for a password.
+				if (!cancelled) setHealthCount(null);
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
 	}, [reload]);
 
 	const refresh = useCallback(() => {
@@ -249,7 +296,7 @@ export function Vault({ info, onLock }: Props) {
 				    shrinking it to icons was never an option; the choice is between
 				    showing it and not, and most of the time you are not changing
 				    group. */}
-				{mode !== "three" && railOpen && (
+				{drawer.mounted && mode !== "three" && (
 					<button
 						type="button"
 						aria-label="Close groups"
@@ -257,67 +304,83 @@ export function Vault({ info, onLock }: Props) {
 						className="absolute inset-0 z-10 cursor-default"
 						style={{
 							background: "rgba(0,0,0,0.45)",
-							animation: "fade-in var(--duration-fade-wrap) linear",
+							animation: drawer.visible
+								? "fade-in var(--duration-fade-wrap) linear"
+								: "fade-out var(--duration-slide-wrap) linear forwards",
 						}}
 					/>
 				)}
 
-				{(mode === "three" || railOpen) && (
+				{(mode === "three" || drawer.mounted) && (
 					<div
-						className={mode === "three" ? "contents" : "absolute inset-y-0 left-0 z-20 flex"}
+						className={
+							mode === "three"
+								? "contents"
+								: "absolute inset-y-0 left-0 z-20 flex"
+						}
 						style={
 							mode === "three"
 								? undefined
 								: {
 										boxShadow: "0 0 24px rgba(0,0,0,0.5)",
-										animation:
-											"slide-in-left var(--duration-slide) var(--ease-out-circ)",
+										// Out faster than in. Arriving is the part worth
+										// watching; leaving should get out of the way.
+										animation: drawer.visible
+											? "slide-in-left var(--duration-slide) var(--ease-out-circ)"
+											: "slide-out-left var(--duration-slide-wrap) var(--ease-out-circ) forwards",
 									}
 						}
 					>
-				<GroupRail
-					root={groups}
-					selected={group}
-					// Choosing a group closes the drawer, because the drawer is
-					// covering the list it just filtered. Leaving it open would hide
-					// the only evidence that the choice did anything.
-					onSelect={(uuid) => {
-						setGroup(uuid);
+						<GroupRail
+							root={groups}
+							selected={group}
+							// Choosing a group closes the drawer, because the drawer is
+							// covering the list it just filtered. Leaving it open would hide
+							// the only evidence that the choice did anything.
+							onSelect={(uuid) => {
+								setGroup(uuid);
+								setRailOpen(false);
+							}}
+							// The vault's own count, not the root group's direct children:
+							// entries almost always live in subgroups, so root's own count is
+							// usually 0 and "All entries" would read as empty.
+							totalEntries={live.entryCount}
+							vaultName={live.name}
+							onLock={() => void lockNow()}
+							// Sync belongs to a vault something else can change, which means
+							// a vault in Drive. Offering it on a file on this machine's disk
+							// merged two models: there is no other copy to reconcile, so the
+							// button could only compare the vault against itself.
+							//
+							// A local file can still change underneath us - another window,
+							// another program - and that is handled where it happens, by the
+							// save refusing and offering the merge then. Reactive, because
+							// nobody sits down intending to sync a local file.
+							{...(info.writable && live.source.kind === "googleDrive"
+								? {
+										onSync: () => {
+											setSaveBlocked(false);
+											setReviewing(true);
+										},
+									}
+								: {})}
+							onSettings={() => setSettings((s) => !s)}
+					onHealth={() => {
+						setSettings(false);
+						setReviewing(false);
+						setHealth(true);
 						setRailOpen(false);
 					}}
-					// The vault's own count, not the root group's direct children:
-					// entries almost always live in subgroups, so root's own count is
-					// usually 0 and "All entries" would read as empty.
-					totalEntries={live.entryCount}
-					vaultName={live.name}
-					onLock={() => void lockNow()}
-					// Sync belongs to a vault something else can change, which means
-					// a vault in Drive. Offering it on a file on this machine's disk
-					// merged two models: there is no other copy to reconcile, so the
-					// button could only compare the vault against itself.
-					//
-					// A local file can still change underneath us - another window,
-					// another program - and that is handled where it happens, by the
-					// save refusing and offering the merge then. Reactive, because
-					// nobody sits down intending to sync a local file.
-					{...(info.writable && live.source.kind === "googleDrive"
-						? {
-								onSync: () => {
-									setSaveBlocked(false);
-									setReviewing(true);
-								},
-							}
-						: {})}
-					onSettings={() => setSettings((s) => !s)}
-					location={live.location}
-					remote={live.source.kind === "googleDrive"}
-					{...(live.storageWarning
-						? {
-								storageNote: live.storageWarning.explanation,
-								onStorageNote: () => setSettings(true),
-							}
-						: {})}
-				/>
+					{...(healthCount !== null ? { healthCount } : {})}
+							location={live.location}
+							remote={live.source.kind === "googleDrive"}
+							{...(live.storageWarning
+								? {
+										storageNote: live.storageWarning.explanation,
+										onStorageNote: () => setSettings(true),
+									}
+								: {})}
+						/>
 					</div>
 				)}
 
@@ -344,14 +407,34 @@ export function Vault({ info, onLock }: Props) {
 						{...(info.writable ? { onAdd: () => void addEntry() } : {})}
 					/>
 				)}
-				{settings ? (
+				{health ? (
+					<Health
+						key="health"
+						onClose={() => setHealth(false)}
+						onOpenEntry={(uuid) => {
+							// Clearing the group first, or an entry from a group you are
+							// not looking at is selected and then filtered straight back
+							// out, which looks like the click did nothing.
+							setGroup(undefined);
+							setQuery("");
+							setSelected(uuid);
+							setHealth(false);
+						}}
+					/>
+				) : settings ? (
 					<section
 						aria-label="Settings"
 						className="flex min-w-0 flex-1 flex-col"
 						style={{
 							minWidth: "var(--column-min-third)",
 							background: "var(--window-bg)",
+							// Keyed below, so switching between the three things that can
+							// occupy this column replays the entrance instead of swapping
+							// contents inside a box that never moves.
+							animation:
+								"fade-in var(--duration-fade-wrap) var(--ease-out-circ)",
 						}}
+						key="settings"
 					>
 						<header
 							className="flex shrink-0 items-center px-4"
@@ -389,8 +472,13 @@ export function Vault({ info, onLock }: Props) {
 					</section>
 				) : reviewing ? (
 					<div
+						key="review"
 						className="flex min-w-0 flex-1 flex-col"
-						style={{ minWidth: "var(--column-min-third)" }}
+						style={{
+							minWidth: "var(--column-min-third)",
+							animation:
+								"fade-in var(--duration-fade-wrap) var(--ease-out-circ)",
+						}}
 					>
 						<MergeReview
 							remote={live.source.kind === "googleDrive"}
@@ -422,9 +510,7 @@ export function Vault({ info, onLock }: Props) {
 							// Throws on failure, so the editor can keep the form open and
 							// its button honest instead of closing over a failed write.
 							onSaveVault={save}
-							{...(mode === "one"
-								? { onBack: () => setSelected(null) }
-								: {})}
+							{...(mode === "one" ? { onBack: () => setSelected(null) } : {})}
 							editing={editing}
 							onEditing={setEditing}
 						/>

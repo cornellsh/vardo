@@ -27,6 +27,7 @@ pub mod drive_vaults;
 pub mod entries;
 pub mod favicon;
 pub mod generate;
+pub mod health;
 pub mod model;
 pub mod recents;
 pub mod review;
