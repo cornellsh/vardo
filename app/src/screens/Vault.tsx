@@ -112,6 +112,18 @@ export function Vault({ info, onLock }: Props) {
 	// "Lock and discard" button as the way to deal with unsaved work, which put
 	// losing an edit one click away from keeping it. Nobody intends to throw
 	// away a password they just typed, so the button is gone and locking saves.
+	/**
+	 * Create, rename or delete a group.
+	 *
+	 * `prompt` and `confirm` rather than bespoke dialogs. They are the shell's
+	 * own, they are keyboard-correct and translated for free, and building three
+	 * modal boxes to replace them would be work spent on the part of this that
+	 * nobody will remember. Worth revisiting if they ever need to say more than
+	 * a sentence.
+	 *
+	 * Every branch saves, like every other change.
+	 */
+
 	const lockNow = useCallback(async () => {
 		try {
 			if (dirty) await save();
@@ -180,6 +192,48 @@ export function Vault({ info, onLock }: Props) {
 			}
 		})();
 	}, []);
+
+	const groupAction = useCallback(
+		(action: "create" | "rename" | "delete", group: GroupNode) => {
+			void (async () => {
+				const api = await ipc();
+				try {
+					if (action === "create") {
+						const name = window.prompt(`New group inside ${group.name}`);
+						if (!name?.trim()) return;
+						await api.createGroup(group.uuid, name.trim());
+					} else if (action === "rename") {
+						const name = window.prompt("Rename group", group.name);
+						if (!name?.trim() || name === group.name) return;
+						await api.renameGroup(group.uuid, name.trim());
+					} else {
+						// The count is the whole content of the warning. "Delete this
+						// group?" and "delete this group and the 38 passwords inside
+						// it?" are different questions, and only one of them can be
+						// answered honestly without knowing the number.
+						const count = await api.groupEntryCount(group.uuid);
+						const warning =
+							count === 0
+								? `Delete the group ${group.name}?`
+								: `Delete ${group.name} and the ${count} ${
+										count === 1 ? "entry" : "entries"
+									} inside it?`;
+						if (!window.confirm(warning)) return;
+						await api.deleteGroup(group.uuid);
+						// The group being looked at has just gone, so the list would
+						// otherwise filter to a group that no longer exists.
+						setGroup(undefined);
+						setSelected(null);
+					}
+					await save();
+					refresh();
+				} catch (err) {
+					setError(errorText(err));
+				}
+			})();
+		},
+		[save, refresh],
+	);
 
 	const addEntry = useCallback(async () => {
 		const api = await ipc();
@@ -365,6 +419,7 @@ export function Vault({ info, onLock }: Props) {
 									}
 								: {})}
 							onSettings={() => setSettings((s) => !s)}
+					{...(info.writable ? { onGroupAction: groupAction } : {})}
 							onHealth={() => {
 								setSettings(false);
 								setReviewing(false);

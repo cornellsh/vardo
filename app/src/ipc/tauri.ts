@@ -207,6 +207,22 @@ export class TauriIpc implements Ipc {
 		return invoke("check_totp_seed", { text });
 	}
 
+	createGroup(parent: Uuid, name: string): Promise<Uuid> {
+		return invoke("create_group", { parent, name });
+	}
+
+	renameGroup(uuid: Uuid, name: string): Promise<void> {
+		return invoke("rename_group", { uuid, name });
+	}
+
+	deleteGroup(uuid: Uuid): Promise<number> {
+		return invoke("delete_group", { uuid });
+	}
+
+	groupEntryCount(uuid: Uuid): Promise<number> {
+		return invoke("group_entry_count", { uuid });
+	}
+
 	copyHistoryPassword(
 		uuid: Uuid,
 		index: number,
