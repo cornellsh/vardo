@@ -223,6 +223,27 @@ export class TauriIpc implements Ipc {
 		return invoke("group_entry_count", { uuid });
 	}
 
+	setExpiry(uuid: Uuid, atUnix: number | null): Promise<void> {
+		return invoke("set_expiry", { uuid, atUnix });
+	}
+
+	setTags(uuid: Uuid, tags: string[]): Promise<void> {
+		return invoke("set_tags", { uuid, tags });
+	}
+
+	addAttachment(uuid: Uuid, path: string): Promise<string> {
+		return invoke("add_attachment", { uuid, path });
+	}
+
+	removeAttachment(uuid: Uuid, name: string): Promise<void> {
+		return invoke("remove_attachment", { uuid, name });
+	}
+
+	async pickAnyFile(): Promise<string | null> {
+		const picked = await open({ multiple: false, directory: false });
+		return typeof picked === "string" ? picked : null;
+	}
+
 	copyHistoryPassword(
 		uuid: Uuid,
 		index: number,

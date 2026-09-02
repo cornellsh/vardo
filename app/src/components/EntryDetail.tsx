@@ -93,6 +93,32 @@ export function EntryDetailPane({
 
 	useEffect(() => setConfirmingDelete(false), [uuid]);
 
+	const [attaching, setAttaching] = useState(false);
+
+	async function attach() {
+		if (!uuid) return;
+		setActionError(null);
+		try {
+			const api = await ipc();
+			const path = await api.pickAnyFile();
+			if (!path) return;
+			setAttaching(true);
+			await api.addAttachment(uuid, path);
+			// Stored immediately, like every other change. An attachment that
+			// lived only in memory would be lost by a lock, and the one thing
+			// people attach is the thing they cannot regenerate.
+			await onSaveVault();
+			setReload((n) => n + 1);
+			onChanged();
+		} catch (err) {
+			const text = errorText(err);
+			setLastActionError(text);
+			setActionError(text);
+		} finally {
+			setAttaching(false);
+		}
+	}
+
 	async function remove() {
 		if (!uuid) return;
 		setActionError(null);
@@ -298,7 +324,7 @@ export function EntryDetailPane({
 								<FieldRow key={f.key} uuid={entry.uuid} field={f} />
 							))}
 
-							{entry.attachments.length > 0 && (
+							{(entry.attachments.length > 0 || writable) && (
 								<div className="mt-5">
 									<GroupHeading>Attachments</GroupHeading>
 									{entry.attachments.map((a) => (
@@ -307,8 +333,26 @@ export function EntryDetailPane({
 											uuid={entry.uuid}
 											name={a.name}
 											size={a.size}
+											{...(writable
+												? { onRemoved: () => setReload((n) => n + 1) }
+												: {})}
 										/>
 									))}
+
+									{/* Attaching was the missing half: files could be taken
+									    out and never put in, which makes the feature useful
+									    only for vaults filled somewhere else. */}
+									{writable && (
+										<button
+											type="button"
+											onClick={() => void attach()}
+											disabled={attaching}
+											className="btn btn-quiet -mx-2 mt-1 cursor-pointer rounded-[6px] px-2 py-1"
+											style={{ color: "var(--window-active-text-fg)" }}
+										>
+											{attaching ? "Attaching…" : "Attach a file…"}
+										</button>
+									)}
 								</div>
 							)}
 
@@ -423,14 +467,30 @@ function AttachmentRow({
 	uuid,
 	name,
 	size,
+	onRemoved,
 }: {
 	uuid: Uuid;
 	name: string;
 	size: number | null;
+	/** Absent on a read-only vault, where there is nothing to detach. */
+	onRemoved?: (() => void) | undefined;
 }) {
 	const [state, setState] = useState<"idle" | "saving" | "done" | "failed">(
 		"idle",
 	);
+
+	async function detach() {
+		// Asked, because the bytes are only in the vault. Unlike an entry there
+		// is no history to recover an attachment from, so this is the one
+		// deletion here that is genuinely final.
+		if (!window.confirm(`Remove ${name} from this entry?`)) return;
+		try {
+			await (await ipc()).removeAttachment(uuid, name);
+			onRemoved?.();
+		} catch {
+			setState("failed");
+		}
+	}
 
 	async function save() {
 		setState("saving");
@@ -491,6 +551,17 @@ function AttachmentRow({
 							? "Failed"
 							: "Save\u2026"}
 			</button>
+			{onRemoved && (
+				<button
+					type="button"
+					onClick={() => void detach()}
+					aria-label={`Remove ${name}`}
+					className="on-hover shrink-0 cursor-pointer rounded-[6px] px-2 py-0.5"
+					style={{ color: "var(--attention-button-fg)" }}
+				>
+					Remove
+				</button>
+			)}
 		</div>
 	);
 }

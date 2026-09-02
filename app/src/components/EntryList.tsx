@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 
 import type { EntrySummary, Uuid } from "../ipc";
 import { useRipple } from "./Ripple";
-import { identityOf, initialOf, tintFor } from "../lib/identity";
+import { compactAge, identityOf, initialOf, tintFor } from "../lib/identity";
 import { useWindowedRows } from "./useWindowedRows";
 
 interface Props {
@@ -314,23 +314,6 @@ const ROW_HEIGHT = 62;
 /** Real vaults contain untitled entries; they are not an error. */
 const UNTITLED = "Untitled";
 
-/**
- * A compact age for the right edge of a row.
- *
- * The weeks step is not decoration. Without it anything between eight and
- * twenty-nine days old divided to zero months and rendered as "0mo", which is
- * both wrong and unmistakably a bug to anyone who notices it.
- */
-function relative(ms: number): string {
-	const days = Math.floor((Date.now() - ms) / 86_400_000);
-	if (days <= 0) return "today";
-	if (days === 1) return "1d";
-	if (days < 7) return `${days}d`;
-	if (days < 30) return `${Math.floor(days / 7)}w`;
-	if (days < 365) return `${Math.max(1, Math.floor(days / 30))}mo`;
-	return `${Math.max(1, Math.floor(days / 365))}y`;
-}
-
 function Row({
 	row,
 	active,
@@ -430,7 +413,7 @@ function Row({
 							className="shrink-0 tabular-nums"
 							style={{ color: sub, fontSize: "12px" }}
 						>
-							{relative(row.modified)}
+							{compactAge(row.modified)}
 						</span>
 					</span>
 					<span className="truncate" style={{ color: sub }}>

@@ -744,3 +744,57 @@ impl Session {
         Ok(())
     }
 }
+
+impl Session {
+    /// Attaches a file from disk.
+    ///
+    /// Read here rather than in the frontend, so the bytes never become a
+    /// JavaScript string. A recovery-codes file base64'd through the IPC
+    /// boundary would sit in the WebView's heap for as long as the page lives.
+    pub fn add_attachment(&mut self, uuid: &str, path: &Path) -> Result<String, CoreError> {
+        let id = entries::parse_uuid(uuid).ok_or(CoreError::NotFound {
+            path: uuid.to_string(),
+        })?;
+
+        let data = std::fs::read(path).map_err(|e| match e.kind() {
+            std::io::ErrorKind::NotFound => CoreError::NotFound {
+                path: path.display().to_string(),
+            },
+            _ => CoreError::Io {
+                detail: e.to_string(),
+            },
+        })?;
+
+        // A vault is not a file share, and every byte here is re-encrypted on
+        // every save and re-uploaded in full on every sync. Refusing early is
+        // kinder than a save that takes a minute and a sync that never
+        // finishes.
+        const MAX: usize = 8 * 1024 * 1024;
+        if data.len() > MAX {
+            return Err(CoreError::Unsupported {
+                detail: format!(
+                    "That file is {} MB. Vardo attaches up to 8 MB.",
+                    data.len() / 1_048_576
+                ),
+            });
+        }
+
+        let name = path
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "attachment".into());
+
+        self.vault.add_attachment(id, &name, &data)?;
+        self.dirty = true;
+        Ok(name)
+    }
+
+    pub fn remove_attachment(&mut self, uuid: &str, name: &str) -> Result<(), CoreError> {
+        let id = entries::parse_uuid(uuid).ok_or(CoreError::NotFound {
+            path: uuid.to_string(),
+        })?;
+        self.vault.remove_attachment(id, name)?;
+        self.dirty = true;
+        Ok(())
+    }
+}

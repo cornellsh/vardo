@@ -24,6 +24,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod attach;
 pub mod edit;
 pub mod icons;
 pub mod time;

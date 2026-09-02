@@ -42,7 +42,8 @@ export function useLayoutMode(): LayoutMode {
 	return mode;
 }
 
-function modeFor(width: number): LayoutMode {
+/** Exported so the thresholds can be tested without mounting a window. */
+export function modeFor(width: number): LayoutMode {
 	if (width >= THREE_PANE) return "three";
 	if (width >= TWO_PANE) return "two";
 	return "one";

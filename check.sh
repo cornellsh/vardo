@@ -41,6 +41,15 @@ if [ -d app/node_modules ]; then
 	echo "== app: typecheck =="
 	(cd app && npx tsc --noEmit)
 
+	# The frontend had no tests at all for most of this project's life, and
+	# every UI bug in it was found by a person looking at the screen. These
+	# cover the pure logic that actually shipped wrong: ages rendering as "0mo",
+	# avatar colours splitting one site into two, an initial cutting a surrogate
+	# pair in half, and layout thresholds that let three panes run off the edge
+	# of a narrow window.
+	echo "== app: tests =="
+	(cd app && npx vitest run --reporter dot)
+
 	# The ported Telegram palette is not APCA-verified upstream, and several
 	# pairs fail WCAG AA as shipped. This gate is why the deviations in
 	# tokens.css are measured rather than asserted — it caught nine failures

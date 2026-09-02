@@ -419,7 +419,7 @@ export function Vault({ info, onLock }: Props) {
 									}
 								: {})}
 							onSettings={() => setSettings((s) => !s)}
-					{...(info.writable ? { onGroupAction: groupAction } : {})}
+							{...(info.writable ? { onGroupAction: groupAction } : {})}
 							onHealth={() => {
 								setSettings(false);
 								setReviewing(false);

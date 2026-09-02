@@ -416,6 +416,31 @@ export interface Ipc {
 	/** For the confirmation that precedes deleting one. */
 	groupEntryCount(uuid: Uuid): Promise<number>;
 
+	/**
+	 * Sets or clears an entry's expiry.
+	 *
+	 * Null clears the flag and leaves the stored date alone, matching the vault
+	 * layer and every other client: the date is the flag's argument, not a
+	 * second source of truth.
+	 */
+	setExpiry(uuid: Uuid, atUnix: number | null): Promise<void>;
+
+	setTags(uuid: Uuid, tags: string[]): Promise<void>;
+
+	/**
+	 * Attaches a file. Returns the name it was stored under.
+	 *
+	 * Takes a path, not bytes. Rust reads the file, so a recovery-codes
+	 * document never becomes a JavaScript string sitting in the WebView's heap
+	 * for as long as the page lives.
+	 */
+	addAttachment(uuid: Uuid, path: string): Promise<string>;
+
+	removeAttachment(uuid: Uuid, name: string): Promise<void>;
+
+	/** A file chooser. Any type: a vault holds whatever sits beside a password. */
+	pickAnyFile(): Promise<string | null>;
+
 	/** Copies an old password, cleared on the same schedule as any other. */
 	copyHistoryPassword(
 		uuid: Uuid,

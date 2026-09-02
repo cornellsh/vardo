@@ -12,6 +12,7 @@
     "app:build": "tauri build",
     "app:release": "tauri build --no-bundle",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "contrast": "node scripts/contrast.mjs --verbose",
     "lint": "eslint src --max-warnings 0"
   },
@@ -34,6 +35,7 @@
     "eslint-plugin-jsx-a11y": "^6.10.0",
     "tailwindcss": "^4.1.0",
     "typescript": "^5.7.0",
-    "vite": "^7.0.0"
+    "vite": "^7.0.0",
+    "vitest": "^3.2.7"
   }
 }

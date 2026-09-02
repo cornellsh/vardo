@@ -618,3 +618,24 @@ pub fn set_tags(
 ) -> CmdResult<()> {
     with_session_mut(&state, |s| s.set_tags(&uuid, &tags))
 }
+
+/// Attaches a file. Returns the name it was stored under.
+#[tauri::command]
+pub fn add_attachment(
+    state: tauri::State<'_, AppState>,
+    uuid: String,
+    path: String,
+) -> CmdResult<String> {
+    with_session_mut(&state, |s| {
+        s.add_attachment(&uuid, std::path::Path::new(&path))
+    })
+}
+
+#[tauri::command]
+pub fn remove_attachment(
+    state: tauri::State<'_, AppState>,
+    uuid: String,
+    name: String,
+) -> CmdResult<()> {
+    with_session_mut(&state, |s| s.remove_attachment(&uuid, &name))
+}
