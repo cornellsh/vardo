@@ -135,8 +135,7 @@ export function EntryDetailPane({
 					key={entry.uuid}
 					className="flex min-h-0 flex-1 flex-col"
 					style={{
-						animation:
-							"fade-in var(--duration-universal) var(--ease-out-circ)",
+						animation: "fade-in var(--duration-universal) var(--ease-out-circ)",
 					}}
 				>
 					<header

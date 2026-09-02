@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import type { GroupNode, Uuid } from "../ipc";
 import { useRipple } from "./Ripple";
+import { ContextMenu, useContextMenu } from "./ContextMenu";
 import { DriveLogo } from "./DriveLogo";
 
 interface Props {
@@ -29,6 +30,16 @@ interface Props {
 	/** Absent on a read-only database, so no button that always fails. */
 	onSync?: () => void;
 	onSettings: () => void;
+	/**
+	 * Group management, raised from a right-click.
+	 *
+	 * The rail could draw a tree it had no way to change, so a vault could only
+	 * ever be organised in some other program. The prompting lives in the
+	 * parent, which owns the vault and already knows how to save it.
+	 */
+	onGroupAction?:
+		| ((action: "create" | "rename" | "delete", group: GroupNode) => void)
+		| undefined;
 	/** Opens the password health review. */
 	onHealth: () => void;
 	/** How many problems were found, or null before it has been checked. */
@@ -49,6 +60,7 @@ export function GroupRail({
 	onLock,
 	onSync,
 	onSettings,
+	onGroupAction,
 	onHealth,
 	healthCount,
 	location,
@@ -63,6 +75,7 @@ export function GroupRail({
 	 * of nesting, and the top level is the map people actually navigate by.
 	 */
 	const [expanded, setExpanded] = useState<Set<string>>(new Set());
+	const menu = useContextMenu<GroupNode>();
 
 	function toggle(uuid: string) {
 		setExpanded((prev) => {
@@ -260,9 +273,36 @@ export function GroupRail({
 						onSelect={onSelect}
 						expanded={expanded}
 						onToggle={toggle}
+						onMenu={menu.open}
 					/>
 				))}
 			</ul>
+
+			{menu.state && onGroupAction && (
+				<ContextMenu
+					x={menu.state.x}
+					y={menu.state.y}
+					onClose={menu.close}
+					items={[
+						{
+							label: "New group inside",
+							onSelect: () =>
+								onGroupAction("create", menu.state?.target as GroupNode),
+						},
+						{
+							label: "Rename\u2026",
+							onSelect: () =>
+								onGroupAction("rename", menu.state?.target as GroupNode),
+						},
+						{
+							label: "Delete\u2026",
+							destructive: true,
+							onSelect: () =>
+								onGroupAction("delete", menu.state?.target as GroupNode),
+						},
+					]}
+				/>
+			)}
 		</nav>
 	);
 }
@@ -281,6 +321,7 @@ function GroupBranch({
 	onSelect,
 	expanded,
 	onToggle,
+	onMenu,
 }: {
 	group: GroupNode;
 	depth: number;
@@ -288,6 +329,7 @@ function GroupBranch({
 	onSelect: (uuid: string | undefined) => void;
 	expanded: Set<string>;
 	onToggle: (uuid: string) => void;
+	onMenu: (e: React.MouseEvent, group: GroupNode) => void;
 }) {
 	const hasChildren = group.children.length > 0;
 	const isOpen = expanded.has(group.uuid);
@@ -299,6 +341,7 @@ function GroupBranch({
 				count={group.entryCount}
 				active={selected === group.uuid}
 				onClick={() => onSelect(group.uuid)}
+				onMenu={(e) => onMenu(e, group)}
 				depth={depth}
 				{...(hasChildren
 					? { open: isOpen, onToggle: () => onToggle(group.uuid) }
@@ -314,6 +357,7 @@ function GroupBranch({
 						onSelect={onSelect}
 						expanded={expanded}
 						onToggle={onToggle}
+						onMenu={onMenu}
 					/>
 				))}
 		</>
@@ -325,6 +369,7 @@ function GroupItem({
 	count,
 	active,
 	onClick,
+	onMenu,
 	depth = 0,
 	open,
 	onToggle,
@@ -333,6 +378,7 @@ function GroupItem({
 	count: number;
 	active: boolean;
 	onClick: () => void;
+	onMenu?: ((e: React.MouseEvent) => void) | undefined;
 	depth?: number;
 	open?: boolean;
 	onToggle?: () => void;
@@ -343,6 +389,7 @@ function GroupItem({
 			<button
 				type="button"
 				onClick={onClick}
+				{...(onMenu ? { onContextMenu: onMenu } : {})}
 				aria-current={active ? "true" : undefined}
 				{...ripple.handlers}
 				// A row, like the entry list: somewhere you are rather than a

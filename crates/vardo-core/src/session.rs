@@ -679,3 +679,68 @@ impl Session {
             })
     }
 }
+
+impl Session {
+    pub fn create_group(&mut self, parent: &str, name: &str) -> Result<String, CoreError> {
+        let id = entries::parse_uuid(parent).ok_or(CoreError::NotFound {
+            path: parent.to_string(),
+        })?;
+        let made = self.vault.create_group(id, name)?;
+        self.dirty = true;
+        Ok(entries::uuid_text(made))
+    }
+
+    pub fn rename_group(&mut self, uuid: &str, name: &str) -> Result<(), CoreError> {
+        let id = entries::parse_uuid(uuid).ok_or(CoreError::NotFound {
+            path: uuid.to_string(),
+        })?;
+        self.vault.rename_group(id, name)?;
+        self.dirty = true;
+        Ok(())
+    }
+
+    /// Removes a group and everything in it.
+    ///
+    /// Reports how many entries went with it, so the interface can say so
+    /// before asking rather than after. "Delete this group?" and "delete this
+    /// group and the 38 passwords inside it?" are different questions.
+    pub fn delete_group(&mut self, uuid: &str) -> Result<usize, CoreError> {
+        let id = entries::parse_uuid(uuid).ok_or(CoreError::NotFound {
+            path: uuid.to_string(),
+        })?;
+        let before = self.vault.entries().len();
+        self.vault.delete_group(id)?;
+        let after = self.vault.entries().len();
+        self.dirty = true;
+        self.info.entry_count = after;
+        Ok(before.saturating_sub(after))
+    }
+
+    /// How many entries a group holds, counting subgroups.
+    ///
+    /// Asked before a deletion is confirmed, because the count is the whole
+    /// content of the warning.
+    pub fn group_entry_count(&self, uuid: &str) -> usize {
+        entries::list(&self.vault, Some(uuid), None).len()
+    }
+
+    pub fn set_expiry(&mut self, uuid: &str, at_unix: Option<i64>) -> Result<(), CoreError> {
+        let id = entries::parse_uuid(uuid).ok_or(CoreError::NotFound {
+            path: uuid.to_string(),
+        })?;
+        let encoding = self.vault.timestamp_encoding();
+        let stamp = at_unix.map(|s| vardo_vault::Timestamp::from_unix(s, encoding));
+        self.vault.update_entry(id, |e| e.set_expiry(stamp))?;
+        self.dirty = true;
+        Ok(())
+    }
+
+    pub fn set_tags(&mut self, uuid: &str, tags: &[String]) -> Result<(), CoreError> {
+        let id = entries::parse_uuid(uuid).ok_or(CoreError::NotFound {
+            path: uuid.to_string(),
+        })?;
+        self.vault.update_entry(id, |e| e.set_tags(tags))?;
+        self.dirty = true;
+        Ok(())
+    }
+}

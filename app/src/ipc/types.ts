@@ -407,6 +407,15 @@ export interface Ipc {
 	 */
 	checkTotpSeed(text: string): Promise<boolean>;
 
+	// --- groups ---
+
+	createGroup(parent: Uuid, name: string): Promise<Uuid>;
+	renameGroup(uuid: Uuid, name: string): Promise<void>;
+	/** Removes a group and everything in it. Returns how many entries went. */
+	deleteGroup(uuid: Uuid): Promise<number>;
+	/** For the confirmation that precedes deleting one. */
+	groupEntryCount(uuid: Uuid): Promise<number>;
+
 	/** Copies an old password, cleared on the same schedule as any other. */
 	copyHistoryPassword(
 		uuid: Uuid,

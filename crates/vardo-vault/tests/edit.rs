@@ -502,3 +502,109 @@ fn every_other_entry_survives_a_save_after_a_delete() {
         .iter()
         .any(|d| d.uuid == uuids[0]));
 }
+
+// --- groups -----------------------------------------------------------------
+
+#[test]
+fn a_group_can_be_created_renamed_and_removed() {
+    let mut vault = writable();
+    let root = vault.root().unwrap().uuid().unwrap();
+
+    let made = vault.create_group(root, "Clients").expect("create");
+    assert!(
+        vault
+            .root()
+            .unwrap()
+            .groups()
+            .any(|g| g.uuid() == Some(made)),
+        "the new group must be under root"
+    );
+
+    vault.rename_group(made, "Clients (2026)").expect("rename");
+    let renamed = vault
+        .root()
+        .unwrap()
+        .groups()
+        .find(|g| g.uuid() == Some(made))
+        .map(|g| g.name());
+    assert_eq!(renamed.as_deref(), Some("Clients (2026)"));
+
+    vault.delete_group(made).expect("delete");
+    assert!(
+        !vault
+            .root()
+            .unwrap()
+            .groups()
+            .any(|g| g.uuid() == Some(made)),
+        "the group must be gone"
+    );
+}
+
+#[test]
+fn a_nested_group_is_found_at_any_depth() {
+    // `retain` sees one level. A group three deep would survive its own
+    // deletion and the call would report success, which is the worst pair of
+    // behaviours available.
+    let mut vault = writable();
+    let root = vault.root().unwrap().uuid().unwrap();
+
+    let a = vault.create_group(root, "A").unwrap();
+    let b = vault.create_group(a, "B").unwrap();
+    let c = vault.create_group(b, "C").unwrap();
+
+    vault.rename_group(c, "C deep").expect("rename at depth 3");
+    vault.delete_group(c).expect("delete at depth 3");
+
+    assert!(
+        vault.delete_group(c).is_err(),
+        "deleting it twice must fail rather than silently succeed"
+    );
+}
+
+#[test]
+fn deleting_a_group_takes_its_contents_with_it() {
+    let mut vault = writable();
+    let root = vault.root().unwrap().uuid().unwrap();
+
+    let group = vault.create_group(root, "Temporary").unwrap();
+    let entry = vault.create_entry(group).unwrap();
+    assert!(vault.entries().iter().any(|e| e.uuid() == Some(entry)));
+
+    vault.delete_group(group).unwrap();
+    assert!(
+        !vault.entries().iter().any(|e| e.uuid() == Some(entry)),
+        "an entry inside a deleted group must go with it"
+    );
+}
+
+#[test]
+fn the_root_group_cannot_be_deleted() {
+    // It would leave a file that parses and holds nothing. No other client
+    // offers this either.
+    let mut vault = writable();
+    let root = vault.root().unwrap().uuid().unwrap();
+    assert!(vault.delete_group(root).is_err());
+}
+
+#[test]
+fn a_new_group_survives_a_save_and_reopen() {
+    let mut vault = writable();
+    let root = vault.root().unwrap().uuid().unwrap();
+    vault.create_group(root, "Persisted").unwrap();
+
+    let creds = vardo_kdbx::Credentials::with_password("demopass");
+    let saved = vault
+        .save_with(&creds, &mut vardo_kdbx::write::OsRng)
+        .expect("save");
+    let doc = vardo_kdbx::open(&saved, &creds).expect("reopen");
+    let reopened = vardo_vault::Vault::open(&doc).expect("vault");
+
+    assert!(
+        reopened
+            .root()
+            .unwrap()
+            .groups()
+            .any(|g| g.name() == "Persisted"),
+        "the group must survive a round trip"
+    );
+}

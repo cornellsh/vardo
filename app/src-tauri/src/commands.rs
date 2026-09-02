@@ -566,3 +566,55 @@ pub fn copy_history_password(
 pub fn check_totp_seed(text: String) -> bool {
     vardo_core::totp::Totp::from_fields(Some(&text), None, None).is_some()
 }
+
+// --- groups -----------------------------------------------------------------
+
+#[tauri::command]
+pub fn create_group(
+    state: tauri::State<'_, AppState>,
+    parent: String,
+    name: String,
+) -> CmdResult<String> {
+    with_session_mut(&state, |s| s.create_group(&parent, &name))
+}
+
+#[tauri::command]
+pub fn rename_group(
+    state: tauri::State<'_, AppState>,
+    uuid: String,
+    name: String,
+) -> CmdResult<()> {
+    with_session_mut(&state, |s| s.rename_group(&uuid, &name))
+}
+
+/// Removes a group and everything in it. Returns how many entries went with it.
+#[tauri::command]
+pub fn delete_group(state: tauri::State<'_, AppState>, uuid: String) -> CmdResult<usize> {
+    with_session_mut(&state, |s| s.delete_group(&uuid))
+}
+
+/// How many entries a group holds, for the confirmation that precedes deleting
+/// it. "Delete this group?" and "delete this group and the 38 passwords inside
+/// it?" are different questions.
+#[tauri::command]
+pub fn group_entry_count(state: tauri::State<'_, AppState>, uuid: String) -> CmdResult<usize> {
+    with_session(&state, |s| Ok(s.group_entry_count(&uuid)))
+}
+
+#[tauri::command]
+pub fn set_expiry(
+    state: tauri::State<'_, AppState>,
+    uuid: String,
+    at_unix: Option<i64>,
+) -> CmdResult<()> {
+    with_session_mut(&state, |s| s.set_expiry(&uuid, at_unix))
+}
+
+#[tauri::command]
+pub fn set_tags(
+    state: tauri::State<'_, AppState>,
+    uuid: String,
+    tags: Vec<String>,
+) -> CmdResult<()> {
+    with_session_mut(&state, |s| s.set_tags(&uuid, &tags))
+}

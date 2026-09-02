@@ -174,7 +174,7 @@ interface MockEntry {
  * children, so any nested group was invisible, and nothing on screen could
  * reveal it. Test data that is tidier than real data does not test anything.
  */
-const GROUPS: { uuid: Uuid; name: string; parent?: Uuid }[] = [
+const GROUPS: { uuid: Uuid; name: string; parent?: Uuid | undefined }[] = [
 	{ uuid: "g-root", name: "passwords" },
 	{ uuid: "g-email", name: "Email", parent: "g-root" },
 	{ uuid: "g-finance", name: "Finance", parent: "g-root" },
@@ -807,6 +807,51 @@ export class MockIpc implements Ipc {
 	async copyHistoryPassword(): Promise<{ clearAfterSeconds: number }> {
 		await delay(80);
 		return { clearAfterSeconds: 12 };
+	}
+
+	async createGroup(parent: Uuid, name: string): Promise<Uuid> {
+		this.assertUnlocked();
+		const uuid = `g-new-${GROUPS.length}`;
+		GROUPS.push({ uuid, name, parent });
+		this.dirty = true;
+		return uuid;
+	}
+
+	async renameGroup(uuid: Uuid, name: string): Promise<void> {
+		this.assertUnlocked();
+		const g = GROUPS.find((x) => x.uuid === uuid);
+		if (g) g.name = name;
+		this.dirty = true;
+	}
+
+	async deleteGroup(uuid: Uuid): Promise<number> {
+		this.assertUnlocked();
+		// Descendants too, matching the core. A mock that removed only the
+		// named group would leave orphans the real thing never produces, and
+		// the tree would look broken for reasons that are not in the product.
+		const doomed = new Set<string>([uuid]);
+		let grew = true;
+		while (grew) {
+			grew = false;
+			for (const g of GROUPS) {
+				if (g.parent && doomed.has(g.parent) && !doomed.has(g.uuid)) {
+					doomed.add(g.uuid);
+					grew = true;
+				}
+			}
+		}
+		const lost = ENTRIES.filter((e) => doomed.has(e.group)).length;
+		for (let i = GROUPS.length - 1; i >= 0; i--) {
+			const g = GROUPS[i];
+			if (g && doomed.has(g.uuid)) GROUPS.splice(i, 1);
+		}
+		this.dirty = true;
+		return lost;
+	}
+
+	async groupEntryCount(uuid: Uuid): Promise<number> {
+		this.assertUnlocked();
+		return ENTRIES.filter((e) => e.group === uuid).length;
 	}
 
 	async checkTotpSeed(text: string): Promise<boolean> {

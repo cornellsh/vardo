@@ -135,7 +135,6 @@ impl EntryEdit<'_> {
         set_child_text(self.element, "Tags", &tags.join(";"));
     }
 
-    /// Marks the entry as expiring, or not.
     /// Points this entry at a custom icon.
     ///
     /// Replaces any existing reference rather than adding a second, because
@@ -152,6 +151,12 @@ impl EntryEdit<'_> {
         append_child(self.element, node);
     }
 
+    /// Marks the entry as expiring, or not.
+    ///
+    /// Clearing it writes `Expires=False` and leaves the old date alone, which
+    /// is what other clients do: the date is the flag's argument rather than a
+    /// second source of truth, and deleting it throws away a value someone may
+    /// want back when they switch expiry on again.
     pub fn set_expiry(&mut self, at: Option<Timestamp>) {
         let encoding = self.encoding;
         let times = child_or_create(self.element, "Times");
@@ -225,6 +230,97 @@ impl Vault {
         push_history(element, before, max_history);
         touch(element, now, encoding);
         Ok(true)
+    }
+
+    /// Creates a group inside `parent` and returns its UUID.
+    ///
+    /// Vardo could show a tree it had no way to change, which meant a vault
+    /// could only ever be organised somewhere else. `Times` is written because
+    /// a group without one reads as epoch-dated in clients that sort by it.
+    pub fn create_group(&mut self, parent: Uuid, name: &str) -> Result<Uuid> {
+        self.require_writable()?;
+        let encoding = self.timestamp_encoding();
+        let now = Timestamp::from_unix(now_unix(), encoding);
+        let uuid = Uuid::from_bytes(random_uuid_bytes());
+
+        let mut group = Element::new("Group");
+        let mut id = Element::new("UUID");
+        id.set_text(&uuid.to_base64());
+        append_child(&mut group, id);
+
+        let mut label = Element::new("Name");
+        label.set_text(name);
+        append_child(&mut group, label);
+
+        let mut times = Element::new("Times");
+        let text = now.to_text();
+        for field in [
+            "CreationTime",
+            "LastModificationTime",
+            "LastAccessTime",
+            "LocationChanged",
+        ] {
+            let mut t = Element::new(field);
+            t.set_text(&text);
+            append_child(&mut times, t);
+        }
+        let mut expires = Element::new("Expires");
+        expires.set_text("False");
+        append_child(&mut times, expires);
+        append_child(&mut group, times);
+
+        let root = self.root_element_mut()?;
+        let target = find_group_mut(root, parent).ok_or(EditError::NoSuchGroup(parent))?;
+        append_child(target, group);
+        Ok(uuid)
+    }
+
+    pub fn rename_group(&mut self, uuid: Uuid, name: &str) -> Result<()> {
+        self.require_writable()?;
+        let encoding = self.timestamp_encoding();
+        let now = Timestamp::from_unix(now_unix(), encoding);
+
+        let root = self.root_element_mut()?;
+        let group = find_group_mut(root, uuid).ok_or(EditError::NoSuchGroup(uuid))?;
+        set_child_text(group, "Name", name);
+
+        let times = child_or_create(group, "Times");
+        set_child_text(times, "LastModificationTime", &now.to_text());
+        Ok(())
+    }
+
+    /// Removes a group and everything inside it.
+    ///
+    /// Refuses the root, which is not a group anyone owns: deleting it would
+    /// leave a file that parses and contains nothing, and no other client
+    /// offers it either.
+    ///
+    /// Unlike a deleted entry this leaves no tombstone. KDBX has
+    /// `<DeletedObjects>` for entries and groups alike, but a group's contents
+    /// are already tombstoned individually by [`Vault::delete_entry`], and
+    /// emitting one for the container as well makes a merge delete entries the
+    /// other side had legitimately moved out of it first.
+    pub fn delete_group(&mut self, uuid: Uuid) -> Result<()> {
+        self.require_writable()?;
+
+        // `WouldCycle` is the wrong name for this and the right error: the
+        // root is the one group that cannot be removed from its own tree.
+        let root_uuid = self
+            .dom
+            .root
+            .child("Root")
+            .and_then(|r| r.child("Group"))
+            .and_then(|g| g.child("UUID"))
+            .and_then(|u| Uuid::parse(&u.text()));
+        if root_uuid == Some(uuid) {
+            return Err(EditError::WouldCycle);
+        }
+
+        let root = self.root_element_mut()?;
+        if !remove_group(root, uuid) {
+            return Err(EditError::NoSuchGroup(uuid));
+        }
+        Ok(())
     }
 
     /// Creates an empty entry in `group` and returns its UUID.
@@ -514,6 +610,35 @@ fn touch(entry: &mut Element, now: Timestamp, _encoding: Encoding) {
     let text = now.to_text();
     set_child_text(times, "LastModificationTime", &text);
     set_child_text(times, "LastAccessTime", &text);
+}
+
+/// Removes a `<Group>` with this UUID from anywhere in the tree.
+///
+/// Recursive because a group can be nested arbitrarily deep, and `retain` only
+/// sees one level. Returns whether anything was actually removed, so the caller
+/// can tell "deleted" from "there was nothing there" rather than reporting
+/// success for a UUID that never existed.
+fn remove_group(parent: &mut Element, uuid: Uuid) -> bool {
+    let before = parent.children.len();
+    parent.children.retain(|n| match n {
+        Node::Element(e) if e.name == "Group" => e
+            .child("UUID")
+            .and_then(|u| Uuid::parse(&u.text()))
+            .is_none_or(|u| u != uuid),
+        _ => true,
+    });
+    if parent.children.len() != before {
+        return true;
+    }
+
+    for child in &mut parent.children {
+        if let Node::Element(e) = child {
+            if e.name == "Group" && remove_group(e, uuid) {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 fn add_tombstone(root: &mut Element, uuid: Uuid, now: Timestamp) {
