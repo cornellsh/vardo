@@ -120,9 +120,11 @@ export function ContextMenu({ x, y, items, onClose }: Props) {
  * and everybody eventually produces.
  */
 export function useContextMenu<T>() {
-	const [state, setState] = useState<{ x: number; y: number; target: T } | null>(
-		null,
-	);
+	const [state, setState] = useState<{
+		x: number;
+		y: number;
+		target: T;
+	} | null>(null);
 
 	function open(e: React.MouseEvent, target: T) {
 		e.preventDefault();

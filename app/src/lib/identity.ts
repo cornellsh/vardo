@@ -72,7 +72,15 @@ export function initialOf(title: string): string {
 	const words = trimmed.split(/\s+/).filter(Boolean);
 	const first = firstGrapheme(words[0] ?? "");
 	if (words.length === 1) return first.toUpperCase();
+
+	// An emoji stands on its own. Pairing it with the next word's letter gave
+	// "gift-box S" for an entry titled with an emoji and a name, which is two
+	// glyphs of different sizes jammed into a forty-pixel circle. Only letters
+	// pair with letters.
+	if (!/\p{Letter}/u.test(first)) return first;
+
 	const second = firstGrapheme(words[1] ?? "");
+	if (!/\p{Letter}/u.test(second)) return first.toUpperCase();
 	return (first + second).toUpperCase();
 }
 
@@ -83,6 +91,26 @@ function firstGrapheme(text: string): string {
 		for (const s of seg.segment(text)) return s.segment;
 	}
 	return Array.from(text)[0] ?? "";
+}
+
+/**
+ * A compact age, for the right edge of a list row.
+ *
+ * Takes `now` so it can be tested. It read `Date.now()` directly and lived
+ * inside a component, which is part of why the bug below survived: nothing
+ * could examine it without rendering a list and looking at pixels.
+ *
+ * The weeks step is not decoration. Without it, anything between eight and
+ * twenty-nine days old divided to zero months and rendered as "0mo".
+ */
+export function compactAge(ms: number, now: number = Date.now()): string {
+	const days = Math.floor((now - ms) / 86_400_000);
+	if (days <= 0) return "today";
+	if (days === 1) return "1d";
+	if (days < 7) return `${days}d`;
+	if (days < 30) return `${Math.floor(days / 7)}w`;
+	if (days < 365) return `${Math.max(1, Math.floor(days / 30))}mo`;
+	return `${Math.max(1, Math.floor(days / 365))}y`;
 }
 
 /**

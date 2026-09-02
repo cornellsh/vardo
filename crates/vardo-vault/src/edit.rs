@@ -68,7 +68,10 @@ pub(crate) type Result<T> = std::result::Result<T, EditError>;
 /// Obtained from [`Vault::update_entry`]. Every setter is an ordinary DOM
 /// mutation; the surrounding call decides whether a history record is due.
 pub struct EntryEdit<'a> {
-    element: &'a mut Element,
+    /// Visible to `attach`, which adds and removes `<Binary>` children. Still
+    /// private to the crate: an editor handing out its raw element would let
+    /// any caller write XML the rest of this module has no idea about.
+    pub(crate) element: &'a mut Element,
     encoding: Encoding,
 }
 

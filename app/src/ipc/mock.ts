@@ -165,6 +165,12 @@ interface MockEntry {
 	/** Non-standard fields, so custom-attribute editing is exercised. */
 	custom: Record<string, { value: string; protected: boolean }>;
 	historyCount: number;
+	/** Millis, or null for an entry that does not expire. */
+	expires?: number | null;
+	tags?: string[];
+	/** Attached during this session, so the list reflects what was just done. */
+	extraAttachments?: { name: string; size: number }[];
+	removedAttachments?: string[];
 }
 
 /**
@@ -434,16 +440,24 @@ export class MockIpc implements Ipc {
 					empty: !f.value,
 				})),
 			],
-			tags: e.group === "g-old" ? ["archive"] : [],
+			// Reads back what was set, so editing tags or expiry shows a result
+			// rather than reverting on the next read - which looks exactly like
+			// the write having failed.
+			tags: e.tags ?? (e.group === "g-old" ? ["archive"] : []),
 			times: {
 				created: e.summary.modified - 86_400_000 * 30,
 				modified: e.summary.modified,
 				accessed: e.summary.modified,
-				expires: null,
+				expires: e.expires ?? null,
 			},
-			attachments: e.summary.hasAttachments
-				? [{ name: "recovery-codes.txt", size: 412 }]
-				: [],
+			// Reflects what was attached and detached in this session. A list
+			// that ignored both would make every attach look like it failed.
+			attachments: [
+				...(e.summary.hasAttachments
+					? [{ name: "recovery-codes.txt", size: 412 }]
+					: []),
+				...(e.extraAttachments ?? []),
+			].filter((a) => !(e.removedAttachments ?? []).includes(a.name)),
 			// Stored, not re-rolled: a count that changes on every read would make
 			// the detail pane flicker and hide real history bugs.
 			historyCount: e.historyCount,
@@ -852,6 +866,51 @@ export class MockIpc implements Ipc {
 	async groupEntryCount(uuid: Uuid): Promise<number> {
 		this.assertUnlocked();
 		return ENTRIES.filter((e) => e.group === uuid).length;
+	}
+
+	async setExpiry(uuid: Uuid, atUnix: number | null): Promise<void> {
+		this.assertUnlocked();
+		const e = ENTRIES.find((x) => x.summary.uuid === uuid);
+		if (e) e.expires = atUnix === null ? null : atUnix * 1000;
+		this.dirty = true;
+	}
+
+	async setTags(uuid: Uuid, tags: string[]): Promise<void> {
+		this.assertUnlocked();
+		const e = ENTRIES.find((x) => x.summary.uuid === uuid);
+		if (e) e.tags = tags;
+		this.dirty = true;
+	}
+
+	async addAttachment(uuid: Uuid, path: string): Promise<string> {
+		this.assertUnlocked();
+		await delay(200);
+		const name = path.split("/").pop() ?? "attachment";
+		const e = ENTRIES.find((x) => x.summary.uuid === uuid);
+		if (e) {
+			e.extraAttachments = [
+				...(e.extraAttachments ?? []).filter((a) => a.name !== name),
+				{ name, size: 2048 },
+			];
+		}
+		this.dirty = true;
+		return name;
+	}
+
+	async removeAttachment(uuid: Uuid, name: string): Promise<void> {
+		this.assertUnlocked();
+		const e = ENTRIES.find((x) => x.summary.uuid === uuid);
+		if (e) {
+			e.extraAttachments = (e.extraAttachments ?? []).filter(
+				(a) => a.name !== name,
+			);
+			e.removedAttachments = [...(e.removedAttachments ?? []), name];
+		}
+		this.dirty = true;
+	}
+
+	async pickAnyFile(): Promise<string | null> {
+		return "/home/you/Documents/recovery-codes.txt";
 	}
 
 	async checkTotpSeed(text: string): Promise<boolean> {

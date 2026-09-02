@@ -83,6 +83,8 @@ pub fn run() {
             commands::group_entry_count,
             commands::set_expiry,
             commands::set_tags,
+            commands::add_attachment,
+            commands::remove_attachment,
             commands::entries_missing_icons,
             commands::drive_upload_vault,
             commands::forget_vault,

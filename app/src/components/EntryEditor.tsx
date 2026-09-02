@@ -28,6 +28,19 @@ const STANDARD = ["Title", "UserName", "Password", "URL", "Notes"];
 const OTP_KEYS = ["otp", "TOTP Seed", "TimeOtp-Secret-Base32"];
 
 /**
+ * `yyyy-mm-dd` in local time, for a native date input.
+ *
+ * Not `toISOString().slice(0, 10)`, which converts to UTC first and therefore
+ * shows the previous day to anyone east of Greenwich during their evening. The
+ * bug it causes is a date that is right when you set it and wrong when you
+ * reopen it, which reads as the save having failed.
+ */
+function toDateInput(date: Date): string {
+	const pad = (n: number) => String(n).padStart(2, "0");
+	return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/**
  * Editing form for one entry.
  *
  * # Why the password starts empty rather than revealed
@@ -53,6 +66,19 @@ export function EntryEditor({ entry, onSaved, onCancel }: Props) {
 	const [password, setPassword] = useState<string | null>(null);
 	const [showGenerator, setShowGenerator] = useState(false);
 
+	// Comma-separated in the box, an array on the wire. KDBX itself joins with
+	// semicolons, which nobody types on purpose.
+	const initialTags = entry.tags.join(", ");
+	const [tags, setTags] = useState(initialTags);
+
+	// `yyyy-mm-dd` for the native date input, built from local parts rather
+	// than `toISOString`, which converts to UTC first and lands on the previous
+	// day for anyone east of Greenwich in the evening.
+	const initialExpiry = entry.times.expires
+		? toDateInput(new Date(entry.times.expires))
+		: "";
+	const [expiry, setExpiry] = useState(initialExpiry);
+
 	/**
 	 * Which key a seed gets written to.
 	 *
@@ -73,7 +99,10 @@ export function EntryEditor({ entry, onSaved, onCancel }: Props) {
 		setPassword(null);
 		setShowGenerator(false);
 		setError(null);
-	}, [initial]);
+		setTags(initialTags);
+		setExpiry(initialExpiry);
+		setRemoved(new Set());
+	}, [initial, initialTags, initialExpiry]);
 
 	// And never let one outlive the editor.
 	useEffect(() => () => setPassword(null), []);
@@ -157,6 +186,27 @@ export function EntryEditor({ entry, onSaved, onCancel }: Props) {
 		try {
 			const api = await ipc();
 			if (edits.length > 0) await api.updateEntry(entry.uuid, edits);
+
+			if (tags !== initialTags) {
+				await api.setTags(
+					entry.uuid,
+					tags
+						.split(",")
+						.map((t) => t.trim())
+						.filter(Boolean),
+				);
+			}
+			if (expiry !== initialExpiry) {
+				// Midday local, not midnight. An expiry stored at 00:00 is a day
+				// earlier than intended for anyone west of UTC once it is read
+				// back, and the resulting off-by-one is invisible until an entry
+				// reports itself expired the day before it should.
+				const at = expiry ? Date.parse(`${expiry}T12:00:00`) : null;
+				await api.setExpiry(
+					entry.uuid,
+					at === null || Number.isNaN(at) ? null : Math.floor(at / 1000),
+				);
+			}
 			setPassword(null);
 			// Save means saved. This used to say Apply, commit to the open vault,
 			// and leave a bar demanding a second, differently named action - two
@@ -274,6 +324,45 @@ export function EntryEditor({ entry, onSaved, onCancel }: Props) {
 						/>
 					</Row>
 				))}
+
+				{/* Tags and expiry are not fields - KDBX keeps them as their own
+				    elements - so they are set by their own calls on save rather than
+				    smuggled through the field list. Both have been readable since
+				    the first version and editable in nothing. */}
+				<Row label="Tags">
+					<Input
+						value={tags}
+						onChange={setTags}
+						placeholder="Separated by commas"
+					/>
+				</Row>
+
+				<Row label="Expires">
+					<div className="flex items-center gap-2">
+						<input
+							type="date"
+							value={expiry}
+							onChange={(e) => setExpiry(e.target.value)}
+							className="min-w-0 flex-1 rounded-[4px] px-2 py-1.5 outline-none"
+							style={{
+								background: "var(--window-bg-over)",
+								color: "var(--window-fg)",
+								border: "1px solid transparent",
+								colorScheme: "dark light",
+							}}
+						/>
+						{expiry && (
+							<button
+								type="button"
+								onClick={() => setExpiry("")}
+								className="btn btn-quiet shrink-0 cursor-pointer rounded-[6px] px-2 py-1"
+								style={{ color: "var(--window-sub-text-fg)" }}
+							>
+								Never
+							</button>
+						)}
+					</div>
+				</Row>
 
 				<AddField onAdd={addField} existing={[...values.keys()]} />
 

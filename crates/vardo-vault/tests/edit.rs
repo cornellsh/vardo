@@ -608,3 +608,92 @@ fn a_new_group_survives_a_save_and_reopen() {
         "the group must survive a round trip"
     );
 }
+
+// --- attachments ------------------------------------------------------------
+
+#[test]
+fn an_attachment_round_trips_through_a_save() {
+    let mut vault = writable();
+    let entry = first_entry(&vault);
+    let data = b"recovery codes: 1234 5678\n";
+
+    vault.add_attachment(entry, "codes.txt", data).expect("add");
+
+    let creds = vardo_kdbx::Credentials::with_password("demopass");
+    let saved = vault
+        .save_with(&creds, &mut vardo_kdbx::write::OsRng)
+        .expect("save");
+    let doc = vardo_kdbx::open(&saved, &creds).expect("reopen");
+    let reopened = Vault::open(&doc).expect("vault");
+
+    let found = reopened
+        .entries()
+        .into_iter()
+        .find(|e| e.uuid() == Some(entry))
+        .expect("entry");
+    assert_eq!(
+        found.attachment_bytes("codes.txt").as_deref(),
+        Some(&data[..]),
+        "the bytes must come back exactly"
+    );
+}
+
+#[test]
+fn adding_the_same_name_twice_replaces_rather_than_duplicates() {
+    // Two `<Binary>` children sharing a key is a state KDBX permits and no
+    // client displays sensibly.
+    let mut vault = writable();
+    let entry = first_entry(&vault);
+
+    vault.add_attachment(entry, "codes.txt", b"first").unwrap();
+    vault.add_attachment(entry, "codes.txt", b"second").unwrap();
+
+    let found = vault
+        .entries()
+        .into_iter()
+        .find(|e| e.uuid() == Some(entry))
+        .unwrap();
+    let named: Vec<_> = found
+        .attachments()
+        .into_iter()
+        .filter(|(n, _)| n == "codes.txt")
+        .collect();
+    assert_eq!(named.len(), 1, "exactly one reference, got {named:?}");
+    assert_eq!(
+        found.attachment_bytes("codes.txt").as_deref(),
+        Some(&b"second"[..])
+    );
+}
+
+#[test]
+fn detaching_one_does_not_repoint_another() {
+    // The reason nothing is ever removed from the binary pool: indices are
+    // positional, so compacting would renumber every reference after the gap
+    // and silently hand some unrelated entry the wrong document.
+    let mut vault = writable();
+    let entries: Vec<Uuid> = vault.entries().iter().filter_map(|e| e.uuid()).collect();
+    let (a, b) = (entries[0], entries[1]);
+
+    vault.add_attachment(a, "first.txt", b"AAA").unwrap();
+    vault.add_attachment(b, "second.txt", b"BBB").unwrap();
+
+    vault.remove_attachment(a, "first.txt").unwrap();
+
+    let kept = vault
+        .entries()
+        .into_iter()
+        .find(|e| e.uuid() == Some(b))
+        .unwrap();
+    assert_eq!(
+        kept.attachment_bytes("second.txt").as_deref(),
+        Some(&b"BBB"[..]),
+        "the other entry's attachment must be untouched"
+    );
+
+    let gone = vault
+        .entries()
+        .into_iter()
+        .find(|e| e.uuid() == Some(a))
+        .unwrap();
+    assert!(gone.attachment_bytes("first.txt").is_none());
+}
