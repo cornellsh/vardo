@@ -244,6 +244,14 @@ export class TauriIpc implements Ipc {
 		return typeof picked === "string" ? picked : null;
 	}
 
+	setTrayUnlocked(unlocked: boolean): Promise<void> {
+		return invoke("set_tray_unlocked", { unlocked });
+	}
+
+	async onLockRequested(handler: () => void): Promise<() => void> {
+		return listen("vault://lock-requested", () => handler());
+	}
+
 	copyHistoryPassword(
 		uuid: Uuid,
 		index: number,

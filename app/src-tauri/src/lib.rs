@@ -25,6 +25,7 @@ use vardo_core::Session;
 
 mod clipboard;
 mod commands;
+mod tray;
 
 /// The unlocked session, or nothing.
 ///
@@ -43,7 +44,18 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .setup(|app| {
             app.manage(AppState::default());
+            tray::build(app.handle())?;
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            // Closing hides. A password manager is opened many times a day for
+            // a few seconds, and quitting between uses means re-typing the
+            // master password and waiting for a deliberately slow KDF each
+            // time. Quit is on the tray menu, where it is unambiguous.
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.hide();
+            }
         })
         .invoke_handler(tauri::generate_handler![
             commands::open_vault,
@@ -88,6 +100,7 @@ pub fn run() {
             commands::entries_missing_icons,
             commands::drive_upload_vault,
             commands::forget_vault,
+            commands::set_tray_unlocked,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Vardo");

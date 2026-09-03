@@ -639,3 +639,15 @@ pub fn remove_attachment(
 ) -> CmdResult<()> {
     with_session_mut(&state, |s| s.remove_attachment(&uuid, &name))
 }
+
+/// Tells the tray whether the vault is open.
+///
+/// Called by the frontend rather than inferred from `AppState`, because the
+/// frontend is what knows about the moments in between: a merge that rewrites
+/// the vault, an auto-lock that fired, an unlock still deriving its key. The
+/// tray must never claim the vault is locked while it is open, and the only
+/// place that knows for certain is the thing driving the transitions.
+#[tauri::command]
+pub fn set_tray_unlocked(app: tauri::AppHandle, unlocked: bool) {
+    crate::tray::set_unlocked(&app, unlocked);
+}
