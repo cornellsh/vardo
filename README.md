@@ -9,11 +9,17 @@ rather than a synced folder, which is what makes it possible to merge two
 devices that edited at once instead of one silently overwriting the other.
 Other backends are a variant in one enum, not a rewrite.
 
-**Status:** the app reads, edits, saves, syncs and merges real vaults. The Drive
-path is unit-tested and its API assumptions were verified against a live
-account, but the full open-edit-save cycle over Drive has not yet been run
-end to end. See [`STATUS.md`](STATUS.md) for what works and
+**Status:** the app reads, edits, saves, syncs and merges real vaults, locally
+and in Google Drive. The Drive path has been run end to end against a live
+account - upload, open with no local file involved, edit, save, reopen in a
+fresh session, sync - and `keepassxc-cli` reads back what it wrote. Two
+concurrent sessions were used to check that a save cannot destroy another
+device's edit. See [`STATUS.md`](STATUS.md) for what works and
 [`ROADMAP.md`](ROADMAP.md) for what does not.
+
+Those runs live in `crates/vardo-core/examples/`. They need real credentials, so
+they are not part of `./check.sh`; each creates its own throwaway vault and can
+reach nothing else.
 
 ### One surprise worth knowing about Drive
 
@@ -50,7 +56,8 @@ cd app && npm run app:release
 ```
 
 A path on the command line is opened directly, so file managers can hand it
-one. Without a path, use **Open another database…**.
+one. Without one, the unlock screen lists vaults you have opened before and
+offers a file picker, or Google Drive.
 
 ### Try it without risking a real vault
 
@@ -84,10 +91,12 @@ The defining property: **parse → serialise is byte-identical.** A save must no
 change bytes it was not asked to change, or the merge engine will invent
 conflicts that do not exist.
 
-292 tests, clippy clean, ~14.9M fuzz executions with zero failures, no `unsafe`.
+373 Rust tests and 23 frontend tests, clippy clean, ~14.9M fuzz executions with
+zero failures, no `unsafe`.
 
 Run everything with `./check.sh` — fmt, clippy at `-D warnings`, the Rust
-suite, the frontend typecheck, the WCAG contrast gate, and the app build.
+suite, the frontend typecheck and tests, the WCAG contrast gate, and the app
+build.
 
 - [`STATUS.md`](STATUS.md) — what works, and the three decisions that shaped it
 - [`UI-PLAN.md`](UI-PLAN.md) — what the app looks like and the order it gets built
