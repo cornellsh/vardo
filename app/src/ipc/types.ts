@@ -441,6 +441,24 @@ export interface Ipc {
 	/** A file chooser. Any type: a vault holds whatever sits beside a password. */
 	pickAnyFile(): Promise<string | null>;
 
+	// --- system tray ---
+	//
+	// Optional, because the browser build has no tray. Left optional rather than
+	// stubbed in the mock, so every caller has to acknowledge it may be absent
+	// instead of quietly relying on a no-op that only exists in one build.
+
+	/**
+	 * Tells the tray whether the vault is open.
+	 *
+	 * The window can be hidden while the vault is unlocked, and the icon is then
+	 * the only thing saying so. An icon that lags reality would claim locked
+	 * while every password was one click away.
+	 */
+	setTrayUnlocked?(unlocked: boolean): Promise<void>;
+
+	/** The tray's "Lock now". Resolves to a function that stops listening. */
+	onLockRequested?(handler: () => void): Promise<() => void>;
+
 	/** Copies an old password, cleared on the same schedule as any other. */
 	copyHistoryPassword(
 		uuid: Uuid,
