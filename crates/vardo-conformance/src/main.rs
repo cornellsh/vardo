@@ -63,7 +63,7 @@ fn secrets(path: &str, pw: &str) {
         .enumerate()
     {
         let v = vals.get_str(i).unwrap();
-        println!("  [{i}] <{}> = {:?}", e.name, &*v);
+        println!("  [{i}] <{}> = {:?}", e.name, *v);
     }
 }
 
