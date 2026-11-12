@@ -8,11 +8,11 @@ An item that changes a rule also updates `docs/INVARIANTS.md`. One that makes a 
 
 These come first because every later change gets cheaper and safer once they land.
 
-### plan:invariant-gaps
+### plan:ipc-arguments
 
-- **Do:** Close every **Gap** in `docs/INVARIANTS.md`. An extension test asserts the exact manifest permissions. An eslint config enables `jsx-a11y` at error level, and a gate runs it. A test pins the CSP. Tests cover idle lock and save-before-lock.
-- **Why:** A rule without a test is a hope.
-- **Done when:** `docs/INVARIANTS.md` contains no **Gap** line.
+- **Do:** Check each command's argument names in `app/src/ipc/tauri.ts` against the Rust parameters, in the `ipc-names` gate. Make `ConflictPolicy` a typed enum that crosses the wire instead of a string Rust parses.
+- **Why:** `inv:ipc-types-are-generated` covers return types and command names, but not arguments.
+- **Done when:** A renamed Rust parameter fails a gate, and `docs/INVARIANTS.md` contains no **Gap** line.
 
 ### plan:core-modules
 

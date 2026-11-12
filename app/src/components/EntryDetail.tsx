@@ -88,7 +88,6 @@ export function EntryDetailPane({
 		return () => {
 			cancelled = true;
 		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [uuid, reload]);
 
 	useEffect(() => setConfirmingDelete(false), [uuid]);

@@ -7,6 +7,7 @@ import { useAutoLock } from "../hooks/useAutoLock";
 import { DriveConnect } from "../components/DriveConnect";
 import { MergeReview } from "./MergeReview";
 import { errorText } from "../ipc/error";
+import { saveThenLock } from "../lib/saveThenLock";
 import { useLayoutMode } from "../lib/useLayoutMode";
 import { Health } from "./Health";
 import { usePresence } from "../lib/usePresence";
@@ -93,20 +94,10 @@ export function Vault({ info, onLock }: Props) {
 		}
 	}, []);
 
-	// Auto-lock with unsaved edits would discard them. Saving first is the safe
-	// direction: the write is verified and reversible via history, whereas
-	// throwing away work is neither. If the save fails we do not lock, because
-	// locking would then be the thing that loses the data.
-	const lockAfterIdle = useCallback(async () => {
-		// A failed save must not be followed by locking, or locking becomes the
-		// thing that loses the data.
-		try {
-			if (dirty) await save();
-		} catch {
-			return;
-		}
-		onLock("idle");
-	}, [dirty, save, onLock]);
+	const lockAfterIdle = useCallback(
+		async () => void (await saveThenLock(dirty, save, () => onLock("idle"))),
+		[dirty, save, onLock],
+	);
 
 	// Manual lock takes the same route. It used to lock immediately and leave a
 	// "Lock and discard" button as the way to deal with unsaved work, which put
@@ -124,14 +115,10 @@ export function Vault({ info, onLock }: Props) {
 	 * Every branch saves, like every other change.
 	 */
 
-	const lockNow = useCallback(async () => {
-		try {
-			if (dirty) await save();
-		} catch {
-			return;
-		}
-		onLock("manual");
-	}, [dirty, save, onLock]);
+	const lockNow = useCallback(
+		async () => void (await saveThenLock(dirty, save, () => onLock("manual"))),
+		[dirty, save, onLock],
+	);
 
 	useAutoLock(AUTO_LOCK_MINUTES, lockAfterIdle);
 

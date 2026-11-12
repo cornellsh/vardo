@@ -245,10 +245,11 @@ export function EntryList({
 				)}
 			</div>
 
+			{/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- arrow keys move between rows */}
 			<ul
 				ref={windowed.ref as React.RefObject<HTMLUListElement>}
-				// biome-ignore lint/a11y/noNoninteractiveTabindex: the list is the
-				// keyboard target for arrow navigation between rows.
+				// The list is the keyboard target for arrow navigation between rows.
+				// eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
 				tabIndex={0}
 				onKeyDown={onListKey}
 				className="flex-1 overflow-y-auto outline-none"

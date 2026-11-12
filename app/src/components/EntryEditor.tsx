@@ -591,9 +591,10 @@ function Input({
 			value={value}
 			spellCheck={false}
 			{...(placeholder ? { placeholder } : {})}
-			// biome-ignore lint/a11y/noAutofocus: the editor is opened by an
+			// The editor is opened by an
 			// explicit user action, and focusing the first field is what every
 			// desktop form does.
+			// eslint-disable-next-line jsx-a11y/no-autofocus
 			autoFocus={autoFocus}
 			onChange={(e) => onChange(e.target.value)}
 			className="w-full rounded-[4px] px-2 py-1.5 outline-none"

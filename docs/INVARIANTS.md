@@ -146,8 +146,7 @@ Cite a rule in code as `inv:<name>`. The `doc-links` gate of `cargo xtask check`
 
 - **Rule:** Locking drops the `Vault` and every derived secret. Vardo locks after five idle minutes. Unsaved changes are saved first, and a failed save keeps the vault unlocked with a message.
 - **Why:** The plaintext DOM exists only while unlocked (`inv:plaintext-while-unlocked`).
-- **Proof:** `crates/vardo-core/tests/browser_socket.rs::locking_takes_effect_on_the_next_request`.
-- **Gap:** No test covers idle lock or the save-before-lock path (`plan:invariant-gaps`).
+- **Proof:** `crates/vardo-core/tests/browser_socket.rs::locking_takes_effect_on_the_next_request`. `app/src/hooks/useAutoLock.dom.test.tsx` locks after five idle minutes, restarts on input, and locks on waking from sleep. `app/src/lib/saveThenLock.test.ts` saves before locking and stays unlocked when the save fails.
 
 ### inv:core-has-no-toolkit
 
@@ -160,7 +159,7 @@ Cite a rule in code as `inv:<name>`. The `doc-links` gate of `cargo xtask check`
 - **Rule:** Every type that crosses `invoke` is generated from Rust into `app/src/ipc/bindings.ts`. Every command `app/src/ipc/tauri.ts` invokes is registered in `app/src-tauri/src/lib.rs`, and the reverse.
 - **Why:** A hand-kept copy drifts silently. One did: the interface sent a Drive vault as `fileId` while Rust reads `file_id`.
 - **Proof:** `crates/vardo-core/src/bindings.rs::the_interface_bindings_are_current` fails on a stale file, and the `app-typecheck` gate fails on a renamed field. The `ipc-names` gate checks names: `xtask/src/ipc.rs::a_renamed_command_fails_on_both_sides`.
-- **Gap:** Argument names and shapes inside `app/src/ipc/tauri.ts` are still written by hand. `ConflictPolicy` is a string Rust parses.
+- **Gap:** Argument names and shapes inside `app/src/ipc/tauri.ts` are still written by hand. `ConflictPolicy` is a string Rust parses (`plan:ipc-arguments`).
 
 ## Browser
 
@@ -168,7 +167,7 @@ Cite a rule in code as `inv:<name>`. The `doc-links` gate of `cargo xtask check`
 
 - **Rule:** `extension/manifest.json` requests exactly `activeTab`, `scripting` and `nativeMessaging`. It has no host permissions and no content scripts. Vardo never draws UI inside a page.
 - **Why:** Injected autofill UI can be hidden and clicked through by the page (`fact:clickjacking-defcon33`).
-- **Gap:** No test reads the manifest (`plan:invariant-gaps`).
+- **Proof:** `extension/src/manifest.test.js` fails on any added permission or page-reaching key.
 
 ### inv:match-in-rust
 
@@ -224,7 +223,7 @@ Cite a rule in code as `inv:<name>`. The `doc-links` gate of `cargo xtask check`
 
 - **Rule:** Every action is reachable from the keyboard, and the focus ring is always visible.
 - **Why:** A password manager is used dozens of times a day, mostly by keyboard.
-- **Gap:** `eslint-plugin-jsx-a11y` is installed but has no config and no gate runs it (`fact:eslint-unconfigured`, `plan:invariant-gaps`).
+- **Proof:** The `app-lint` gate runs `jsx-a11y`'s recommended rules at error level, configured in `app/eslint.config.js`.
 
 ## Project
 
@@ -232,5 +231,4 @@ Cite a rule in code as `inv:<name>`. The `doc-links` gate of `cargo xtask check`
 
 - **Rule:** No telemetry, no CDN, no remote scripts or fonts. Site icons come from the site itself, never a third-party icon service. The WebView CSP allows only `self`, `data:` images and IPC.
 - **Why:** Which sites a person uses is itself sensitive (`dec:no-server-no-telemetry`).
-- **Proof:** The CSP in `app/src-tauri/tauri.conf.json`. `crates/vardo-core/src/favicon.rs`.
-- **Gap:** No test pins the CSP (`plan:invariant-gaps`).
+- **Proof:** The CSP in `app/src-tauri/tauri.conf.json`. `crates/vardo-core/src/favicon.rs`. `app/src/csp.test.ts` fails on any change to the CSP.
