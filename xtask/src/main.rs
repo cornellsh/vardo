@@ -61,6 +61,11 @@ const GATES: &[Gate] = &[
         fast: false,
         run: |c| c.npx("app", &["tsc", "--noEmit"]),
     },
+    Gate {
+        name: "app-lint",
+        fast: false,
+        run: |c| c.npx("app", &["eslint", "src", "--max-warnings", "0"]),
+    },
     // Before clippy, because the app crate embeds the built interface.
     Gate {
         name: "app-build",

@@ -55,7 +55,6 @@ export function VaultPicker({ selected, onSelect, disabled }: Props) {
 			if (list[0] && !selected) onSelect(list[0]);
 		})();
 		// Intentionally once: re-running on `selected` would fight the user.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 	/**

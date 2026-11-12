@@ -164,10 +164,6 @@ Live checks ran on 2026-08-27 with `crates/vardo-drive/examples/contract.rs` aga
 
 - CI lints with the latest stable Rust. Clippy 1.99 added `useless_borrows_in_formatting`, which failed `main` on 2026-11-12 with no code change.
 
-### fact:eslint-unconfigured
-
-- `app/package.json` lists `eslint` and `eslint-plugin-jsx-a11y` and has a `lint` script, but the app has no eslint config and no gate runs it. Observed 2026-11-12.
-
 ### fact:telegram-palette-contrast
 
 - Telegram's palette is not APCA-verified. Day `windowSubTextFg` `#999999` on white is about 2.8:1. `dialogsBgActive` `#419fd9` under white text is about 2.9:1. The contrast gate caught nine failures that eyeballing missed, mostly hover states and the focus ring.
