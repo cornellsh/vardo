@@ -52,7 +52,7 @@ Setup facts that cost failed runs:
 ## Test data
 
 - Demo vault: `fixtures/test_db_kdbx4_with_password_argon2id.kdbx`, password `demopass`. Copy it to `/tmp` before opening it in the app.
-- The interface mock in `app/src/ipc/mock.ts` holds a messy vault of about 400 entries. Its password is also `demopass`.
+- The interface mock in `app/src/ipc/mock.ts` serves a messy vault of about 400 entries from `app/src/ipc/mockData.ts`. Its password is also `demopass`.
 
 ## Rules
 

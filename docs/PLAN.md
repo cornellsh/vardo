@@ -13,11 +13,6 @@ These come first because every later change gets cheaper and safer once they lan
 - **Do:** Commit the tray template icon in `app/src-tauri/src/tray.rs` and the Dock reopen handler in `app/src-tauri/src/lib.rs`, both uncommitted in the working tree. First a person checks the tray icon, its menu, and close-then-Dock-click (`docs/RUNBOOKS.md`).
 - **Done when:** Both are committed, and `fact:platform-macos` records what the person saw.
 
-### plan:large-ui-files
-
-- **Do:** Split `app/src/components/EntryDetail.tsx` and `app/src/ipc/mock.ts` when next touched.
-- **Why:** Large files cost an agent a full read for a small edit.
-
 ## Phase 2: product
 
 In rough priority order. Each needs its own design pass before code.
