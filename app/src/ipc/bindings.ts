@@ -126,6 +126,11 @@ side: string | null, };
  */
 export type ConflictView = { kind: string, title: string, detail: string, };
 
+/**
+ * How a sync settles what the plan could not decide.
+ */
+export type ConflictPolicy = "duplicate" | "keep-local" | "keep-remote" | "refuse";
+
 export type SyncPreview = { remote: string, 
 /**
  * Remote is byte-identical to our sync point: nothing to fold in.

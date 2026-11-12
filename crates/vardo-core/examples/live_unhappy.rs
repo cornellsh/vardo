@@ -131,7 +131,7 @@ fn run(failures: &mut i32) -> Result<(), String> {
         here.update_entry(&mine, &[field("Title", "after merge")])
             .map_err(|e| e.to_string())?;
 
-        let applied = here.sync_apply(&app_dir, &ctx, "duplicate");
+        let applied = here.sync_apply(&app_dir, &ctx, vardo_core::model::ConflictPolicy::Duplicate);
         check(
             failures,
             "sync_apply succeeds against Drive",

@@ -230,11 +230,11 @@ pub fn sync_preview(
 pub fn sync_apply(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
-    policy: String,
+    policy: vardo_core::model::ConflictPolicy,
 ) -> CmdResult<SyncOutcome> {
     let dir = app_dir(&app)?;
     let ctx = source_context(&app)?;
-    with_session_mut(&state, |s| s.sync_apply(&dir, &ctx, &policy))
+    with_session_mut(&state, |s| s.sync_apply(&dir, &ctx, policy))
 }
 
 // --- saving -----------------------------------------------------------------

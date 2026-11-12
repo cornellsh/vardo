@@ -156,10 +156,9 @@ Cite a rule in code as `inv:<name>`. The `doc-links` gate of `cargo xtask check`
 
 ### inv:ipc-types-are-generated
 
-- **Rule:** Every type that crosses `invoke` is generated from Rust into `app/src/ipc/bindings.ts`. Every command `app/src/ipc/tauri.ts` invokes is registered in `app/src-tauri/src/lib.rs`, and the reverse.
+- **Rule:** Every type that crosses `invoke` is generated from Rust into `app/src/ipc/bindings.ts`. Every command `app/src/ipc/tauri.ts` invokes is registered in `app/src-tauri/src/lib.rs`, and the reverse. Each call passes exactly the arguments its Rust command takes.
 - **Why:** A hand-kept copy drifts silently. One did: the interface sent a Drive vault as `fileId` while Rust reads `file_id`.
-- **Proof:** `crates/vardo-core/src/bindings.rs::the_interface_bindings_are_current` fails on a stale file, and the `app-typecheck` gate fails on a renamed field. The `ipc-names` gate checks names: `xtask/src/ipc.rs::a_renamed_command_fails_on_both_sides`.
-- **Gap:** Argument names and shapes inside `app/src/ipc/tauri.ts` are still written by hand. `ConflictPolicy` is a string Rust parses (`plan:ipc-arguments`).
+- **Proof:** `crates/vardo-core/src/bindings.rs::the_interface_bindings_are_current` fails on a stale file, and the `app-typecheck` gate fails on a renamed field. The `ipc-names` gate checks command and argument names: `xtask/src/ipc.rs::a_renamed_command_fails_on_both_sides`, `xtask/src/ipc.rs::a_renamed_parameter_fails`.
 
 ## Browser
 

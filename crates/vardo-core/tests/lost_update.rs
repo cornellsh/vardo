@@ -128,7 +128,11 @@ fn saving_after_a_sync_is_not_blocked_by_our_own_upload() {
         .unwrap();
 
     session
-        .sync_apply(&dir, &ctx(&dir), "duplicate")
+        .sync_apply(
+            &dir,
+            &ctx(&dir),
+            vardo_core::model::ConflictPolicy::Duplicate,
+        )
         .expect("sync");
 
     session

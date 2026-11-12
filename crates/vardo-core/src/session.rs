@@ -466,10 +466,9 @@ impl Session {
         &mut self,
         app_dir: &Path,
         ctx: &crate::source::SourceContext,
-        policy: &str,
+        policy: crate::model::ConflictPolicy,
     ) -> Result<SyncOutcome, CoreError> {
         let point = crate::sync::load_point(app_dir, &self.source);
-        let policy = parse_policy(policy)?;
 
         let (outcome, new_point) = crate::sync::apply(
             &self.source,
@@ -477,7 +476,7 @@ impl Session {
             &mut self.vault,
             &self.creds,
             point.as_ref(),
-            policy,
+            policy.into(),
         )?;
 
         if let Some(p) = &new_point {
@@ -502,21 +501,6 @@ impl Session {
             races_lost: 0,
             retries: 0,
         })
-    }
-}
-
-fn parse_policy(policy: &str) -> Result<vardo_merge::ConflictPolicy, CoreError> {
-    match policy {
-        // The default. Keeps both versions rather than choosing, because a
-        // password manager that silently discards one of two passwords is worse
-        // than one that leaves you two to look at.
-        "duplicate" => Ok(vardo_merge::ConflictPolicy::Duplicate),
-        "keep-local" => Ok(vardo_merge::ConflictPolicy::KeepLocal),
-        "keep-remote" => Ok(vardo_merge::ConflictPolicy::KeepRemote),
-        "refuse" => Ok(vardo_merge::ConflictPolicy::Refuse),
-        other => Err(CoreError::Unsupported {
-            detail: format!("unknown conflict policy: {other}"),
-        }),
     }
 }
 

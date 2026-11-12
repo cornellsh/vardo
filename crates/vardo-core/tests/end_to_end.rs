@@ -149,7 +149,9 @@ fn a_change_made_by_another_process_is_merged_in() {
         preview.changes.iter().map(|c| &c.title).collect::<Vec<_>>()
     );
 
-    let outcome = here.sync_apply(&dir, &lctx(), "duplicate").expect("apply");
+    let outcome = here
+        .sync_apply(&dir, &lctx(), vardo_core::model::ConflictPolicy::Duplicate)
+        .expect("apply");
     assert_ne!(
         outcome.kind,
         vardo_core::model::SyncOutcomeKind::NeedsReview
@@ -213,17 +215,19 @@ fn two_devices_converge_when_each_syncs_before_editing() {
     let mut a = open(&path);
     set(&mut a, &uuid, "UserName", "from-a");
     a.save(&lctx()).expect("a save");
-    a.sync_apply(&da, &lctx(), "duplicate").expect("a sync");
+    a.sync_apply(&da, &lctx(), vardo_core::model::ConflictPolicy::Duplicate)
+        .expect("a sync");
 
     // B picks up A's change *before* editing, which is the ordinary case: a
     // device syncs on open.
     let mut b = open(&path);
-    b.sync_apply(&db, &lctx(), "duplicate").expect("b sync");
+    b.sync_apply(&db, &lctx(), vardo_core::model::ConflictPolicy::Duplicate)
+        .expect("b sync");
     assert_eq!(field(&b, &uuid, "UserName").as_deref(), Some("from-a"));
 
     pause_for_timestamp_resolution();
     set(&mut b, &uuid, "URL", "https://from-b.invalid");
-    b.sync_apply(&db, &lctx(), "duplicate")
+    b.sync_apply(&db, &lctx(), vardo_core::model::ConflictPolicy::Duplicate)
         .expect("b sync back");
 
     // B has both.
@@ -234,7 +238,8 @@ fn two_devices_converge_when_each_syncs_before_editing() {
     );
 
     // And A converges on its next sync.
-    a.sync_apply(&da, &lctx(), "duplicate").expect("a resync");
+    a.sync_apply(&da, &lctx(), vardo_core::model::ConflictPolicy::Duplicate)
+        .expect("a resync");
     assert_eq!(
         field(&a, &uuid, "URL").as_deref(),
         Some("https://from-b.invalid")
@@ -270,13 +275,15 @@ fn editing_a_stale_entry_replaces_the_whole_entry_and_archives_the_loser() {
 
     set(&mut a, &uuid, "UserName", "from-a");
     a.save(&lctx()).expect("a save");
-    a.sync_apply(&da, &lctx(), "duplicate").expect("a sync");
+    a.sync_apply(&da, &lctx(), vardo_core::model::ConflictPolicy::Duplicate)
+        .expect("a sync");
 
     // B never saw A's change and now edits a different field of the same
     // entry, strictly later so that B is unambiguously the newer version.
     pause_for_timestamp_resolution();
     set(&mut b, &uuid, "URL", "https://from-b.invalid");
-    b.sync_apply(&db, &lctx(), "duplicate").expect("b sync");
+    b.sync_apply(&db, &lctx(), vardo_core::model::ConflictPolicy::Duplicate)
+        .expect("b sync");
 
     assert_eq!(
         field(&b, &uuid, "URL").as_deref(),
@@ -308,24 +315,26 @@ fn a_deletion_on_one_device_propagates_once_there_is_a_base() {
 
     // Establish a shared base.
     let mut a = open(&path);
-    a.sync_apply(&da, &lctx(), "duplicate").expect("first sync");
+    a.sync_apply(&da, &lctx(), vardo_core::model::ConflictPolicy::Duplicate)
+        .expect("first sync");
 
     let root = a.groups().uuid;
     let doomed = a.create_entry(&root).expect("create");
     set(&mut a, &doomed, "Title", "Doomed");
     a.save(&lctx()).expect("save");
-    a.sync_apply(&da, &lctx(), "duplicate")
+    a.sync_apply(&da, &lctx(), vardo_core::model::ConflictPolicy::Duplicate)
         .expect("sync the addition");
 
     // Another device sees it, then deletes it.
     {
         let mut b = open(&path);
-        b.sync_apply(&db, &lctx(), "duplicate").expect("b sync");
+        b.sync_apply(&db, &lctx(), vardo_core::model::ConflictPolicy::Duplicate)
+            .expect("b sync");
         assert!(titles(&b).contains(&"Doomed".to_string()));
         pause_for_timestamp_resolution();
         b.delete_entry(&doomed).expect("delete");
         b.save(&lctx()).expect("b save");
-        b.sync_apply(&db, &lctx(), "duplicate")
+        b.sync_apply(&db, &lctx(), vardo_core::model::ConflictPolicy::Duplicate)
             .expect("b sync the deletion");
     }
 
@@ -343,10 +352,10 @@ fn syncing_with_nothing_to_do_is_not_an_error() {
     let path = vault_in(&dir);
 
     let mut a = open(&path);
-    a.sync_apply(&dir, &lctx(), "duplicate")
+    a.sync_apply(&dir, &lctx(), vardo_core::model::ConflictPolicy::Duplicate)
         .expect("first sync");
     let outcome = a
-        .sync_apply(&dir, &lctx(), "duplicate")
+        .sync_apply(&dir, &lctx(), vardo_core::model::ConflictPolicy::Duplicate)
         .expect("second sync");
     assert!(
         matches!(
@@ -369,7 +378,8 @@ fn the_sync_point_survives_a_lock_and_reopen() {
 
     {
         let mut a = open(&path);
-        a.sync_apply(&dir, &lctx(), "duplicate").expect("sync");
+        a.sync_apply(&dir, &lctx(), vardo_core::model::ConflictPolicy::Duplicate)
+            .expect("sync");
         a.lock();
     }
 
@@ -407,7 +417,8 @@ fn a_save_after_a_merge_still_verifies() {
         elsewhere.save(&lctx()).unwrap();
     }
 
-    here.sync_apply(&dir, &lctx(), "duplicate").expect("merge");
+    here.sync_apply(&dir, &lctx(), vardo_core::model::ConflictPolicy::Duplicate)
+        .expect("merge");
     let root = here.groups().uuid;
     let extra = here.create_entry(&root).expect("create after merge");
     set(&mut here, &extra, "Title", "After Merge");

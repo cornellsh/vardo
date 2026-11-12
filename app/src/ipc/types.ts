@@ -28,6 +28,7 @@ export type Millis = number;
 import type {
 	Attachment,
 	ChangeView,
+	ConflictPolicy,
 	ConflictView,
 	CopyResult,
 	CoreError,
@@ -62,6 +63,7 @@ import type {
 export type {
 	Attachment,
 	ChangeView,
+	ConflictPolicy,
 	ConflictView,
 	CopyResult,
 	CoreError,
@@ -98,16 +100,6 @@ export type UnlockError = Extract<
 	CoreError,
 	{ kind: "wrong-password" | "not-found" | "corrupt" | "unsupported" | "io" }
 >;
-
-/**
- * How a sync settles a conflict. Rust parses this string in
- * `crates/vardo-core/src/session.rs`, so it is not generated.
- */
-export type ConflictPolicy =
-	| "duplicate"
-	| "keep-local"
-	| "keep-remote"
-	| "refuse";
 
 export interface Ipc {
 	openVault(
