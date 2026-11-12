@@ -66,6 +66,12 @@ Cite a rule in code as `inv:<name>`. The `doc-links` gate of `cargo xtask check`
 - **Why:** A username from one device and a password from another can form a login that never existed.
 - **Proof:** `crates/vardo-merge/tests/apply.rs::a_remote_edit_is_taken_and_the_local_version_is_kept_in_history`, `crates/vardo-merge/tests/apply.rs::both_devices_reach_the_same_content`.
 
+### inv:merge-settles
+
+- **Rule:** Merging the same remote a second time changes nothing. Merging A into B and B into A, both resolving conflicts toward the same copy, gives the same entries in the same groups. Keeping the other copy of a conflict takes its delete, its restore and its move, not only its fields.
+- **Why:** A merge that is not idempotent drifts a little on every sync. One that depends on direction leaves two devices permanently different while both report success.
+- **Proof:** `crates/vardo-merge/tests/properties.rs` checks both over 48 seeded random edit pairs (`MERGE_SEED=<n>` reruns one). `crates/vardo-merge/tests/apply.rs::keep_remote_restores_an_entry_deleted_here_and_edited_there`, `crates/vardo-merge/tests/apply.rs::keep_remote_takes_a_delete_made_there`, `crates/vardo-merge/tests/apply.rs::keep_remote_follows_a_move_made_there_in_the_same_second` and `crates/vardo-merge/tests/apply.rs::a_local_move_survives_merging_a_remote_edit_twice` pin the bugs it found.
+
 ### inv:same-second-is-conflict
 
 - **Rule:** Divergent edits with equal timestamps are a conflict. Identical content at the same second is not.
