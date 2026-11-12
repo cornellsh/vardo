@@ -14,8 +14,8 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use serde_json::Value;
+use vardo_core::browser::server::{bind, serve, Perform};
 use vardo_core::browser::Effect;
-use vardo_core::browser_server::{bind, serve, Perform};
 use vardo_core::source::{SourceContext, VaultSource};
 use vardo_core::Session;
 

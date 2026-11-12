@@ -10,7 +10,7 @@
 //! `__cmd__*` macros the attribute generates (tauri-apps/tauri#3198).
 
 use tauri::{Emitter, Manager};
-use vardo_core::drive_auth::DriveClient;
+use vardo_core::drive::auth::DriveClient;
 use vardo_core::model::{
     DriveVault, EntryDetail, EntrySummary, FieldEdit, GeneratorOptions, GroupNode, SaveResult,
     SyncOutcome, SyncPreview, UnlockPhase, VaultInfo,
@@ -293,7 +293,7 @@ pub fn drive_status(app: tauri::AppHandle) -> CmdResult<vardo_core::model::Drive
     let dir = app_dir(&app)?;
     Ok(vardo_core::model::DriveStatus {
         configured: DriveClient::built_in().is_some(),
-        connected: vardo_core::drive_auth::is_connected(&dir),
+        connected: vardo_core::drive::auth::is_connected(&dir),
     })
 }
 
@@ -310,7 +310,7 @@ pub async fn drive_connect(app: tauri::AppHandle) -> CmdResult<()> {
         detail: "this build has no Google client id, so Drive cannot be connected".into(),
     })?;
 
-    let pending = vardo_core::drive_auth::begin(&client)?;
+    let pending = vardo_core::drive::auth::begin(&client)?;
 
     // Hand the URL to the system browser. If that fails the user still gets it
     // in the event, so the flow is recoverable by copying it.
@@ -321,7 +321,7 @@ pub async fn drive_connect(app: tauri::AppHandle) -> CmdResult<()> {
         })?;
 
     tauri::async_runtime::spawn_blocking(move || {
-        vardo_core::drive_auth::complete(&client, pending, &dir)
+        vardo_core::drive::auth::complete(&client, pending, &dir)
     })
     .await
     .map_err(|e| CoreError::Io {
@@ -331,7 +331,7 @@ pub async fn drive_connect(app: tauri::AppHandle) -> CmdResult<()> {
 
 #[tauri::command]
 pub fn drive_disconnect(app: tauri::AppHandle) -> CmdResult<()> {
-    vardo_core::drive_auth::disconnect(&app_dir(&app)?)
+    vardo_core::drive::auth::disconnect(&app_dir(&app)?)
 }
 
 fn open_in_browser(url: &str) -> std::io::Result<()> {
@@ -360,7 +360,7 @@ pub async fn drive_list_vaults(app: tauri::AppHandle) -> CmdResult<Vec<DriveVaul
     })?;
 
     tauri::async_runtime::spawn_blocking(move || -> CmdResult<Vec<DriveVault>> {
-        vardo_core::drive_vaults::list(&client, &dir).map(|files| {
+        vardo_core::drive::vaults::list(&client, &dir).map(|files| {
             files
                 .into_iter()
                 .map(|f| DriveVault {
@@ -389,7 +389,7 @@ pub async fn drive_upload_vault(app: tauri::AppHandle, path: String) -> CmdResul
     // Blocking: uploading a 646 KB vault over a slow link is seconds, and on
     // the async runtime's thread that is a frozen window.
     let source = tauri::async_runtime::spawn_blocking(move || {
-        vardo_core::drive_vaults::upload(&client, &dir, std::path::Path::new(&path))
+        vardo_core::drive::vaults::upload(&client, &dir, std::path::Path::new(&path))
     })
     .await
     .map_err(|e| CoreError::Io {
@@ -416,7 +416,7 @@ pub async fn drive_pick_vault(app: tauri::AppHandle) -> CmdResult<Option<VaultSo
 
     let pending = tauri::async_runtime::spawn_blocking({
         let dir = dir.clone();
-        move || vardo_core::drive_picker::begin(&client, &dir)
+        move || vardo_core::drive::picker::begin(&client, &dir)
     })
     .await
     .map_err(|e| CoreError::Io {
@@ -432,7 +432,7 @@ pub async fn drive_pick_vault(app: tauri::AppHandle) -> CmdResult<Option<VaultSo
         })?;
 
     let picked =
-        tauri::async_runtime::spawn_blocking(move || vardo_core::drive_picker::wait(pending))
+        tauri::async_runtime::spawn_blocking(move || vardo_core::drive::picker::wait(pending))
             .await
             .map_err(|e| CoreError::Io {
                 detail: e.to_string(),

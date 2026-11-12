@@ -1,5 +1,8 @@
 //! Rendering a [`MergePlan`] into something a person can decide on.
 //!
+//! Contract: every merge change and conflict renders to a row. A new variant is
+//! a compile error, not a blank row (`inv:plan-before-apply`).
+//!
 //! The prose lives here rather than in the UI for one reason: adding a variant
 //! to `Change` or `Conflict` must be a compile error, not a silently blank row
 //! in the review screen. A merge review that quietly omits a change is worse

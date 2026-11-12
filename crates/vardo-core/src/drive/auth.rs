@@ -1,5 +1,9 @@
 //! Connecting to Google Drive, and remembering the connection.
 //!
+//! Contract: OAuth runs with PKCE and a loopback redirect. Tokens live in a
+//! file written 0600 under the app directory
+//! (`fact:drive-refresh-token-persists`).
+//!
 //! # The flow
 //!
 //! Installed-app OAuth with PKCE and a loopback redirect (RFC 8252). We start a
@@ -29,7 +33,7 @@ use std::path::{Path, PathBuf};
 use vardo_drive::oauth::{self, ClientConfig, Pkce, Tokens};
 use vardo_drive::ureq_transport::UreqTransport;
 
-use crate::session::CoreError;
+use crate::CoreError;
 
 /// The OAuth client this build ships with.
 ///

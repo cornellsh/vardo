@@ -88,6 +88,7 @@ Each block says what the layer owns, its entry points, what it must never do, an
 ### Application: `vardo-core`
 
 - Owns every user-level operation: unlock, list, edit, save, sync review, Drive sign-in and picking, recents, health, TOTP, the generator, favicons, and answering the extension.
+- Modules by capability: `session/` (unlock, read, edit, save), `sync/` (preview, apply, review prose), `drive/` (sign-in, listing, picker), `browser/` (extension replies, socket), and one file per small service. Each opens with a `Contract:` line naming the `inv:` tags it keeps. The `core-modules` gate fails on a missing contract or a file over 500 lines.
 - Entry point: `Session`. `Session::field_value` is the only way a secret leaves, as a `Zeroizing` buffer.
 - View models in `crates/vardo-core/src/model.rs` have no field that can carry a protected value.
 - Never: depends on Tauri or any toolkit.
@@ -141,7 +142,7 @@ Each flow names the layers it crosses, top to bottom.
 | Browser socket | `$XDG_RUNTIME_DIR/vardo/browser.sock`, else `$TMPDIR/vardo-$USER/browser.sock`. Dir 700, socket 600. Unix only |
 | Native host manifests | `NativeMessagingHosts/app.vardo.browser.json` in each Chromium-family browser's config dir |
 | Extension id | `fkemoafedkbgljikdhjbglhlhfplamll`, fixed by the `key` in `extension/manifest.json` |
-| Build-time config | `VARDO_CLIENT_ID` and `VARDO_CLIENT_SECRET`, read by `option_env!` in `DriveClient::built_in` in `crates/vardo-core/src/drive_auth.rs`. Without them, Drive reports itself unavailable |
+| Build-time config | `VARDO_CLIENT_ID` and `VARDO_CLIENT_SECRET`, read by `option_env!` in `DriveClient::built_in` in `crates/vardo-core/src/drive/auth.rs`. Without them, Drive reports itself unavailable |
 
 ## Vocabulary
 

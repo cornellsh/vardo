@@ -1,5 +1,8 @@
 //! What is wrong with the passwords in a vault.
 //!
+//! Contract: [`review`] is a pure pass over the vault. A [`Report`] names
+//! entries and issues, never a password (`inv:secrets-stay-in-rust`).
+//!
 //! The one thing a password manager can do that a text file cannot: look at the
 //! whole set at once and tell you which of them are going to hurt. Storing
 //! secrets is the easy half.
@@ -30,7 +33,7 @@ use std::collections::HashMap;
 use serde::Serialize;
 use vardo_vault::Vault;
 
-use crate::entries::uuid_text;
+use crate::session::entries::uuid_text;
 
 /// Roughly two years. Long enough not to nag about a password from last
 /// spring, short enough to catch one that predates a breach you have forgotten

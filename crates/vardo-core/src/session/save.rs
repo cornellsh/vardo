@@ -1,5 +1,10 @@
 //! Saving a vault to disk without ever being able to destroy it.
 //!
+//! Contract: a save never destroys the stored copy. It verifies the encoded
+//! bytes re-open before replacing (`inv:atomic-verified-save`), re-encrypts
+//! under fresh keys (`inv:fresh-keys-every-save`), and uses a conditional write
+//! where storage offers one (`inv:conditional-write-when-possible`).
+//!
 //! Three things have to hold, and each one has burned a real password manager:
 //!
 //! **1. Verify before replacing.** The encoded bytes are re-opened with the
@@ -30,8 +35,8 @@ use std::path::{Path, PathBuf};
 use vardo_kdbx::Credentials;
 use vardo_vault::Vault;
 
-use crate::session::CoreError as UiError;
 use crate::source::{SourceContext, VaultSource};
+use crate::CoreError as UiError;
 
 /// How many previous versions to keep beside the vault.
 const KEEP_BACKUPS: usize = 5;

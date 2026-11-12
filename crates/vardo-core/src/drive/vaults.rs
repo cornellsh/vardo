@@ -1,5 +1,9 @@
 //! Finding and creating vaults in Drive.
 //!
+//! Contract: [`list`] returns only files the app may see under `drive.file`.
+//! [`upload`] creates a new file and returns its id, which later writes update
+//! in place (`inv:update-in-place`).
+//!
 //! The constraint that shapes this module: under the `drive.file` scope, Drive
 //! only tells us about files this app created or that the user explicitly
 //! handed over. A vault that already sits in someone's Drive is invisible to
@@ -19,13 +23,13 @@ use std::path::Path;
 
 use vardo_drive::drive::DriveFile;
 
-use crate::drive_auth::{self, DriveClient};
-use crate::session::CoreError;
+use crate::drive::auth::{self, DriveClient};
 use crate::source::VaultSource;
+use crate::CoreError;
 
 /// Vaults in Drive that this app is allowed to see, newest first.
 pub fn list(client: &DriveClient, app_dir: &Path) -> Result<Vec<DriveFile>, CoreError> {
-    let tokens = drive_auth::access(client, app_dir)?;
+    let tokens = auth::access(client, app_dir)?;
     let mut http = vardo_drive::ureq_transport::UreqTransport::new();
 
     let (files, updated_tokens, changed) =
@@ -33,7 +37,7 @@ pub fn list(client: &DriveClient, app_dir: &Path) -> Result<Vec<DriveFile>, Core
             .map_err(|e| crate::sync::map_sync_error(e, "Google Drive"))?;
 
     if changed {
-        let _ = drive_auth::store_tokens(app_dir, &updated_tokens);
+        let _ = auth::store_tokens(app_dir, &updated_tokens);
     }
     Ok(files)
 }
@@ -75,7 +79,7 @@ pub fn upload(
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_else(|| "vault.kdbx".into());
 
-    let tokens = drive_auth::access(client, app_dir)?;
+    let tokens = auth::access(client, app_dir)?;
     let mut http = vardo_drive::ureq_transport::UreqTransport::new();
 
     let (file_id, updated_tokens, changed) =
@@ -83,7 +87,7 @@ pub fn upload(
             .map_err(|e| crate::sync::map_sync_error(e, "Google Drive"))?;
 
     if changed {
-        let _ = drive_auth::store_tokens(app_dir, &updated_tokens);
+        let _ = auth::store_tokens(app_dir, &updated_tokens);
     }
 
     Ok(VaultSource::GoogleDrive { file_id, name })

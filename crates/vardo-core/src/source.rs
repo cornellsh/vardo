@@ -1,5 +1,9 @@
 //! Where a vault lives.
 //!
+//! Contract: a [`VaultSource`] is a path or a Drive file id, never a
+//! credential. Drive files are addressed by id so writes keep the file's
+//! identity (`inv:update-in-place`).
+//!
 //! This exists because the first version of this program was written around a
 //! wrong idea: that a vault *is* a filesystem path. `Session::open` took a
 //! `&Path` and called `std::fs::read` on it. That worked on the machine it was
@@ -25,8 +29,8 @@ use serde::{Deserialize, Serialize};
 use vardo_sync::backend::StorageBackend;
 use vardo_sync::local::LocalFile;
 
-use crate::drive_auth::{self, DriveClient};
-use crate::session::CoreError;
+use crate::drive::auth::{self, DriveClient};
+use crate::CoreError;
 
 /// A place a vault can be.
 ///
@@ -120,7 +124,7 @@ impl VaultSource {
 
                 // Fails cleanly when the grant was revoked from the Google
                 // account page, which is a thing users do and then forget.
-                let tokens = drive_auth::access(client, &ctx.app_dir)?;
+                let tokens = auth::access(client, &ctx.app_dir)?;
 
                 let mut http = vardo_drive::ureq_transport::UreqTransport::new();
                 let mut backend = vardo_drive::drive::DriveBackend::new(
@@ -137,7 +141,7 @@ impl VaultSource {
                 // keeping, and dropping it would make the next attempt fail the
                 // same way.
                 if backend.tokens_updated {
-                    let _ = drive_auth::store_tokens(&ctx.app_dir, backend.tokens());
+                    let _ = auth::store_tokens(&ctx.app_dir, backend.tokens());
                 }
 
                 out

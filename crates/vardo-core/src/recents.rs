@@ -1,5 +1,8 @@
 //! The list of vaults this user has opened.
 //!
+//! Contract: the list holds sources, never secrets. It is written 0600, a
+//! corrupt or missing file reads as empty, and it keeps at most `MAX` entries.
+//!
 //! Deliberately holds no secrets: a source is a path or a Drive file id, and
 //! neither is a credential. It is still worth being careful with, because a
 //! list of vault filenames is a small map of someone's life, so the file is
@@ -11,8 +14,8 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::session::CoreError;
 use crate::source::VaultSource;
+use crate::CoreError;
 
 /// Enough to be useful, few enough that the chooser stays a glance rather than
 /// a search. Beyond this the honest answer is a file picker.
