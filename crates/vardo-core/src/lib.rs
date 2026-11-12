@@ -21,6 +21,9 @@
 #![forbid(unsafe_code)]
 
 pub mod backend_config;
+pub mod browser;
+#[cfg(unix)]
+pub mod browser_server;
 pub mod drive_auth;
 pub mod drive_picker;
 pub mod drive_vaults;

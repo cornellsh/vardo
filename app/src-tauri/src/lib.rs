@@ -23,6 +23,7 @@ use std::sync::{Arc, Mutex};
 use tauri::Manager;
 use vardo_core::Session;
 
+mod browser;
 mod clipboard;
 mod commands;
 mod tray;
@@ -43,8 +44,12 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .setup(|app| {
-            app.manage(AppState::default());
+            // One state, shared by the window's commands and the browser
+            // extension, so both always agree on whether the vault is open.
+            let state = AppState::default();
+            app.manage(state.clone());
             tray::build(app.handle())?;
+            browser::start(app.handle().clone(), state);
             Ok(())
         })
         .on_window_event(|window, event| {

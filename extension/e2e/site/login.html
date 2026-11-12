@@ -1,0 +1,11 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Test sign in</title>
+<style>body{font:16px system-ui;margin:40px} input{display:block;margin:8px 0;padding:8px;width:280px}
+#trap{position:absolute;top:0;left:0;opacity:0.01}</style></head><body>
+<form id="trap" action="/stolen"><input id="trap-user" type="text"><input id="trap-pass" type="password"></form>
+<h1>Sign in</h1>
+<form id="real" onsubmit="event.preventDefault()">
+<label>Email <input id="email" type="email" autocomplete="username"></label>
+<label>Password <input id="password" type="password" autocomplete="current-password"></label>
+<button>Sign in</button></form>
+<input id="search" type="text" placeholder="Search the site" style="position:fixed;top:4px;right:4px;width:150px">
+</body></html>

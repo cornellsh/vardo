@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "Vardo",
+  "short_name": "Vardo",
+  "description": "Fills passwords from the Vardo desktop app. Sees no page until you ask it to fill.",
+  "version": "0.0.1",
+  "minimum_chrome_version": "116",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAovvq3jN/u+QeMiaUPHn+TcstAqV2WxiWccUpeFljqMZXEnNhHK5vp3CqRD/HXmrJfmyw/htteC5bH5VMOH26IgbHDwvfCtV9OqR0Zdu1sf0fXaEyBw8FMAHpDDMv0yN9/wdEkemjBRImMGBjwTrI5ANBAVqMPhTqqs8HCr2Haj5sBIcVHmvtrJnzoxVzNd7h87QAB41z30EL1d5R0pO7GNgC7BO9jsfnlyNh3IC2hTmgYbU6MVFWRFM/93S1nKjeZxb7TdI+WXezoHEdajpUp2rZ8rPTNiBzsPLwfNqOM42a80v9MDJm+4LnRv4M9PYcSWeBLASo9MpGdkLQTJwUtwIDAQAB",
+  "permissions": ["activeTab", "scripting", "nativeMessaging"],
+  "background": {
+    "service_worker": "src/background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "src/popup.html",
+    "default_title": "Vardo",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "commands": {
+    "fill-login": {
+      "suggested_key": {
+        "default": "Alt+Shift+L"
+      },
+      "description": "Fill the login for this site"
+    }
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  }
+}

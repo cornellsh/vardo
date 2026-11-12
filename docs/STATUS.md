@@ -3,9 +3,11 @@
 The desktop app reads, edits, saves, syncs and merges real vaults, both local
 files and files in Google Drive. The Drive path has been run end to end against
 a live account, and files Vardo writes there are read back by `keepassxc-cli`.
+The browser extension fills logins and two-factor codes in Chromium-based
+browsers, checked end to end in a real Chromium on every run of `check.sh`.
 
-Run `./check.sh` — fmt, clippy `-D warnings`, the Rust and frontend suites,
-the contrast gate and the app build. It fails loudly rather than printing a
+Run `./check.sh` — fmt, clippy `-D warnings`, the Rust, frontend and extension
+suites, the contrast gate, the app build, and the extension end to end. It fails loudly rather than printing a
 total that hides failures, which an earlier version of that command did.
 
 | Crate | State |
@@ -15,8 +17,10 @@ total that hides failures, which an earlier version of that command did.
 | `vardo-merge` | planning and application, chaos-tested |
 | `vardo-sync` | backends, conditional writes, race protocol |
 | `vardo-drive` | Drive backend, OAuth and Picker, verified live |
-| `vardo-core` | sessions, save, sync, TOTP, health, icons |
-| `vardo-app` | Tauri shell: full editor, tray, Drive |
+| `vardo-core` | sessions, save, sync, TOTP, health, icons, browser requests |
+| `vardo-browser` | extension protocol, URL matching, native host |
+| `vardo-app` | Tauri shell: full editor, tray, Drive, browser socket |
+| `extension/` | Chromium extension, Linux and macOS |
 
 ## What works
 
@@ -45,7 +49,7 @@ reads 3.1 also reads 4.x), ARC4 inner streams (broken since 2014).
 
 | | |
 |---|---|
-| Tests | 373 Rust and 24 frontend, all passing |
+| Tests | 419 Rust, 24 frontend, 22 extension, 14 end-to-end browser checks |
 | Clippy | clean at `-D warnings`, `--all-targets` |
 | Fuzz executions | ~14.9M across four targets, zero failures |
 | `unsafe` | none — `#![forbid(unsafe_code)]` |
@@ -275,9 +279,8 @@ darken instead.
 
 ## Next
 
-See [`ROADMAP.md`](ROADMAP.md). In short: the browser extension
-([`ADR-006`](ADR-006-browser-extension.md)), the OS keyring for the Drive
-token, and signed release builds.
+See [`ROADMAP.md`](ROADMAP.md). In short: saving new logins from the browser,
+the OS keyring for the Drive token, and signed release builds.
 
 ## Building the app
 

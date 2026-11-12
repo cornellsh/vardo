@@ -1,0 +1,315 @@
+/* The desktop app's palette, so the popup reads as part of Vardo rather than
+   as a web page. Values are copied from app/src/styles/tokens.css, where their
+   contrast is measured; keep them in step. */
+
+:root {
+	--bg: #ffffff;
+	--bg-over: #f1f1f1;
+	--fg: #000000;
+	--bold-fg: #222222;
+	--sub-fg: #63666c;
+	--accent: #1b7db7;
+	--accent-over: #176c9e;
+	--accent-text: #1272aa;
+	--on-accent: #ffffff;
+	--danger: #cf4747;
+	--line: #00000018;
+	--input-bg: #f1f1f1;
+	--radius: 4px;
+	--row: 56px;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--bg: #17212b;
+		--bg-over: #232e3c;
+		--fg: #f5f5f5;
+		--bold-fg: #e9e8e8;
+		--sub-fg: #8496a8;
+		--accent: #4179b5;
+		--accent-over: #386ca4;
+		--accent-text: #6ab3f3;
+		--danger: #ee4d55;
+		--line: #04080e56;
+		--input-bg: #242f3d;
+	}
+}
+
+* {
+	box-sizing: border-box;
+}
+
+body {
+	width: 360px;
+	min-height: 120px;
+	max-height: 520px;
+	margin: 0;
+	background: var(--bg);
+	color: var(--fg);
+	font: 13px/1.4 system-ui, -apple-system, "Segoe UI", "Open Sans", sans-serif;
+	display: flex;
+	flex-direction: column;
+}
+
+header {
+	padding: 10px 10px 6px;
+}
+
+header:has(input[hidden]) {
+	display: none;
+}
+
+#search {
+	width: 100%;
+	height: 34px;
+	padding: 0 12px;
+	border: 1px solid transparent;
+	border-radius: 17px;
+	background: var(--input-bg);
+	color: var(--fg);
+	font: inherit;
+	outline: none;
+	transition: border-color 150ms ease;
+}
+
+#search:focus-visible {
+	border-color: var(--accent);
+}
+
+main {
+	flex: 1;
+	overflow-y: auto;
+}
+
+.section {
+	margin: 8px 14px 2px;
+	color: var(--sub-fg);
+	font-size: 12px;
+}
+
+.row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	height: var(--row);
+	padding: 0 6px 0 14px;
+	cursor: default;
+	transition: background-color 120ms ease;
+}
+
+.row.fills {
+	cursor: pointer;
+}
+
+.row:hover,
+.row.selected {
+	background: var(--bg-over);
+}
+
+.row:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: -2px;
+}
+
+.avatar {
+	flex: none;
+	width: 36px;
+	height: 36px;
+	border-radius: 50%;
+	display: grid;
+	place-items: center;
+	color: #ffffff;
+	font-weight: 600;
+	font-size: 14px;
+}
+
+.text {
+	flex: 1;
+	min-width: 0;
+}
+
+.title {
+	color: var(--bold-fg);
+	font-weight: 600;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.sub {
+	color: var(--sub-fg);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.actions {
+	display: flex;
+	flex: none;
+	opacity: 0;
+	transition: opacity 120ms ease;
+}
+
+.row:hover .actions,
+.row.selected .actions,
+.row:focus-within .actions {
+	opacity: 1;
+}
+
+.icon {
+	width: 30px;
+	height: 30px;
+	border: 0;
+	border-radius: 50%;
+	background: transparent;
+	color: var(--sub-fg);
+	display: grid;
+	place-items: center;
+	cursor: pointer;
+	transition:
+		background-color 120ms ease,
+		color 120ms ease;
+}
+
+.icon:hover {
+	background: var(--line);
+	color: var(--fg);
+}
+
+.icon:active {
+	transform: scale(0.94);
+}
+
+.icon:focus-visible {
+	outline: 2px solid var(--accent);
+}
+
+.icon svg {
+	width: 17px;
+	height: 17px;
+}
+
+.state {
+	padding: 22px 20px;
+	text-align: center;
+}
+
+.state img {
+	width: 40px;
+	height: 40px;
+	margin-bottom: 8px;
+}
+
+.state h1 {
+	margin: 0 0 4px;
+	font-size: 15px;
+	color: var(--bold-fg);
+}
+
+.state p {
+	margin: 0 0 14px;
+	color: var(--sub-fg);
+}
+
+.state code {
+	display: block;
+	margin: 0 0 14px;
+	padding: 8px;
+	border-radius: var(--radius);
+	background: var(--bg-over);
+	color: var(--fg);
+	font: 12px ui-monospace, monospace;
+	user-select: all;
+}
+
+.button {
+	height: 34px;
+	padding: 0 16px;
+	border: 0;
+	border-radius: var(--radius);
+	background: var(--accent);
+	color: var(--on-accent);
+	font: inherit;
+	font-weight: 600;
+	cursor: pointer;
+	transition: background-color 150ms ease;
+}
+
+.button:hover {
+	background: var(--accent-over);
+}
+
+.button:active {
+	transform: scale(0.98);
+}
+
+.button:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+
+.button:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.empty {
+	padding: 18px 20px;
+	color: var(--sub-fg);
+	text-align: center;
+}
+
+.shortcut {
+	margin: 0;
+	padding: 8px 14px;
+	border-top: 1px solid var(--line);
+	color: var(--sub-fg);
+	font-size: 12px;
+}
+
+.shortcut kbd {
+	padding: 1px 5px;
+	border-radius: 3px;
+	background: var(--bg-over);
+	color: var(--fg);
+	font: inherit;
+}
+
+.link {
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var(--accent-text);
+	font: inherit;
+	cursor: pointer;
+}
+
+.link:hover {
+	text-decoration: underline;
+}
+
+.link:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+
+#toast {
+	margin: 0;
+	padding: 8px 14px;
+	border-top: 1px solid var(--line);
+	color: var(--accent-text);
+}
+
+#toast.bad {
+	color: var(--danger);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	* {
+		transition: none !important;
+	}
+	.icon:active,
+	.button:active {
+		transform: none;
+	}
+}

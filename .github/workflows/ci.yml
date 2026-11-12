@@ -59,10 +59,29 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: app/package-lock.json
+          cache-dependency-path: |
+            app/package-lock.json
+            extension/package-lock.json
       - name: Install interface dependencies
         working-directory: app
         run: npm ci
+      - name: Install extension dependencies
+        working-directory: extension
+        run: npm ci
+
+      # Chrome for Testing, because branded Chrome ignores --load-extension
+      # since version 137, and the end-to-end check loads the extension that
+      # way. check.sh runs it with whatever CHROMIUM names.
+      - uses: browser-actions/setup-chrome@48ad923757ca74d66703209fe939badbdf80f2f4 # v2.2.0
+        id: chrome
+        with:
+          chrome-version: stable
+      - name: Point check.sh at it
+        # Through the environment rather than pasted into the script, so the
+        # value is data and never shell syntax.
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: echo "CHROMIUM=$CHROME_PATH" >> "$GITHUB_ENV"
 
       # The app crate embeds the built interface at compile time, so it has to
       # exist before clippy and the tests compile that crate.
@@ -136,6 +155,9 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
-      - name: npm audit
+      - name: npm audit (app)
         working-directory: app
+        run: npm audit --audit-level=moderate
+      - name: npm audit (extension)
+        working-directory: extension
         run: npm audit --audit-level=moderate

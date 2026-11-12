@@ -133,7 +133,14 @@ shares this boundary; Vardo states it rather than implying otherwise.
 ## What the first version does
 
 - Fill the matching login on the current site, from the popup or with
-  <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd>.
+  <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd>.
+
+  Not <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd>, which was the first
+  choice and is what Bitwarden uses. Chrome took it in 2026 to collapse
+  vertical tabs, and a browser never gives an extension a shortcut it owns.
+  It refused it silently: the end-to-end check found the command unassigned.
+  Because any browser can do that, the popup notices when the shortcut is
+  missing and offers to set one.
 - Fill the two-factor code on the page that asks for it, with the same
   shortcut.
 - Search the whole vault from the popup, and copy a username or password
