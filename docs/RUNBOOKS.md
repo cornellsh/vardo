@@ -5,7 +5,7 @@ Each runbook says when to use it. Keep the steps exact and short.
 
 ## Set up a machine
 
-Use on a new machine, before `./check.sh`.
+Use on a new machine, before `cargo xtask check`.
 
 1. Rust through rustup: `rustup toolchain install stable 1.88 --profile minimal -c clippy,rustfmt`.
 2. Node 22. CI uses 22. Run `npm ci` in `app/` and in `extension/`.
@@ -16,7 +16,7 @@ Use on a new machine, before `./check.sh`.
    - macOS: `xcode-select --install`
    - Windows: Visual Studio Build Tools with "Desktop development with C++".
 4. `keepassxc-cli` for the interop tests. On macOS, `brew install --cask keepassxc` links it.
-5. A browser for the e2e: `npx @puppeteer/browsers install chrome@stable --path ~/.cache/chrome-for-testing`. Point `CHROMIUM` at the binary it prints.
+5. A browser for the e2e: `npx @puppeteer/browsers install chrome@stable --path ~/.cache/chrome-for-testing`. The check finds it there. Elsewhere, point `CHROMIUM` at the binary.
 6. Secrets, never in the repo: put `oauth-client.env` (exports `VARDO_CLIENT_ID` and `VARDO_CLIENT_SECRET`) and `extension-key.pem` in `~/.config/vardo/`, dir mode 700, files mode 600.
 
 ## Create a Google OAuth client

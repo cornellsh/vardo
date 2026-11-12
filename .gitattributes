@@ -1,5 +1,5 @@
 # Line endings are normalised to LF in the repository. Without this, a checkout
-# on Windows can turn check.sh into a script bash refuses to run.
+# on Windows can turn a script into one its interpreter refuses to run.
 * text=auto eol=lf
 
 # Encrypted vaults and images must never have their bytes touched.
