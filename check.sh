@@ -30,7 +30,7 @@ if echo "$output" | grep -qE "FAILED|panicked"; then
 	exit 1
 fi
 
-passed=$(echo "$output" | grep -oE "^test result: ok\. [0-9]+" | grep -oE "[0-9]+" | paste -sd+ | bc)
+passed=$(echo "$output" | grep -oE "^test result: ok\. [0-9]+" | grep -oE "[0-9]+" | awk '{ s += $1 } END { print s }')
 echo "OK — $passed tests passed"
 
 # --- frontend -------------------------------------------------------------

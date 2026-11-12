@@ -15,13 +15,16 @@ exclude = ["fuzz"]
 [workspace.package]
 version = "0.0.1"
 edition = "2021"
-# 1.83 for `io::ErrorKind::StorageFull`, which lets a failed save distinguish
-# "free up some space" from every other IO failure. Detecting it via a raw
-# errno would avoid the bump but needs libc, and a 2024 compiler floor is not a
-# meaningful constraint here.
-rust-version = "1.83"
+# Set by dependencies, not by Vardo's own code: the ICU Unicode tables behind
+# URL parsing and `darling` behind Tauri both require 1.88. Vardo itself needs
+# 1.83, for `io::ErrorKind::StorageFull`.
+#
+# This said 1.83 for a long time without anyone checking, and 1.83 cannot even
+# read the dependency manifests. CI now builds with exactly this version, so
+# the next time a dependency raises it the build says so.
+rust-version = "1.88"
 license = "Apache-2.0 OR MIT"
-repository = "https://github.com/vardo/vardo"
+repository = "https://github.com/cornellsh/vardo"
 
 [workspace.dependencies]
 aes = "0.8"

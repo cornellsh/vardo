@@ -94,7 +94,7 @@ endpoint *requires* even with PKCE — so we embed it and, per Google's own docs
 
 ### 1.4 Argon2 timing — measured, not guessed
 
-Your params (`Argon2d, m=64 MiB, t=14, p=2`) on this i7-12700H: **0.871 s**.
+A real-world setting (`Argon2d, m=64 MiB, t=14, p=2`) on an i7-12700H: **0.871 s**.
 
 On a 2017-era ultrabook, budget 2.5–3 s. Async unlock with progress is confirmed
 mandatory, not a nicety.

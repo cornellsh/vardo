@@ -1,12 +1,15 @@
 # What to do next, and why
 
-> **Progress.** 1.1 (merge identity guard), 1.2 (async save) and 2 (extract
-> `vardo-core`) are done. The extraction turned out to fix 1.2 as a side
-> effect: once saving moved behind a plain `Session::save`, the command became
-> a `spawn_blocking` wrapper and stopped freezing the window. Remaining:
-> 1.3 (conditional write in the trait) and 3 (non-happy-path messages) are
-> done too, as is 4.1 (end-to-end). Remaining: 4.2 (frontend tests), 4.3
-> (property-based merge testing), WebDAV, and 5 (polish).
+> **Progress.** Sections 1, 2 and 3 are done, as are 4.1, 4.2 and 4.4, and
+> most of 5. The extraction in 2 turned out to fix 1.2 as a side effect: once
+> saving moved behind a plain `Session::save`, the command became a
+> `spawn_blocking` wrapper and stopped freezing the window.
+>
+> **Still open:** property-based merge testing (4.3), the OS keyring for the
+> Drive token, a lock against two instances editing one local file, the quick-
+> access hotkey and command palette, signed release builds, and the browser
+> extension ([`ADR-006`](ADR-006-browser-extension.md)). WebDAV waits until
+> someone needs it.
 
 Written after Phase D, when the app can read, edit, save and sync real vaults.
 Ordered by what gets **more expensive the longer it waits**, not by what is
@@ -132,8 +135,8 @@ Roughly in order of likelihood.
 | Remote is KDBX 3.1 | **Done** — `remote-read-only` warning, and the identity guard fires first | |
 | Clock skew between devices | **Done** — `clock-skew` warning above an hour | |
 | Sync point unreadable | **Done** — `no-base` warning; the two-way fallback is no longer silent | |
-| OAuth token revoked | Fails at the transport layer | Detect 401 and prompt to reconnect, not "sync failed" |
-| Two Vardo instances, same vault | Both hold the file; last save wins locally | A lock file, or at minimum detect and warn |
+| OAuth token revoked | **Done** — reported as needing to sign in again, not as a sync failure | |
+| Two Vardo instances, same vault | **Partly done** — a save refuses when the file changed since it was opened, so nothing is overwritten; there is no lock file yet, so the second window learns late | A lock file, so the second window says so on open |
 | Vault with large attachments | Whole file re-uploaded per save | Measure it; if it is bad, say so before shipping attachments |
 
 The pattern in nearly all of these: the failure is handled safely at the data
@@ -164,16 +167,17 @@ Ranked by risk.
    - **Same-second edits are conflicts**, so any test whose meaning depends on
      "A then B" has to space them apart explicitly rather than rely on
      wall-clock luck. That is the format's limit, not flakiness.
-2. **Zero frontend tests.** No component tests, no logic tests. The dirty/save
-   state machine and the merge-review rendering are both worth testing directly.
+2. ~~**Zero frontend tests.**~~ **Done** — Vitest, with pure-logic tests and
+   rendering tests in jsdom, run by `check.sh`. The first run caught an avatar
+   bug that had shipped, and writing the README caught a label that said
+   "UserName"; both are now pinned.
 3. **No property-based merge testing beyond the chaos suite.** The chaos suite
    is good and randomised, but it only runs two-device interleavings. Worth
    adding: merge is idempotent (merging twice changes nothing the second time),
    and merge is commutative in outcome (A into B and B into A converge).
-4. **No test that the app cannot leak a secret.** The no-secrets-in-the-WebView
-   rule is currently enforced by the *shape* of the types, which is good, but
-   nothing fails if someone adds a field. A test that walks the serialised
-   `EntryDetail` for a known password string would make it enforced.
+4. ~~**No test that the app cannot leak a secret.**~~ **Done**, twice: a Rust
+   test greps the serialised `EntryDetail` for a known password, and a
+   rendering test checks the password is absent from the page.
 
 ---
 
@@ -181,13 +185,18 @@ Ranked by risk.
 
 Only after the above, because none of it is load-bearing.
 
-- Attachments: extract, add, remove.
-- TOTP: the field parsing exists; the countdown UI does not.
-- Password health: reused, weak, old, and HIBP k-anonymity lookups.
-- Quick-access global hotkey overlay (Phase B, still unbuilt).
-- Entry history browser and restore.
-- Group create/rename/move.
+- ~~Attachments: extract, add, remove.~~ Done.
+- ~~TOTP countdown UI.~~ Done.
+- Password health: reused, weak, expired and old are done. HIBP k-anonymity
+  lookups are not.
+- Entry history: browsing and copying old passwords are done. Restoring a
+  whole old version is not.
+- ~~Group create, rename, delete.~~ Done. Dragging groups to move them is not.
+- ~~System tray.~~ Done.
+- Quick-access global hotkey overlay.
 - Command palette.
+- The Drive refresh token in the Secret Service, Keychain and DPAPI rather
+  than a `0600` file.
 - Distribution: Ed25519 updater signing, notarisation, Trusted Signing.
 
 ---
