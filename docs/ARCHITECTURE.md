@@ -81,6 +81,7 @@ Each block says what the layer owns, its entry points, what it must never do, an
 
 - Owns the wire protocol between extension and app (`crates/vardo-browser/src/protocol.rs`), native-messaging framing, URL matching, the socket path, and the `vardo-browser-host` binary.
 - Messages are JSON envelopes `{v, id, type, ...}`. `v` is the protocol version and `id` is echoed so replies match requests.
+- The extension's copy of the protocol is checked against golden files Rust writes (`inv:protocol-has-one-truth`). After changing a message, run `UPDATE_FIXTURES=1 cargo test -p vardo-browser --test protocol_fixtures`.
 - Never: holds a vault or a key. The host is a relay (`inv:host-is-a-relay`).
 - Proof: unit tests in `crates/vardo-browser/src/matching.rs`, behaviour tests in `crates/vardo-core/tests/browser.rs`.
 

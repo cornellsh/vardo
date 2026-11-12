@@ -14,12 +14,6 @@ These come first because every later change gets cheaper and safer once they lan
 - **Why:** Two hand-kept copies of every view model drift without warning. Generated ones cannot.
 - **Done when:** Renaming a field in `crates/vardo-core/src/model.rs` fails the interface typecheck.
 
-### plan:protocol-fixtures
-
-- **Do:** A Rust test writes one golden JSON file per `Request` and `Response` variant of `crates/vardo-browser/src/protocol.rs`. Extension tests parse every file through `extension/src/native.js`. A gate fails when the files are stale.
-- **Why:** The extension is plain JavaScript and repeats the protocol by hand.
-- **Done when:** Renaming a protocol variant in Rust fails the extension tests.
-
 ### plan:core-decides-shells-act
 
 - **Do:** Move the clipboard's clear-only-if-unchanged decision from `app/src-tauri/src/clipboard.rs` into `vardo-core` behind a small clipboard trait, with a test. Audit `app/src-tauri/src/` for any other branch that decides something.

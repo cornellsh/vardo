@@ -200,6 +200,12 @@ Cite a rule in code as `inv:<name>`. The `doc-links` gate of `cargo xtask check`
 - **Why:** Chrome drops an oversized message, and the popup would fail with no reason.
 - **Proof:** `crates/vardo-core/tests/browser.rs::a_huge_vault_does_not_produce_a_reply_chrome_would_refuse`.
 
+### inv:protocol-has-one-truth
+
+- **Rule:** `crates/vardo-browser/src/protocol.rs` defines the protocol. Rust writes one golden file per message to `extension/protocol/`, and the extension's message table in `extension/src/native.js` must match them. The extension turns any reply it does not know into a `version` error.
+- **Why:** The extension is plain JavaScript and repeats the protocol by hand. A silent mismatch would show a blank popup.
+- **Proof:** `crates/vardo-browser/tests/protocol_fixtures.rs::the_extensions_protocol_files_are_current`, and `extension/src/native.test.js`.
+
 ## Interface
 
 ### inv:text-contrast

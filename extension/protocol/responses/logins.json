@@ -1,0 +1,16 @@
+{
+  "v": 1,
+  "id": 2,
+  "type": "logins",
+  "logins": [
+    {
+      "uuid": "4f0b9a51c3c94c8f9b0f2c2d7e1a6b3c",
+      "title": "GitHub",
+      "username": "octocat",
+      "host": "github.com",
+      "match": "exact",
+      "has_totp": true
+    }
+  ],
+  "truncated": false
+}

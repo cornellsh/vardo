@@ -15,6 +15,61 @@ import { fillPage } from "./fill.js";
 export const HOST = "app.vardo.browser";
 const VERSION = 1;
 
+/**
+ * Every request the extension sends and every reply it understands, with the
+ * fields each carries. `crates/vardo-browser/src/protocol.rs` is the truth.
+ * Rust writes a golden file per message to `extension/protocol/`, and
+ * `native.test.js` fails when this table and those files disagree.
+ *
+ * @type {Record<string, readonly string[]>}
+ */
+export const REQUESTS = {
+	status: [],
+	logins: ["url"],
+	search: ["query"],
+	fill: ["uuid", "url"],
+	copy: ["uuid", "field"],
+	show: [],
+	launch: [],
+};
+
+/** @type {Record<string, readonly string[]>} */
+export const REPLIES = {
+	status: ["state"],
+	logins: ["logins", "truncated"],
+	fill: ["username", "password", "totp"],
+	copied: ["clear_after_seconds"],
+	shown: [],
+	launched: [],
+	error: ["code", "message"],
+};
+
+/** Vardo's error codes. The popup words some of them itself. */
+export const ERROR_CODES = [
+	"not-running",
+	"locked",
+	"not-a-match",
+	"not-found",
+	"version",
+	"bad-request",
+	"internal",
+];
+export const COPY_FIELDS = ["username", "password", "totp"];
+export const STATE_KINDS = ["locked", "unlocked"];
+
+/**
+ * Whether a reply is one this extension knows, with every field it expects.
+ *
+ * @param {unknown} reply
+ * @returns {boolean}
+ */
+export function understood(reply) {
+	if (!reply || typeof reply !== "object") return false;
+	const message = /** @type {Record<string, unknown>} */ (reply);
+	const expected = REPLIES[String(message.type)];
+	return expected !== undefined && expected.every((field) => field in message);
+}
+
 let nextId = 1;
 
 /**
@@ -34,7 +89,10 @@ export async function ask(body) {
 	const message = { v: VERSION, id: nextId++, ...body };
 	try {
 		const reply = await chrome.runtime.sendNativeMessage(HOST, message);
-		return reply ?? failure("internal", "Vardo did not answer");
+		if (reply == null) return failure("internal", "Vardo did not answer");
+		// A reply from a newer or older Vardo. The popup asks to update.
+		if (!understood(reply)) return failure("version", "Vardo sent a reply this extension does not know");
+		return reply;
 	} catch (error) {
 		const text = String(/** @type {Error} */ (error)?.message ?? error);
 		// Chrome's wording when the host was never registered with this browser.
