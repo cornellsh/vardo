@@ -11,7 +11,7 @@ This file loads into every agent session in the repo. It is the map. Everything 
 
 | Question | Source | Tag |
 | --- | --- | --- |
-| What is true right now: tests, lints, CI | Run it. `./check.sh`, `gh run list` | none |
+| What is true right now: tests, lints, CI | Run it. `cargo xtask check`, `gh run list` | none |
 | How the parts form one system | `docs/ARCHITECTURE.md` | none |
 | Rules that must never break, and the test that proves each | `docs/INVARIANTS.md` | `inv:` |
 | Choices made, why, what lost, when to reopen | `docs/DECISIONS.md` | `dec:` |
@@ -22,7 +22,7 @@ This file loads into every agent session in the repo. It is the map. Everything 
 Tags are the links between docs, code and tests.
 `git grep -n inv:secrets-stay-in-rust` finds the rule and every comment that cites it. The rule's entry names its tests as `path::function`.
 When code keeps or relies on a rule, cite its tag in a comment there.
-`./check.sh` fails when a tag is cited but never defined, or a doc names a file or test that does not exist.
+The `doc-links` gate fails when a tag is cited but never defined, or a doc names a file or test that does not exist.
 
 Docs never state counts, pass rates or "done". Those rot. Run the command instead.
 
@@ -30,7 +30,9 @@ Docs never state counts, pass rates or "done". Those rot. Run the command instea
 
 | Need | Command |
 | --- | --- |
-| Everything CI checks | `./check.sh` (stops at the first failure) |
+| Everything CI checks | `cargo xtask check`. One line per gate, full output in `target/check/<gate>.log` |
+| Quick loop while editing | `cargo xtask check --fast` (doc links, fmt, clippy and tests of changed crates) |
+| One gate | `cargo xtask check --only clippy`. Add `--json` for a machine-readable summary |
 | One crate | `cargo test -p vardo-merge` |
 | Lint as CI does | `cargo clippy --workspace --all-targets --all-features -- -D warnings` |
 | Interface tests | `cd app && npx vitest run` |
@@ -40,9 +42,9 @@ Docs never state counts, pass rates or "done". Those rot. Run the command instea
 
 Setup facts that cost failed runs:
 
-- `./check.sh` skips the app and extension gates unless `npm ci` ran in `app/` and `extension/`. It prints the skip.
-- The e2e gate runs only when `$CHROMIUM` (default `chromium`) is on the path. Use Chromium or Chrome for Testing. Branded Chrome ignores `--load-extension`.
-- Compiling `vardo-app` needs the built interface in app/dist, which git ignores. Run `cd app && npx vite build` first, or write a placeholder index.html there.
+- The check skips the app and extension gates unless `npm ci` ran in `app/` and `extension/`. It prints each skip and its reason.
+- The e2e gate uses `$CHROMIUM`, else the newest Chrome for Testing under `~/.cache/chrome-for-testing` or `~/.cache/puppeteer`, else a Chromium on the path. Branded Chrome ignores `--load-extension`, so it is never picked.
+- Compiling `vardo-app` needs the built interface in app/dist, which git ignores. The check writes a placeholder when it is missing. A bare `cargo build` does not.
 - CI lints with the latest stable Rust. A new release can add a lint that fails `main` with no code change (`fact:clippy-moves`).
 - The minimum Rust version is 1.88, in `Cargo.toml`. CI builds with Node 22.
 - Some Rust tests call `keepassxc-cli` and skip without it. CI installs it.

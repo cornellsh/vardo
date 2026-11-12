@@ -142,7 +142,15 @@ The long-form records these came from (ADR-001 to ADR-006, CRITIQUE, RESEARCH, P
 
 ### dec:agent-first-docs
 
-- **Chose:** Docs form a small tagged map for agents. `AGENTS.md` routes. Each kind of knowledge has one file: architecture, invariants, decisions, facts, plan, runbooks. Code and tests cite tags. `./check.sh` verifies every tag and every named file and test.
+- **Chose:** Docs form a small tagged map for agents. `AGENTS.md` routes. Each kind of knowledge has one file: architecture, invariants, decisions, facts, plan, runbooks. Code and tests cite tags. The `doc-links` gate verifies every tag and every named file and test.
 - **Because:** Prose status files went stale and contradicted the code. They claimed 14 e2e checks when there were 13, a `storage` permission the manifest lacks, and a lint gate that never ran.
 - **Rejected:** Keeping the ADRs, README, STATUS and ROADMAP. They mixed decisions, history and status, so nothing in them could be checked.
+- **Date:** 2026-11-12.
+
+### dec:xtask-check
+
+- **Chose:** One Rust binary, `cargo xtask check` in `xtask/`, runs every gate CI runs. One summary line per gate, full output in `target/check/<gate>.log`, `--json` for tools.
+- **Because:** An agent needs pass or fail and the failing log, not thousands of lines of cargo output. Rust runs on every platform the code does, and the doc-link and layer gates are easier to test in Rust than in shell.
+- **Rejected:** `check.sh`, which blocked Windows and stopped at the first failure. `just` or `make`, which add a tool to install and still need shell for the logic.
+- **Reopen if:** The gates need parallelism the runner cannot give simply.
 - **Date:** 2026-11-12.

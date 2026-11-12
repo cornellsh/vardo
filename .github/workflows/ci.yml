@@ -71,29 +71,24 @@ jobs:
 
       # Chrome for Testing, because branded Chrome ignores --load-extension
       # since version 137, and the end-to-end check loads the extension that
-      # way. check.sh runs it with whatever CHROMIUM names.
+      # way. The check runs it with whatever CHROMIUM names.
       - uses: browser-actions/setup-chrome@48ad923757ca74d66703209fe939badbdf80f2f4 # v2.2.0
         id: chrome
         with:
           chrome-version: stable
-      - name: Point check.sh at it
+      - name: Point the check at it
         # Through the environment rather than pasted into the script, so the
         # value is data and never shell syntax.
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: echo "CHROMIUM=$CHROME_PATH" >> "$GITHUB_ENV"
 
-      # The app crate embeds the built interface at compile time, so it has to
-      # exist before clippy and the tests compile that crate.
-      - name: Build interface
-        working-directory: app
-        run: npx vite build
-
       - name: Confirm KeePassXC is present
         run: keepassxc-cli --version
 
-      - name: check.sh
-        run: ./check.sh
+      # Builds the interface before clippy, because the app crate embeds it.
+      - name: cargo xtask check
+        run: cargo xtask check
 
   core:
     name: Core tests (${{ matrix.os }})

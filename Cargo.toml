@@ -10,6 +10,7 @@ members = [
   "crates/vardo-core",
   "crates/vardo-browser",
   "app/src-tauri",
+  "xtask",
 ]
 exclude = ["fuzz"]
 

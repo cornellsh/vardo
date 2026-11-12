@@ -4,7 +4,7 @@ Each entry is a rule that must hold after every change.
 **Rule** says what holds. **Why** says what breaks without it. **Proof** names the tests that fail if it breaks.
 **Gap** marks a rule with no automated proof yet, and names the plan item that closes it.
 
-Cite a rule in code as `inv:<name>`. `./check.sh` checks that every cited tag and every named test exists.
+Cite a rule in code as `inv:<name>`. The `doc-links` gate of `cargo xtask check` fails when a cited tag or a named test does not exist.
 
 ## Format
 

@@ -8,12 +8,6 @@ An item that changes a rule also updates `docs/INVARIANTS.md`. One that makes a 
 
 These come first because every later change gets cheaper and safer once they land.
 
-### plan:check-runner
-
-- **Do:** Replace `check.sh` with `cargo xtask check`, a Rust binary in the workspace. Print one line per gate: `ok`, `FAIL` or `skip`, the gate name and its seconds. Write each gate's full output to `target/check/<gate>.log`. Exit non-zero on any failure. Support `--only <gate>`, `--fast` (fmt, clippy and tests of changed crates) and `--json`. List skipped gates in the summary with the reason. Find Chromium or Chrome for Testing without `$CHROMIUM`. Absorb the doc-link gate. CI calls the same command.
-- **Why:** An agent needs pass or fail plus the failing log, not thousands of lines of cargo output. Bash also blocks Windows.
-- **Done when:** CI's Linux job runs `cargo xtask check`, and `check.sh` is gone.
-
 ### plan:layer-deps
 
 - **Do:** Remove `vardo-kdbx`, `vardo-merge`, `vardo-sync` and `vardo-vault` from `app/src-tauri/Cargo.toml`, since nothing there uses them. Move the Drive client config built in `app/src-tauri/src/commands.rs` from `option_env!` into `vardo-core`. Add a gate that reads `cargo metadata` and fails on any edge not allowed by the tower in `docs/ARCHITECTURE.md`.
