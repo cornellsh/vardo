@@ -42,7 +42,13 @@ const env = {
 	XDG_CONFIG_HOME: join(work, "config"),
 };
 mkdirSync(env.XDG_RUNTIME_DIR, { mode: 0o700 });
-const profile = join(env.XDG_CONFIG_HOME, "chromium");
+// Chromium looks for native hosts inside its profile, and `--install` writes
+// into the profile directory each browser uses by default. On macOS that is
+// under HOME, which XDG_CONFIG_HOME does not move, so the install gets its own
+// HOME instead of writing into the real one.
+const mac = process.platform === "darwin";
+const home = join(work, "home");
+const profile = mac ? join(home, "Library", "Application Support", "Chromium") : join(env.XDG_CONFIG_HOME, "chromium");
 mkdirSync(profile, { recursive: true });
 
 const children = [];
@@ -121,7 +127,7 @@ const site = createServer((req, res) => {
 	}
 }).listen(SITE_PORT, "127.0.0.1");
 
-const registered = spawnSync(host, ["--install"], { env, encoding: "utf8" });
+const registered = spawnSync(host, ["--install"], { env: { ...env, HOME: home }, encoding: "utf8" });
 check("the host registers itself with the browser", registered.status === 0, registered.stderr);
 
 // --- the browser --------------------------------------------------------------------
@@ -133,6 +139,9 @@ const browser = spawn(
 		// Ubuntu 24.04 runners forbid the unprivileged namespaces Chromium's
 		// sandbox needs. The pages here are local test fixtures; nowhere else.
 		...(process.env.CI ? ["--no-sandbox"] : []),
+		// Otherwise macOS asks for the login keychain, which a headless run
+		// cannot answer.
+		...(mac ? ["--use-mock-keychain"] : []),
 		"--enable-unsafe-extension-debugging",
 		`--user-data-dir=${profile}`,
 		`--load-extension=${extension}`,
@@ -243,7 +252,8 @@ console.log("signing in");
 	const text = await evaluate(session, "document.body.innerText");
 	check("the popup lists the login saved for this site", text.includes("Test site"), text);
 	check("a login saved for another port is not offered", !text.includes("Other service"), text);
-	check("the keyboard shortcut was assigned", /Alt\+Shift\+L/.test(text), text);
+	// Chrome writes it in each platform's own notation.
+	check("the keyboard shortcut was assigned", /Alt\+Shift\+L|⌥⇧L/.test(text), text);
 
 	await evaluate(session, "document.querySelector('.row.fills').click()");
 	await sleep(1200);
