@@ -14,12 +14,6 @@ These come first because every later change gets cheaper and safer once they lan
 - **Why:** Two hand-kept copies of every view model drift without warning. Generated ones cannot.
 - **Done when:** Renaming a field in `crates/vardo-core/src/model.rs` fails the interface typecheck.
 
-### plan:core-decides-shells-act
-
-- **Do:** Move the clipboard's clear-only-if-unchanged decision from `app/src-tauri/src/clipboard.rs` into `vardo-core` behind a small clipboard trait, with a test. Audit `app/src-tauri/src/` for any other branch that decides something.
-- **Why:** Closes the gap in `inv:clipboard-written-in-rust`.
-- **Done when:** The shell has no conditional logic besides error mapping, and the clipboard rule has a test.
-
 ### plan:invariant-gaps
 
 - **Do:** Close every **Gap** in `docs/INVARIANTS.md`. An extension test asserts the exact manifest permissions. An eslint config enables `jsx-a11y` at error level, and a gate runs it. A test pins the CSP. Tests cover idle lock and save-before-lock.

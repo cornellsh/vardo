@@ -43,6 +43,30 @@ pub fn remember(app_dir: &Path, source: &VaultSource) -> Result<(), CoreError> {
     write(app_dir, &list)
 }
 
+/// The chooser's list: a vault named on the command line first, then the
+/// remembered ones without it.
+///
+/// The argument keeps `vardo foo.kdbx` and file-manager association working.
+/// Flags and paths that are not files are skipped. `app_dir` is `None` when
+/// the shell could not resolve it, which leaves only the argument.
+pub fn chooser_list(
+    app_dir: Option<&Path>,
+    args: impl IntoIterator<Item = String>,
+) -> Vec<VaultSource> {
+    let mut out: Vec<VaultSource> = args
+        .into_iter()
+        .filter(|a| !a.starts_with('-') && Path::new(a).is_file())
+        .take(1)
+        .map(VaultSource::file)
+        .collect();
+    for source in app_dir.map(load).unwrap_or_default() {
+        if !out.contains(&source) {
+            out.push(source);
+        }
+    }
+    out
+}
+
 pub fn forget(app_dir: &Path, source: &VaultSource) -> Result<(), CoreError> {
     let mut list = load(app_dir);
     list.retain(|s| s != source);
@@ -163,6 +187,26 @@ mod tests {
         remember(&dir, &local).unwrap();
         remember(&dir, &drive).unwrap();
         assert_eq!(load(&dir).len(), 2);
+    }
+
+    #[test]
+    fn a_vault_named_on_the_command_line_leads_and_is_not_repeated() {
+        let dir = tmp("args");
+        let named = dir.join("named.kdbx");
+        std::fs::write(&named, b"").unwrap();
+        let named = named.to_string_lossy().into_owned();
+        let other = VaultSource::file("/other.kdbx");
+        remember(&dir, &other).unwrap();
+        remember(&dir, &VaultSource::file(&named)).unwrap();
+
+        let list = chooser_list(Some(&dir), ["--flag".into(), named.clone()]);
+        assert_eq!(list, vec![VaultSource::file(&named), other]);
+    }
+
+    #[test]
+    fn a_command_line_path_that_is_not_a_file_is_ignored() {
+        let list = chooser_list(None, ["/nonexistent/vardo.kdbx".to_string()]);
+        assert!(list.is_empty());
     }
 
     #[cfg(unix)]
