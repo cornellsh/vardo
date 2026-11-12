@@ -1,7 +1,7 @@
 # Checked in CI by `cargo deny check advisories`.
 #
 # Any new vulnerability fails the build. The entries below are known advisories
-# that Vardo cannot act on today, each with the reason. Every one sits inside
+# that Vardo cannot act on today, each with the reason. Most sit inside
 # Tauri's Linux window stack, which is pinned to the last GTK3 bindings, so they
 # leave when Tauri moves on rather than through any change here. Review this
 # list whenever Tauri is upgraded, and delete entries that no longer appear.
@@ -25,4 +25,12 @@ ignore = [
   { id = "RUSTSEC-2025-0081", reason = "unic-char-property via tauri-utils urlpattern" },
   { id = "RUSTSEC-2025-0098", reason = "unic-ucd-version via tauri-utils urlpattern" },
   { id = "RUSTSEC-2025-0100", reason = "unic-ucd-ident via tauri-utils urlpattern" },
+
+  # Merged into zbus 6 rather than abandoned, with no known vulnerability.
+  # Reached through the Secret Service store for the Drive refresh token
+  # (dec:keyring-with-file-fallback). They leave when secret-service moves to
+  # zbus 6.
+  { id = "RUSTSEC-2026-0370", reason = "zvariant via zbus 5 via secret-service; merged into zbus 6" },
+  { id = "RUSTSEC-2026-0371", reason = "zbus_names via zbus 5 via secret-service; merged into zbus 6" },
+  { id = "RUSTSEC-2026-0372", reason = "zvariant_derive via zbus 5 via secret-service; merged into zbus 6" },
 ]

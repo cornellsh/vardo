@@ -21,8 +21,22 @@ sha2.workspace = true
 sha1 = "0.10"
 getrandom.workspace = true
 zeroize.workspace = true
+# The Drive refresh token goes to the OS credential store (drive/tokens.rs).
+keyring-core = "1"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+apple-native-keyring-store = { version = "1", features = ["keychain"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-native-keyring-store = { version = "1", default-features = false }
+
+[target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
+# Pure Rust D-Bus, so Linux builds need no libdbus.
+zbus-secret-service-keyring-store = { version = "1", features = ["rt-async-io-crypto-rust"] }
 
 [dev-dependencies]
+# An in-memory credential store, so no test touches a real keychain.
+keyring-core = { version = "1", features = ["sample"] }
 # Only for asserting that no secret reaches the serialised form.
 serde_json = "1"
 vardo-browser = { path = "../vardo-browser" }

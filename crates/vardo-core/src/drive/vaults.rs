@@ -37,7 +37,7 @@ pub fn list(client: &DriveClient, app_dir: &Path) -> Result<Vec<DriveFile>, Core
             .map_err(|e| crate::sync::map_sync_error(e, "Google Drive"))?;
 
     if changed {
-        let _ = auth::store_tokens(app_dir, &updated_tokens);
+        let _ = crate::drive::tokens::store(app_dir, &updated_tokens);
     }
     Ok(files)
 }
@@ -87,7 +87,7 @@ pub fn upload(
             .map_err(|e| crate::sync::map_sync_error(e, "Google Drive"))?;
 
     if changed {
-        let _ = auth::store_tokens(app_dir, &updated_tokens);
+        let _ = crate::drive::tokens::store(app_dir, &updated_tokens);
     }
 
     Ok(VaultSource::GoogleDrive { file_id, name })

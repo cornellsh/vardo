@@ -146,6 +146,14 @@ The long-form records these came from (ADR-001 to ADR-006, CRITIQUE, RESEARCH, P
 - **Reopen if:** Chrome offers a submit event to extensions without page access.
 - **Date:** 2026-11-13.
 
+### dec:keyring-with-file-fallback
+
+- **Chose:** `keyring-core` with one store per platform: the macOS Keychain, Windows Credential Manager, and the Secret Service over pure-Rust D-Bus. When no store answers, the refresh token falls back to a mode 600 file. Only the refresh token is kept, and access tokens are refreshed on use.
+- **Because:** A file is readable by anything running as the user, and a keyring is not. Refusing to connect Drive on a desktop without a keyring would lose users for no gain, since the `drive.file` scope already bounds a stolen token.
+- **Rejected:** The `v1` bundle of the `keyring` crate, which its own docs say applications should not link. The `dbus` crate, which needs libdbus at build time.
+- **Reopen if:** A platform store loses tokens across updates, or a user needs Drive where the fallback file is unacceptable.
+- **Date:** 2026-11-13.
+
 ## Process
 
 ### dec:agent-first-docs

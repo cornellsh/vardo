@@ -141,7 +141,7 @@ impl VaultSource {
                 // keeping, and dropping it would make the next attempt fail the
                 // same way.
                 if backend.tokens_updated {
-                    let _ = auth::store_tokens(&ctx.app_dir, backend.tokens());
+                    let _ = crate::drive::tokens::store(&ctx.app_dir, backend.tokens());
                 }
 
                 out
