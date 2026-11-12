@@ -263,12 +263,25 @@ fn layer_deps(c: &mut Ctx) -> Outcome {
 
 fn ipc_names(c: &mut Ctx) -> Outcome {
     let read = |p: &str| std::fs::read_to_string(c.root.join(p));
+    // Commands may live in any shell module, so the arguments check reads them all.
+    let shell: std::io::Result<String> = std::fs::read_dir(c.root.join("app/src-tauri/src"))
+        .and_then(|dir| dir.map(|e| std::fs::read_to_string(e?.path())).collect());
     let broken = match (
         read("app/src-tauri/src/lib.rs"),
         read("app/src/ipc/tauri.ts"),
+        shell,
     ) {
-        (Ok(lib), Ok(ts)) => ipc::check(&lib, &ts),
-        (lib, ts) => vec![format!("cannot read the command lists: {lib:?} {ts:?}")],
+        (Ok(lib), Ok(ts), Ok(shell)) => {
+            let mut broken = ipc::check(&lib, &ts);
+            broken.extend(ipc::check_args(&shell, &ts));
+            broken
+        }
+        (lib, ts, shell) => vec![format!(
+            "cannot read the command lists: {:?} {:?} {:?}",
+            lib.err(),
+            ts.err(),
+            shell.err()
+        )],
     };
     for line in &broken {
         let _ = writeln!(c.log, "{line}");

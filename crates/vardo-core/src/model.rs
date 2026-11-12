@@ -222,6 +222,31 @@ pub struct ConflictView {
     pub detail: String,
 }
 
+/// How a sync settles what the plan could not decide.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "kebab-case")]
+pub enum ConflictPolicy {
+    /// Keeps both versions rather than choosing, because a password manager
+    /// that silently discards one of two passwords is worse than one that
+    /// leaves you two to look at.
+    Duplicate,
+    KeepLocal,
+    KeepRemote,
+    Refuse,
+}
+
+impl From<ConflictPolicy> for vardo_merge::ConflictPolicy {
+    fn from(policy: ConflictPolicy) -> Self {
+        match policy {
+            ConflictPolicy::Duplicate => Self::Duplicate,
+            ConflictPolicy::KeepLocal => Self::KeepLocal,
+            ConflictPolicy::KeepRemote => Self::KeepRemote,
+            ConflictPolicy::Refuse => Self::Refuse,
+        }
+    }
+}
+
 #[derive(Debug, Serialize)]
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]

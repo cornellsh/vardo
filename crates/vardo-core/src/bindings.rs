@@ -38,6 +38,7 @@ fn render() -> String {
         decl::<SaveResult>(&cfg),
         decl::<ChangeView>(&cfg),
         decl::<ConflictView>(&cfg),
+        decl::<ConflictPolicy>(&cfg),
         decl::<SyncPreview>(&cfg),
         decl::<SyncOutcome>(&cfg),
         decl::<SyncOutcomeKind>(&cfg),

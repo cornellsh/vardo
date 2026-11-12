@@ -8,12 +8,6 @@ An item that changes a rule also updates `docs/INVARIANTS.md`. One that makes a 
 
 These come first because every later change gets cheaper and safer once they land.
 
-### plan:ipc-arguments
-
-- **Do:** Check each command's argument names in `app/src/ipc/tauri.ts` against the Rust parameters, in the `ipc-names` gate. Make `ConflictPolicy` a typed enum that crosses the wire instead of a string Rust parses.
-- **Why:** `inv:ipc-types-are-generated` covers return types and command names, but not arguments.
-- **Done when:** A renamed Rust parameter fails a gate, and `docs/INVARIANTS.md` contains no **Gap** line.
-
 ### plan:core-modules
 
 - **Do:** Group the flat modules of `crates/vardo-core/src/` by capability: session, sync, drive, browser, and small services such as TOTP, health, favicon and the generator. Give each module a `//!` header stating its contract and the `inv:` tags it keeps. Split `crates/vardo-core/src/session.rs`.
