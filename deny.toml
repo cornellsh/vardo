@@ -1,0 +1,28 @@
+# Checked in CI by `cargo deny check advisories`.
+#
+# Any new vulnerability fails the build. The entries below are known advisories
+# that Vardo cannot act on today, each with the reason. Every one sits inside
+# Tauri's Linux window stack, which is pinned to the last GTK3 bindings, so they
+# leave when Tauri moves on rather than through any change here. Review this
+# list whenever Tauri is upgraded, and delete entries that no longer appear.
+
+[advisories]
+version = 2
+yanked = "deny"
+ignore = [
+  # Unsound iterator over GLib variant strings. Vardo never builds or iterates
+  # a GLib variant; the type is only reachable through GTK internals.
+  { id = "RUSTSEC-2024-0429", reason = "glib 0.18 via Tauri's GTK3 stack; VariantStrIter is never used" },
+
+  # Unmaintained, with no known vulnerability. A build-time macro used by
+  # glib's own macros.
+  { id = "RUSTSEC-2024-0370", reason = "proc-macro-error via glib-macros; build time only" },
+
+  # Unmaintained Unicode tables, pulled in by tauri-utils for URL patterns.
+  # No known vulnerability.
+  { id = "RUSTSEC-2025-0075", reason = "unic-char-range via tauri-utils urlpattern" },
+  { id = "RUSTSEC-2025-0080", reason = "unic-common via tauri-utils urlpattern" },
+  { id = "RUSTSEC-2025-0081", reason = "unic-char-property via tauri-utils urlpattern" },
+  { id = "RUSTSEC-2025-0098", reason = "unic-ucd-version via tauri-utils urlpattern" },
+  { id = "RUSTSEC-2025-0100", reason = "unic-ucd-ident via tauri-utils urlpattern" },
+]
