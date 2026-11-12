@@ -1,4 +1,5 @@
-//! Runs the live Drive contract tests from `tests/contract_notes.md`.
+//! Runs the live Drive contract tests that verify the entries under "Google
+//! Drive" in `docs/FACTS.md`. How to run it safely is in `docs/RUNBOOKS.md`.
 //!
 //! ```sh
 //! cargo run -p vardo-drive --features network --example contract -- \
@@ -439,7 +440,7 @@ fn run_tests(
             //
             // An earlier version of this test asserted `ascending` here and
             // reported a failure. That was the test being wrong, not the code:
-            // assumption 4 in contract_notes.md is about Drive's *raw*
+            // `fact:drive-revisions-order` is about Drive's *raw*
             // response, while this method returns the reversed form. Checking
             // the wrapper against the raw-API assumption conflates two layers,
             // and would have had us "fix" a correct `.reverse()` into a bug.
@@ -487,7 +488,7 @@ fn run_tests(
     println!(
         "\nStill needing a human: (6) grant persists across sessions, \
          (7) quota error message text, (8) whether publishing demands verification.\n\
-         See tests/contract_notes.md."
+         See the Google Drive entries in docs/FACTS.md."
     );
 
     if fail == 0 {

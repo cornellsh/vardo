@@ -5,8 +5,9 @@
 //! Every other Rust KDBX library parses XML into a closed typed model and
 //! serialises back out of it. Anything the model does not name is destroyed.
 //! Measured against real KeePass files, that costs icon assignments, fabricates
-//! `QualityCheck` elements, and rewrites 22% of the document (see
-//! `PHASE0-FINDINGS.md`).
+//! `QualityCheck` elements, and rewrites 22% of the document
+//! (`fact:keepass-crate-normalises`). This module keeps
+//! `inv:byte-stable-roundtrip`.
 //!
 //! For a password manager that is merely bad. For one whose whole value is a
 //! **merge engine**, it is fatal: a save that changes bytes it was not asked to

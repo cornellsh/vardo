@@ -3,9 +3,9 @@
 //! Here rather than in the desktop shell so that it can be tested with a real
 //! socket and no window. The shell supplies one callback for the two things
 //! that need the window toolkit, copying and showing the window, and runs
-//! [`serve`] on a thread. See ADR-006.
+//! [`serve`] on a thread. Keeps `inv:host-is-a-relay`.
 //!
-//! Unix only. Windows needs a named pipe, listed as later work in ADR-006.
+//! Unix only. Windows needs a named pipe (`plan:windows-pipe`).
 
 use std::io::{self, BufRead, BufReader, Write};
 use std::os::unix::fs::{DirBuilderExt, PermissionsExt};

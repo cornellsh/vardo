@@ -479,7 +479,7 @@ mod remote_failures {
 
     #[test]
     fn a_replaced_file_says_it_was_replaced() {
-        // The failure ADR-001 exists to prevent. If it ever happens, the
+        // `fact:drive-safe-save-kills-id`. If it ever happens, the
         // message has to explain why a file plainly still in Drive is dead.
         assert!(headline(S::IdentityLost("new id".into())).contains("replaced"));
     }

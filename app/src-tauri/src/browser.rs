@@ -2,7 +2,8 @@
 //!
 //! The socket server and every decision live in `vardo-core`, where they are
 //! tested. This supplies the two things that need the window toolkit:
-//! copying to the clipboard and showing the window. See ADR-006.
+//! copying to the clipboard and showing the window. See
+//! `dec:core-decides-shells-act`.
 
 #[cfg(unix)]
 pub fn start(app: tauri::AppHandle, state: crate::AppState) {
@@ -36,6 +37,6 @@ pub fn start(app: tauri::AppHandle, state: crate::AppState) {
         .ok();
 }
 
-/// Windows needs a named pipe instead. Listed as later work in ADR-006.
+/// Windows needs a named pipe instead (`plan:windows-pipe`).
 #[cfg(not(unix))]
 pub fn start(_app: tauri::AppHandle, _state: crate::AppState) {}

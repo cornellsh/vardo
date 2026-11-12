@@ -5,10 +5,10 @@
 //! fastidiousness — nobody can run an integration suite against real Drive
 //! without credentials, so code reachable only that way is code nobody tests.
 //!
-//! The real client lives behind the `network` feature. The contract tests that
-//! must eventually run against live Drive are listed in
-//! `tests/contract_notes.md`; their only job is to prove `vardo_sync::fake`
-//! does not lie.
+//! The real client lives behind the `network` feature. The live contract run
+//! in `examples/contract.rs` checks the entries under "Google Drive" in
+//! `docs/FACTS.md`. Its only job is to prove `vardo_sync::fake` does not lie
+//! (`inv:fake-drive-is-faithful`).
 
 #![forbid(unsafe_code)]
 

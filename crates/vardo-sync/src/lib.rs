@@ -4,7 +4,7 @@
 //! compare-and-swap, so two devices can and will overwrite each other, and the
 //! only defences are a correct merge and the fact that every write leaves a
 //! recoverable revision behind. See [`protocol`] for the shape of that, and
-//! `ADR-001-sync.md` for why it has to be this way.
+//! `fact:drive-no-cas` and `dec:app-owns-network` for why.
 //!
 //! The vault's canonical copy lives in app-private storage and this crate
 //! talks to the provider over HTTPS. It is never a file inside a synced

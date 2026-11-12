@@ -5,8 +5,8 @@
 //! classification, upload framing, revision ordering — would ship unexercised.
 //!
 //! The requests asserted here are the contract these tests are checking
-//! *against the documentation*. `tests/contract_notes.md` lists what must
-//! eventually be confirmed against live Drive.
+//! *against the documentation*. The entries under "Google Drive" in
+//! `docs/FACTS.md` say which parts were confirmed against live Drive.
 
 use std::collections::BTreeMap;
 

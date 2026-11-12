@@ -2,8 +2,7 @@
  * In-browser mock of the Rust core, so the UI can be built and reviewed without
  * the Tauri shell (which needs webkit2gtk-4.1 on Linux).
  *
- * The data is deliberately *messy*. `DESIGN.md` says to design against real
- * content, and a vault that only contains tidy 12-character titles will hide
+ * The data is deliberately *messy*. Design against real content, because a vault that only contains tidy 12-character titles will hide
  * every layout bug worth finding. So this generates missing usernames, 70-char
  * titles, CJK, emoji, duplicate names, ancient timestamps and empty groups.
  */
