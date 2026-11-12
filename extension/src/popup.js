@@ -8,7 +8,7 @@
  */
 
 import { hostOf, identityOf, initialOf, tintFor } from "./identity.js";
-import { ask, fillInto } from "./native.js";
+import { ask, captureLogin, fillInto } from "./native.js";
 
 /** @typedef {import("./native.js").Login} Login */
 
@@ -40,6 +40,7 @@ async function refresh() {
 	search.focus();
 	await showMatches();
 	await showShortcut();
+	showSaveLink();
 }
 
 /**
@@ -69,6 +70,26 @@ async function showShortcut() {
 		});
 		note.append(link);
 	}
+	document.body.append(note);
+}
+
+/**
+ * Offers to keep the login typed into this page.
+ *
+ * Nothing reads the page until this is clicked
+ * (`inv:extension-sees-nothing-until-asked`), so there is no prompt after a
+ * sign-in. Asking is the person's move.
+ */
+function showSaveLink() {
+	if (!tab?.url || !/^https?:/.test(tab.url)) return;
+	const note = document.createElement("p");
+	note.className = "shortcut";
+	const link = document.createElement("button");
+	link.type = "button";
+	link.className = "link";
+	link.textContent = "Save the login typed on this page";
+	link.addEventListener("click", () => void saveLogin());
+	note.append(link);
 	document.body.append(note);
 }
 
@@ -313,6 +334,40 @@ async function copy(login, field) {
 	const what = { username: "Username", password: "Password", totp: "Code" }[field];
 	say(`${what} copied. Clears in ${reply.clear_after_seconds}s`);
 }
+
+async function saveLogin() {
+	if (!tab) return;
+	const captured = await captureLogin(tab);
+	if (captured.type === "error") return say(captured.message, true);
+	const login = { url: captured.url, username: captured.username, password: captured.password };
+	const reply = await ask({ type: "save", ...login, replace: false });
+	if (reply.type === "error") return say(reply.message, true);
+	if (reply.outcome !== "differs") return say(SAVED[reply.outcome] ?? "Saved");
+
+	const who = login.username || "this login";
+	search.hidden = true;
+	state(
+		"Replace the saved password?",
+		`Vardo has a different password for ${who} on ${hostOf(login.url) || "this site"}. The old one stays in its history.`,
+		{
+			label: "Replace",
+			action: async () => {
+				const again = await ask({ type: "save", ...login, replace: true });
+				if (again.type === "error") return say(again.message, true);
+				search.hidden = false;
+				await showMatches();
+				say(SAVED[again.outcome] ?? "Saved");
+			},
+		},
+	);
+}
+
+/** @type {Record<string, string>} */
+const SAVED = {
+	created: "Saved to Vardo",
+	updated: "Password updated in Vardo",
+	unchanged: "Vardo already has this login",
+};
 
 async function launch() {
 	await ask({ type: "launch" });

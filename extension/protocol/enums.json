@@ -17,6 +17,12 @@
     "exact",
     "subdomain"
   ],
+  "save-outcome": [
+    "created",
+    "updated",
+    "unchanged",
+    "differs"
+  ],
   "state": [
     {
       "kind": "locked"

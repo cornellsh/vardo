@@ -9,7 +9,7 @@
 
 use std::{collections::BTreeMap, fs, path::PathBuf};
 use vardo_browser::protocol::{
-    CopyField, Envelope, ErrorCode, Login, MatchKind, Request, Response, State,
+    CopyField, Envelope, ErrorCode, Login, MatchKind, Request, Response, SaveOutcome, State,
 };
 
 fn requests() -> Vec<Request> {
@@ -31,6 +31,12 @@ fn requests() -> Vec<Request> {
         },
         Request::Show,
         Request::Launch,
+        Request::Save {
+            url: "https://example.com/signup".into(),
+            username: "alex@example.com".into(),
+            password: "correct-horse".into(),
+            replace: false,
+        },
     ]
 }
 
@@ -62,6 +68,10 @@ fn responses() -> Vec<Response> {
         },
         Response::Shown,
         Response::Launched,
+        Response::Saved {
+            uuid: "4f9c2a7e5b3d4c1a9e8f7a6b5c4d3e2f".into(),
+            outcome: SaveOutcome::Created,
+        },
         Response::error(ErrorCode::NotAMatch, "That login is not for this page"),
     ]
 }
@@ -77,6 +87,7 @@ fn name_request(r: &Request) -> &'static str {
         Request::Copy { .. } => "copy",
         Request::Show => "show",
         Request::Launch => "launch",
+        Request::Save { .. } => "save",
     }
 }
 
@@ -88,6 +99,7 @@ fn name_response(r: &Response) -> &'static str {
         Response::Copied { .. } => "copied",
         Response::Shown => "shown",
         Response::Launched => "launched",
+        Response::Saved { .. } => "saved",
         Response::Error { .. } => "error",
     }
 }
@@ -105,6 +117,12 @@ fn enums() -> serde_json::Value {
             ErrorCode::Internal,
         ],
         "match": [MatchKind::Exact, MatchKind::Subdomain],
+        "save-outcome": [
+            SaveOutcome::Created,
+            SaveOutcome::Updated,
+            SaveOutcome::Unchanged,
+            SaveOutcome::Differs,
+        ],
         "state": [State::Locked, State::Unlocked { vault: "Personal".into() }],
     })
 }

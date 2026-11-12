@@ -1,13 +1,14 @@
 //! Connects the browser extension to this window.
 //!
 //! The socket server and every decision live in `vardo-core`, where they are
-//! tested. This supplies the two things that need the window toolkit:
-//! copying to the clipboard and showing the window. See
-//! `dec:core-decides-shells-act`.
+//! tested. This supplies the things that need the window toolkit: copying to
+//! the clipboard, showing the window, and telling the interface the vault
+//! changed. See `dec:core-decides-shells-act`.
 
 #[cfg(unix)]
 pub fn start(app: tauri::AppHandle, state: crate::AppState) {
     use std::sync::Arc;
+    use tauri::Emitter;
     use vardo_core::browser::Effect;
 
     let perform = Arc::new(move |effect: Effect| match effect {
@@ -22,6 +23,15 @@ pub fn start(app: tauri::AppHandle, state: crate::AppState) {
             vardo_core::CLIPBOARD_CLEAR_SECONDS,
         )
         .map_err(|e| format!("Could not copy: {e}")),
+        // The interface refreshes and saves, as after any edit. The login is in
+        // the session either way, and locking saves a dirty vault first, so a
+        // missed event is logged rather than reported as a failed save.
+        Effect::Changed => {
+            if let Err(e) = app.emit("vault://changed", ()) {
+                eprintln!("vardo: could not tell the window the vault changed: {e}");
+            }
+            Ok(())
+        }
     });
 
     std::thread::Builder::new()

@@ -252,6 +252,10 @@ export class TauriIpc implements Ipc {
 		return listen("vault://lock-requested", () => handler());
 	}
 
+	async onVaultChanged(handler: () => void): Promise<() => void> {
+		return listen("vault://changed", () => handler());
+	}
+
 	copyHistoryPassword(
 		uuid: Uuid,
 		index: number,

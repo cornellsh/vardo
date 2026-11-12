@@ -138,6 +138,14 @@ The long-form records these came from (ADR-001 to ADR-006, CRITIQUE, RESEARCH, P
 - **Chose:** Alt+Shift+L. The popup notices a missing shortcut and links to the browser's shortcut page.
 - **Because:** Chrome took Ctrl+Shift+L and refuses a suggested shortcut it owns, silently (`fact:chrome-extension-limits`).
 
+### dec:save-on-request
+
+- **Chose:** The popup has a "Save the login typed on this page" button. Clicking it reads the top frame once and sends the login to Vardo. Vardo adds it to the root group, titled with the host and saved under the page origin. The app writes it to storage like any other edit.
+- **Because:** Offering to save after a sign-in needs a script watching every page, which `inv:extension-sees-nothing-until-asked` forbids. A button keeps the extension blind until the person acts.
+- **Rejected:** Content scripts that detect form submission, which need host permissions on every site. Saving to storage from the socket thread, which would bypass the merge screen when the stored copy has moved.
+- **Reopen if:** Chrome offers a submit event to extensions without page access.
+- **Date:** 2026-11-13.
+
 ## Process
 
 ### dec:agent-first-docs

@@ -283,6 +283,33 @@ console.log("two-factor");
 	check("the code field gets a six-digit code", /^\d{6}$/.test(values.code ?? ""), JSON.stringify(values));
 }
 
+console.log("saving");
+{
+	const type = (page, email, password) =>
+		evaluate(page, `document.querySelector("#email").value = ${JSON.stringify(email)}; document.querySelector("#password").value = ${JSON.stringify(password)}`);
+	const clickSave = (session) =>
+		evaluate(session, `[...document.querySelectorAll("button.link")].find((b) => b.textContent.startsWith("Save the login")).click()`);
+
+	let { session, page } = await openPopup("/login.html");
+	await type(page, "new-user@example.com", "brand-new-pw");
+	await clickSave(session);
+	await sleep(800);
+	let text = await evaluate(session, "document.body.innerText");
+	check("a typed login is saved to Vardo", text.includes("Saved to Vardo"), text);
+	check("Vardo tells the app the vault changed", serverLog.includes("effect: changed"), serverLog);
+
+	({ session, page } = await openPopup("/login.html"));
+	await type(page, "e2e-user@example.com", "rotated-pw");
+	await clickSave(session);
+	await sleep(800);
+	text = await evaluate(session, "document.body.innerText");
+	check("a different saved password is not replaced without asking", text.includes("Replace the saved password?"), text);
+	await evaluate(session, `[...document.querySelectorAll("button.button")].find((b) => b.textContent === "Replace").click()`);
+	await sleep(800);
+	text = await evaluate(session, "document.body.innerText");
+	check("it is replaced once the person confirms", text.includes("Password updated in Vardo"), text);
+}
+
 console.log("Vardo not running");
 {
 	server.kill("SIGTERM");

@@ -168,6 +168,12 @@ Cite a rule in code as `inv:<name>`. The `doc-links` gate of `cargo xtask check`
 - **Why:** Injected autofill UI can be hidden and clicked through by the page (`fact:clickjacking-defcon33`).
 - **Proof:** `extension/src/manifest.test.js` fails on any added permission or page-reaching key.
 
+### inv:save-asks-before-replacing
+
+- **Rule:** Saving a login from the browser creates an entry, or replaces the password of the login saved for exactly that site and username, and only after the person confirms. A login saved for a parent domain or sitting in the recycle bin is never changed. The replaced password stays in history.
+- **Why:** A save request carries what a page typed. Overwriting a saved password without a person agreeing would let one wrong click, or a bad extension, destroy the only copy.
+- **Proof:** `crates/vardo-core/tests/browser.rs::a_different_saved_password_is_replaced_only_when_the_person_confirms`, `crates/vardo-core/tests/browser.rs::a_login_saved_for_a_parent_site_is_never_overwritten`, `crates/vardo-core/tests/browser.rs::a_login_in_the_recycle_bin_is_not_updated`, and the e2e saving checks in `extension/e2e/run.mjs`.
+
 ### inv:match-in-rust
 
 - **Rule:** URL matching happens in Rust, against the tab URL the browser reports. An exact host fills. A subdomain is listed but needs an explicit choice. Never across an https to http downgrade, never to another port, never across a public suffix.

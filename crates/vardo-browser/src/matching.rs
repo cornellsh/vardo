@@ -162,9 +162,41 @@ fn is_public_suffix(host: &str) -> bool {
     psl::suffix_str(host).is_some_and(|suffix| suffix == host)
 }
 
+/// The origin a login typed into `page` is saved under, and the host to
+/// title it with. `None` for anything but an http(s) page.
+///
+/// The path is dropped: a login belongs to a site, not to the one page its
+/// form happened to be on.
+pub fn origin(page: &str) -> Option<(String, String)> {
+    let url = Url::parse(page).ok()?;
+    if !matches!(url.scheme(), "http" | "https") {
+        return None;
+    }
+    let host = url.host_str()?.to_string();
+    Some((url.origin().ascii_serialization(), host))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_saved_login_keeps_scheme_host_and_port_and_drops_the_path() {
+        assert_eq!(
+            origin("https://accounts.example.com:8443/signup?next=/"),
+            Some((
+                "https://accounts.example.com:8443".into(),
+                "accounts.example.com".into()
+            ))
+        );
+    }
+
+    #[test]
+    fn only_web_pages_have_an_origin() {
+        assert_eq!(origin("chrome://settings"), None);
+        assert_eq!(origin("file:///tmp/form.html"), None);
+        assert_eq!(origin("not a url"), None);
+    }
 
     fn m(saved: &str, page: &str) -> Option<Match> {
         classify(saved, page)

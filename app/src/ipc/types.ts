@@ -328,6 +328,12 @@ export interface Ipc {
 	/** The tray's "Lock now". Resolves to a function that stops listening. */
 	onLockRequested?(handler: () => void): Promise<() => void>;
 
+	/**
+	 * The vault changed outside the window: a login saved from the browser
+	 * extension. Resolves to a function that stops listening.
+	 */
+	onVaultChanged?(handler: () => void): Promise<() => void>;
+
 	/** Copies an old password, cleared on the same schedule as any other. */
 	copyHistoryPassword(
 		uuid: Uuid,
