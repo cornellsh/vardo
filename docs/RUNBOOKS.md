@@ -7,7 +7,7 @@ Each runbook says when to use it. Keep the steps exact and short.
 
 Use on a new machine, before `cargo xtask check`.
 
-1. Rust through rustup: `rustup toolchain install stable 1.88 --profile minimal -c clippy,rustfmt`.
+1. Rust through rustup: `rustup toolchain install stable 1.89 --profile minimal -c clippy,rustfmt`.
 2. Node 22. CI uses 22. Run `npm ci` in `app/` and in `extension/`.
 3. System libraries:
    - Arch: `sudo pacman -S --needed webkit2gtk-4.1 base-devel librsvg libayatana-appindicator`

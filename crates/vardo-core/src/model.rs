@@ -27,6 +27,9 @@ pub struct VaultInfo {
     /// Present when the vault lives somewhere that can corrupt it. Surfaced at
     /// unlock rather than at save, so it is seen before the first write.
     pub storage_warning: Option<StorageWarning>,
+    /// Another Vardo window has this vault open. Edits still work, but if both
+    /// save, the later save stops and asks for a merge.
+    pub open_elsewhere: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]

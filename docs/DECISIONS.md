@@ -154,6 +154,14 @@ The long-form records these came from (ADR-001 to ADR-006, CRITIQUE, RESEARCH, P
 - **Reopen if:** A platform store loses tokens across updates, or a user needs Drive where the fallback file is unacceptable.
 - **Date:** 2026-11-13.
 
+### dec:warn-on-second-window
+
+- **Chose:** An advisory OS file lock per vault in the app directory, held while unlocked. A second window gets a notice and stays writable. Rust 1.89 is the minimum, for `File::try_lock`.
+- **Because:** The conditional save already prevents the lost update (`inv:atomic-verified-save`). The lock only moves the news to unlock time. A read-only second window would block the person in the common harmless case, a window left open and forgotten. The OS drops the lock when a process dies, so a crash leaves nothing stale.
+- **Rejected:** A read-only second window. A single-instance plugin, which on Linux needs D-Bus and still says nothing about KeePassXC. A locking crate, when the standard library has one.
+- **Reopen if:** People lose work to a merge they did not expect despite the notice.
+- **Date:** 2026-11-13.
+
 ## Process
 
 ### dec:agent-first-docs

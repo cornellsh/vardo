@@ -28,6 +28,7 @@ use crate::CoreError;
 mod edit;
 pub mod entries;
 mod files;
+mod instance;
 pub mod save;
 
 /// Which stage of unlocking is running.
@@ -74,6 +75,8 @@ pub struct Session {
     /// save is a blind overwrite, which across two devices is not an edge case
     /// but the ordinary way a synced vault gets used.
     loaded_version: Option<String>,
+    /// Tells a second window on this vault that it is open here.
+    _claim: instance::Claim,
 }
 
 impl Session {
@@ -103,6 +106,7 @@ impl Session {
         let vault = Vault::open(&doc)?;
 
         on_phase(Phase::Parsing);
+        let (claim, open_elsewhere) = instance::Claim::take(&ctx.app_dir, source);
         let info = VaultInfo {
             name: vault.database_name(),
             path: source.short_name(),
@@ -115,6 +119,7 @@ impl Session {
             // Drive vault would either warn about nothing or, worse, warn about
             // whatever mount the config directory happens to be on.
             storage_warning: source.as_path().and_then(storage_warning),
+            open_elsewhere,
         };
 
         Ok(Session {
@@ -124,6 +129,7 @@ impl Session {
             dirty: false,
             source: source.clone(),
             loaded_version,
+            _claim: claim,
         })
     }
 

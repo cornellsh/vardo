@@ -16,7 +16,12 @@ location: string, name: string, path: string, entryCount: number, format: string
  * Present when the vault lives somewhere that can corrupt it. Surfaced at
  * unlock rather than at save, so it is seen before the first write.
  */
-storageWarning: StorageWarning | null, };
+storageWarning: StorageWarning | null, 
+/**
+ * Another Vardo window has this vault open. Edits still work, but if both
+ * save, the later save stops and asks for a merge.
+ */
+openElsewhere: boolean, };
 
 export type StorageWarning = { kind: StorageKind, explanation: string, remedy: string, 
 /**

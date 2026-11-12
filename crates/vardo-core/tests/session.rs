@@ -372,3 +372,26 @@ fn an_empty_query_is_treated_as_no_query() {
 fn lctx() -> vardo_core::source::SourceContext {
     vardo_core::source::SourceContext::local_only(std::env::temp_dir())
 }
+
+#[test]
+fn a_second_window_on_the_same_vault_is_told_at_unlock() {
+    let path = scratch("test_db_kdbx4_with_password_argon2id.kdbx", "elsewhere");
+    let first = open(&path);
+    assert!(!first.info().open_elsewhere);
+    let mut second = open(&path);
+    assert!(
+        second.info().open_elsewhere,
+        "the second window must learn at once"
+    );
+    assert!(
+        second.info().writable,
+        "it warns; the conditional save protects"
+    );
+    second.lock();
+    drop(second);
+    drop(first);
+    assert!(
+        !open(&path).info().open_elsewhere,
+        "closing the first window frees the vault"
+    );
+}
