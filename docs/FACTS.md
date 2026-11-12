@@ -164,6 +164,10 @@ Live checks ran on 2026-08-27 with `crates/vardo-drive/examples/contract.rs` aga
 
 - CI lints with the latest stable Rust. Clippy 1.99 added `useless_borrows_in_formatting`, which failed `main` on 2026-11-12 with no code change.
 
+### fact:minimatch-override
+
+- `@typescript-eslint/typescript-estree` 8.72.2 asks for `minimatch` ^10.2.2, but GHSA-g3hv-75wg-m249 is fixed only in 11.0.1, so CI's `npm audit` failed. `app/package.json` overrides it to ^11.0.1 for that package alone. The lint still passes and still catches errors. Delete the override once typescript-estree accepts minimatch 11. Observed 2026-11-12.
+
 ### fact:telegram-palette-contrast
 
 - Telegram's palette is not APCA-verified. Day `windowSubTextFg` `#999999` on white is about 2.8:1. `dialogsBgActive` `#419fd9` under white text is about 2.9:1. The contrast gate caught nine failures that eyeballing missed, mostly hover states and the focus ring.
