@@ -23,214 +23,91 @@ export type Uuid = string;
 /** Milliseconds since the Unix epoch. */
 export type Millis = number;
 
-/**
- * Present when the vault lives somewhere that can corrupt it — a userspace
- * mount, a network mount, or a directory a sync daemon watches.
- *
- * Reported at unlock rather than at save, because the first save is already too
- * late.
- */
-export interface StorageWarning {
-	kind: "fuse" | "network" | "name";
-	explanation: string;
-	remedy: string;
-	/** The full reasoning, shown only if the user opens it. */
-	why: string;
-	/** Set when Vardo can sync this provider itself, so the banner offers it. */
-	providerHint: string | null;
-}
+// Every type Rust sends or receives is generated from it
+// (`inv:ipc-types-are-generated`). Edit the Rust type, then regenerate.
+import type {
+	Attachment,
+	ChangeView,
+	ConflictView,
+	CopyResult,
+	CoreError,
+	DriveStatus,
+	DriveVault,
+	EntryDetail,
+	EntrySummary,
+	Field,
+	FieldEdit,
+	Finding,
+	GeneratorOptions,
+	GroupNode,
+	HealthReport,
+	HistoryVersion,
+	Issue,
+	Phase,
+	SaveResult,
+	StorageKind,
+	StorageWarning,
+	SyncOutcome,
+	SyncOutcomeKind,
+	SyncPreview,
+	SyncWarning,
+	SyncWarningKind,
+	Times,
+	TotpCode,
+	UnlockPhase,
+	VaultInfo,
+	VaultSource,
+} from "./bindings";
 
-export interface VaultInfo {
-	name: string;
-	/** The vault's short name. Not a path: a Drive vault has none. */
-	path: string;
-	/** Where it lives, in words. "Google Drive", or the containing folder. */
-	location: string;
-	source: VaultSource;
-	/** Only ever set for a local file. A Drive vault is on no mount at all. */
-	storageWarning: StorageWarning | null;
-	entryCount: number;
-	/** KDBX 3.1 / 4.0 / 4.1 — shown in the UI because it affects sync behaviour. */
-	format: string;
-	/** False for KDBX 3.1, which we can read but not write. */
-	writable: boolean;
-}
+export type {
+	Attachment,
+	ChangeView,
+	ConflictView,
+	CopyResult,
+	CoreError,
+	DriveStatus,
+	DriveVault,
+	EntryDetail,
+	EntrySummary,
+	Field,
+	FieldEdit,
+	Finding,
+	GeneratorOptions,
+	GroupNode,
+	HealthReport,
+	HistoryVersion,
+	Issue,
+	Phase,
+	SaveResult,
+	StorageKind,
+	StorageWarning,
+	SyncOutcome,
+	SyncOutcomeKind,
+	SyncPreview,
+	SyncWarning,
+	SyncWarningKind,
+	Times,
+	TotpCode,
+	UnlockPhase,
+	VaultInfo,
+	VaultSource,
+};
 
-export interface GroupNode {
-	uuid: Uuid;
-	name: string;
-	entryCount: number;
-	children: GroupNode[];
-}
-
-/**
- * A row in the entry list. Deliberately narrow: everything here is safe to hold
- * in JS memory for as long as the list is on screen.
- */
-export interface EntrySummary {
-	uuid: Uuid;
-	title: string;
-	username: string;
-	/** Host only, not the full URL — enough to disambiguate, less to leak. */
-	urlHost: string;
-	modified: Millis;
-	/** Drives the row icon and its colour. */
-	iconId: number;
-	/** A PNG the vault already carries, as a data URL. No network, no leak. */
-	iconPng: string | null;
-	hasTotp: boolean;
-	hasAttachments: boolean;
-}
-
-/**
- * A field on an entry. `value` is present only when `protected` is false.
- * This is the shape that keeps the rule honest: there is no variant of this
- * type that carries a protected value.
- */
-export interface Field {
-	key: string;
-	protected: boolean;
-	/** Absent for protected fields. Absent means "ask Rust", not "empty". */
-	value?: string;
-	/** True when the field exists but is the empty string. */
-	empty: boolean;
-}
-
-export interface EntryDetail {
-	uuid: Uuid;
-	/** The vault's own icon for this entry, as a data URL. */
-	iconPng: string | null;
-	title: string;
-	fields: Field[];
-	tags: string[];
-	times: {
-		created: Millis;
-		modified: Millis;
-		accessed: Millis;
-		expires: Millis | null;
-	};
-	attachments: { name: string; size: number | null }[];
-	historyCount: number;
-	groupPath: string[];
-}
-
-/** Progress during key derivation, so a ~1s Argon2 pass does not look like a hang. */
-export type UnlockPhase =
-	| { phase: "reading" }
-	| {
-			phase: "deriving" /** 0..1, or null when the KDF cannot report progress. */;
-			progress: number | null;
-	  }
-	| { phase: "decrypting" }
-	| { phase: "parsing" };
+/** The errors an unlock can end in. */
+export type UnlockError = Extract<
+	CoreError,
+	{ kind: "wrong-password" | "not-found" | "corrupt" | "unsupported" | "io" }
+>;
 
 /**
- * One field change in an {@link Ipc.updateEntry} call.
- *
- * `value: null` removes the field. That is distinct from `""`, which means the
- * field exists and is empty.
+ * How a sync settles a conflict. Rust parses this string in
+ * `crates/vardo-core/src/session.rs`, so it is not generated.
  */
-export interface FieldEdit {
-	key: string;
-	value: string | null;
-	protected: boolean;
-}
-
-export interface GeneratorOptions {
-	lowercase: boolean;
-	uppercase: boolean;
-	digits: boolean;
-	symbols: boolean;
-	/** Drop characters that are easy to misread when transcribing by hand. */
-	excludeAmbiguous: boolean;
-}
-
-/**
- * Where a vault lives.
- *
- * Mirrors the Rust enum, tag and all. A vault is not a path: that assumption is
- * what made "open from Google Drive" impossible to express in the first place.
- */
-export type VaultSource =
-	| { kind: "file"; path: string }
-	| { kind: "googleDrive"; fileId: string; name: string };
-
-/** A vault found in the user's Drive. */
-export interface DriveVault {
-	fileId: string;
-	name: string;
-	size: number;
-	modifiedUnix: number | null;
-}
-
-/**
- * Whether Drive can be used at all, and whether it currently is.
- *
- * Two flags rather than one: "this build ships no client id" and "you have not
- * signed in" are different problems, and only one of them is the user's to fix.
- */
-export interface DriveStatus {
-	configured: boolean;
-	connected: boolean;
-}
-
-/**
- * What is wrong with a password.
- *
- * Ordered by consequence, not alphabetically: reuse means one breach opens
- * several accounts, which is worse than a password nobody has changed.
- */
-export type Issue = "reused" | "weak" | "expired" | "stale";
-
-export interface Finding {
-	uuid: Uuid;
-	title: string;
-	issue: Issue;
-	/** How many entries share this password. Only ever set for "reused". */
-	sharedWith: number | null;
-}
-
-export interface HealthReport {
-	findings: Finding[];
-	/** Entries examined, so a count can be stated against a total. */
-	checked: number;
-}
-
-/**
- * An earlier version of an entry.
- *
- * Carries no password, only whether there is one to reveal. An old password is
- * not a lesser secret: it is very often still in use somewhere its owner has
- * forgotten about.
- */
-export interface HistoryVersion {
-	/** Position in stored order, for fetching the password. Not display order. */
-	index: number;
-	title: string;
-	username: string;
-	url: string;
-	modified: Millis;
-	hasPassword: boolean;
-}
-
-export interface TotpCode {
-	code: string;
-	secondsRemaining: number;
-	period: number;
-}
-
-export interface SaveResult {
-	bytesWritten: number;
-	/** Filename of the rotated backup, if one was made. */
-	backup: string | null;
-}
-
-export type UnlockError =
-	| { kind: "wrong-password" }
-	| { kind: "not-found"; path: string }
-	| { kind: "corrupt"; detail: string }
-	| { kind: "unsupported"; detail: string }
-	| { kind: "io"; detail: string };
+export type ConflictPolicy =
+	| "duplicate"
+	| "keep-local"
+	| "keep-remote"
+	| "refuse";
 
 export interface Ipc {
 	openVault(
@@ -476,58 +353,4 @@ export interface Ipc {
 
 	/** Drops a vault from recents without touching the vault. */
 	forgetVault(source: VaultSource): Promise<void>;
-}
-
-// --- sync ---
-
-export interface ChangeView {
-	kind: string;
-	title: string;
-	detail: string;
-	side: string | null;
-}
-
-export interface ConflictView {
-	kind: string;
-	title: string;
-	detail: string;
-}
-
-/**
- * Something that does not stop the sync but changes what it will do.
- *
- * Distinct from a conflict: every one of these describes a sync that will
- * still happen, but will behave differently from what the user expects unless
- * they are told.
- */
-export interface SyncWarning {
-	kind: "no-base" | "remote-read-only" | "clock-skew";
-	detail: string;
-}
-
-export interface SyncPreview {
-	warnings: SyncWarning[];
-	remote: string;
-	/** Remote is byte-identical to our sync point: nothing to fold in. */
-	remoteUnchanged: boolean;
-	/**
-	 * No merge base yet. Without one, an addition on one side is
-	 * indistinguishable from a deletion on the other, so nothing is deleted.
-	 */
-	firstSync: boolean;
-	changes: ChangeView[];
-	conflicts: ConflictView[];
-}
-
-export type ConflictPolicy =
-	| "duplicate"
-	| "keep-local"
-	| "keep-remote"
-	| "refuse";
-
-export interface SyncOutcome {
-	kind: "up-to-date" | "pushed" | "merged" | "needs-review" | "created";
-	detail: string;
-	racesLost: number;
-	retries: number;
 }

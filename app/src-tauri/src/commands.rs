@@ -59,7 +59,7 @@ pub async fn open_vault(
     // broken, so the whole unlock goes to a blocking thread.
     let session = tauri::async_runtime::spawn_blocking(move || {
         Session::open(&source, &ctx, &password, |phase| {
-            let _ = handle.emit("vault://unlock-progress", UnlockPhase::new(phase.as_str()));
+            let _ = handle.emit("vault://unlock-progress", UnlockPhase::new(phase));
         })
     })
     .await

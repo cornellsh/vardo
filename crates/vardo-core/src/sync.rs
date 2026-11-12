@@ -204,7 +204,7 @@ fn preview_with(
 
     if !remote_vault.is_writable() {
         warnings.push(crate::model::SyncWarning {
-            kind: "remote-read-only".into(),
+            kind: crate::model::SyncWarningKind::RemoteReadOnly,
             detail: "The other copy is KDBX 3.1. Vardo can merge it but cannot write \
                      that format, so the merged result will be saved as KDBX 4."
                 .into(),
@@ -220,7 +220,7 @@ fn preview_with(
             Ok(v) => Some(v),
             Err(e) => {
                 warnings.push(crate::model::SyncWarning {
-                    kind: "no-base".into(),
+                    kind: crate::model::SyncWarningKind::NoBase,
                     detail: format!(
                         "The record of the last sync could not be read ({e}), so this is a \
                          two-way merge: entries will be combined, and nothing will be \
@@ -271,7 +271,7 @@ fn clock_skew_warning(state: &vardo_sync::RemoteState) -> Option<crate::model::S
         return None;
     }
     Some(crate::model::SyncWarning {
-        kind: "clock-skew".into(),
+        kind: crate::model::SyncWarningKind::ClockSkew,
         detail: format!(
             "The other copy is dated {} in the future. Merges are decided by \
              modification time, so a device with a wrong clock wins every conflict.",

@@ -155,6 +155,13 @@ Cite a rule in code as `inv:<name>`. The `doc-links` gate of `cargo xtask check`
 - **Why:** Logic in a shell can only be checked by driving a window (`dec:core-decides-shells-act`).
 - **Proof:** The `layers` gate fails on any edge outside the tower and on any toolkit crate in core's normal dependency graph: `xtask/src/layers.rs::an_upward_or_skipping_edge_fails`, `xtask/src/layers.rs::core_reaching_a_toolkit_fails_but_a_dev_dependency_does_not`.
 
+### inv:ipc-types-are-generated
+
+- **Rule:** Every type that crosses `invoke` is generated from Rust into `app/src/ipc/bindings.ts`. Every command `app/src/ipc/tauri.ts` invokes is registered in `app/src-tauri/src/lib.rs`, and the reverse.
+- **Why:** A hand-kept copy drifts silently. One did: the interface sent a Drive vault as `fileId` while Rust reads `file_id`.
+- **Proof:** `crates/vardo-core/src/bindings.rs::the_interface_bindings_are_current` fails on a stale file, and the `app-typecheck` gate fails on a renamed field. The `ipc-names` gate checks names: `xtask/src/ipc.rs::a_renamed_command_fails_on_both_sides`.
+- **Gap:** Argument names and shapes inside `app/src/ipc/tauri.ts` are still written by hand. `ConflictPolicy` is a string Rust parses.
+
 ## Browser
 
 ### inv:extension-sees-nothing-until-asked

@@ -10,6 +10,7 @@
 #![forbid(unsafe_code)]
 
 mod doclinks;
+mod ipc;
 mod layers;
 
 use std::{
@@ -44,6 +45,11 @@ const GATES: &[Gate] = &[
         name: "layers",
         fast: true,
         run: layer_deps,
+    },
+    Gate {
+        name: "ipc-names",
+        fast: true,
+        run: ipc_names,
     },
     Gate {
         name: "fmt",
@@ -239,6 +245,25 @@ fn layer_deps(c: &mut Ctx) -> Outcome {
     let broken = match metadata {
         Ok(m) => layers::check(&m),
         Err(e) => vec![format!("cargo metadata is not JSON: {e}")],
+    };
+    for line in &broken {
+        let _ = writeln!(c.log, "{line}");
+    }
+    if broken.is_empty() {
+        Outcome::Ok
+    } else {
+        Outcome::Fail
+    }
+}
+
+fn ipc_names(c: &mut Ctx) -> Outcome {
+    let read = |p: &str| std::fs::read_to_string(c.root.join(p));
+    let broken = match (
+        read("app/src-tauri/src/lib.rs"),
+        read("app/src/ipc/tauri.ts"),
+    ) {
+        (Ok(lib), Ok(ts)) => ipc::check(&lib, &ts),
+        (lib, ts) => vec![format!("cannot read the command lists: {lib:?} {ts:?}")],
     };
     for line in &broken {
         let _ = writeln!(c.log, "{line}");

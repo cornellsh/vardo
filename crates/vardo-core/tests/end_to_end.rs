@@ -150,7 +150,10 @@ fn a_change_made_by_another_process_is_merged_in() {
     );
 
     let outcome = here.sync_apply(&dir, &lctx(), "duplicate").expect("apply");
-    assert_ne!(outcome.kind, "needs-review");
+    assert_ne!(
+        outcome.kind,
+        vardo_core::model::SyncOutcomeKind::NeedsReview
+    );
 
     // Both changes survive.
     assert!(titles(&here).contains(&"From Elsewhere".to_string()));
@@ -346,8 +349,13 @@ fn syncing_with_nothing_to_do_is_not_an_error() {
         .sync_apply(&dir, &lctx(), "duplicate")
         .expect("second sync");
     assert!(
-        matches!(outcome.kind.as_str(), "up-to-date" | "pushed" | "merged"),
-        "unexpected outcome for a no-op sync: {}",
+        matches!(
+            outcome.kind,
+            vardo_core::model::SyncOutcomeKind::UpToDate
+                | vardo_core::model::SyncOutcomeKind::Pushed
+                | vardo_core::model::SyncOutcomeKind::Merged
+        ),
+        "unexpected outcome for a no-op sync: {:?}",
         outcome.kind
     );
 }
@@ -373,7 +381,10 @@ fn the_sync_point_survives_a_lock_and_reopen() {
          nothing can ever be deleted"
     );
     assert!(
-        !preview.warnings.iter().any(|w| w.kind == "no-base"),
+        !preview
+            .warnings
+            .iter()
+            .any(|w| w.kind == vardo_core::model::SyncWarningKind::NoBase),
         "the stored base should still be readable: {:?}",
         preview.warnings
     );

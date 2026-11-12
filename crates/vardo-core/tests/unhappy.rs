@@ -162,7 +162,10 @@ fn an_unreadable_sync_point_warns_instead_of_silently_degrading() {
         .sync_preview(&dir, &lctx())
         .expect("preview should still work");
     assert!(
-        preview.warnings.iter().any(|w| w.kind == "no-base"),
+        preview
+            .warnings
+            .iter()
+            .any(|w| w.kind == vardo_core::model::SyncWarningKind::NoBase),
         "a two-way fallback must be announced, got warnings: {:?}",
         preview.warnings
     );

@@ -43,6 +43,9 @@ pub mod totp;
 
 pub use session::{CoreError, Session};
 
+#[cfg(test)]
+mod bindings;
+
 /// Seconds before a copied secret is wiped from the clipboard.
 ///
 /// Policy lives here rather than in the shell so the shell cannot quietly

@@ -26,3 +26,5 @@ zeroize.workspace = true
 # Only for asserting that no secret reaches the serialised form.
 serde_json = "1"
 vardo-browser = { path = "../vardo-browser" }
+# Generates app/src/ipc/bindings.ts from the view models; test builds only.
+ts-rs = "12"
