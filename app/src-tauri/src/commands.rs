@@ -10,6 +10,7 @@
 //! `__cmd__*` macros the attribute generates (tauri-apps/tauri#3198).
 
 use tauri::{Emitter, Manager};
+use vardo_core::drive_auth::DriveClient;
 use vardo_core::model::{
     DriveVault, EntryDetail, EntrySummary, FieldEdit, GeneratorOptions, GroupNode, SaveResult,
     SyncOutcome, SyncPreview, UnlockPhase, VaultInfo,
@@ -280,7 +281,7 @@ pub async fn save_vault(
 fn source_context(app: &tauri::AppHandle) -> CmdResult<vardo_core::source::SourceContext> {
     Ok(vardo_core::source::SourceContext {
         app_dir: app_dir(app)?,
-        client: drive_client(),
+        client: DriveClient::built_in(),
     })
 }
 
@@ -301,28 +302,11 @@ pub fn totp(
 
 // --- Google Drive -----------------------------------------------------------
 
-/// The OAuth client this build ships with.
-///
-/// Supplied at compile time. Absent in a source build, which is why
-/// `drive_status` reports `configured` separately from `connected` - "you have
-/// not signed in" and "this build has no client id" are different problems with
-/// different answers.
-fn drive_client() -> Option<vardo_core::drive_auth::DriveClient> {
-    let id = option_env!("VARDO_CLIENT_ID")?;
-    if id.is_empty() {
-        return None;
-    }
-    Some(vardo_core::drive_auth::DriveClient {
-        client_id: id.to_string(),
-        client_secret: option_env!("VARDO_CLIENT_SECRET").unwrap_or("").to_string(),
-    })
-}
-
 #[tauri::command]
 pub fn drive_status(app: tauri::AppHandle) -> CmdResult<vardo_core::model::DriveStatus> {
     let dir = app_dir(&app)?;
     Ok(vardo_core::model::DriveStatus {
-        configured: drive_client().is_some(),
+        configured: DriveClient::built_in().is_some(),
         connected: vardo_core::drive_auth::is_connected(&dir),
     })
 }
@@ -336,7 +320,7 @@ pub fn drive_status(app: tauri::AppHandle) -> CmdResult<vardo_core::model::Drive
 #[tauri::command]
 pub async fn drive_connect(app: tauri::AppHandle) -> CmdResult<()> {
     let dir = app_dir(&app)?;
-    let client = drive_client().ok_or(CoreError::Unsupported {
+    let client = DriveClient::built_in().ok_or(CoreError::Unsupported {
         detail: "this build has no Google client id, so Drive cannot be connected".into(),
     })?;
 
@@ -385,7 +369,7 @@ fn open_in_browser(url: &str) -> std::io::Result<()> {
 #[tauri::command]
 pub async fn drive_list_vaults(app: tauri::AppHandle) -> CmdResult<Vec<DriveVault>> {
     let dir = app_dir(&app)?;
-    let client = drive_client().ok_or(CoreError::Unsupported {
+    let client = DriveClient::built_in().ok_or(CoreError::Unsupported {
         detail: "this build has no Google client id".into(),
     })?;
 
@@ -412,7 +396,7 @@ pub async fn drive_list_vaults(app: tauri::AppHandle) -> CmdResult<Vec<DriveVaul
 #[tauri::command]
 pub async fn drive_upload_vault(app: tauri::AppHandle, path: String) -> CmdResult<VaultSource> {
     let dir = app_dir(&app)?;
-    let client = drive_client().ok_or(CoreError::Unsupported {
+    let client = DriveClient::built_in().ok_or(CoreError::Unsupported {
         detail: "this build has no Google client id".into(),
     })?;
 
@@ -440,7 +424,7 @@ pub async fn drive_upload_vault(app: tauri::AppHandle, path: String) -> CmdResul
 #[tauri::command]
 pub async fn drive_pick_vault(app: tauri::AppHandle) -> CmdResult<Option<VaultSource>> {
     let dir = app_dir(&app)?;
-    let client = drive_client().ok_or(CoreError::Unsupported {
+    let client = DriveClient::built_in().ok_or(CoreError::Unsupported {
         detail: "this build has no Google client id".into(),
     })?;
 

@@ -28,7 +28,7 @@ contract     vardo-browser: protocol, framing, URL matching, socket path.
 tools        vardo-conformance, fuzz/, extension/e2e, crates/*/examples
 ```
 
-One edge breaks the rule today. `vardo-app` declares `vardo-kdbx`, `vardo-merge`, `vardo-sync` and `vardo-vault` but uses none of them (`plan:layer-deps`).
+The `layers` gate enforces the tower from `cargo metadata`. Its allowed edges live in `xtask/src/layers.rs`. A new crate fails until it is placed there and here.
 
 ## The two organising patterns
 
@@ -96,7 +96,7 @@ Each block says what the layer owns, its entry points, what it must never do, an
 
 - `app/src-tauri` holds `#[tauri::command]` wrappers over `Session`, the tray, the clipboard and window events.
 - Commands return core view models as JSON. Each command name is a string the frontend repeats by hand today (`plan:generated-ipc`).
-- The clipboard clear and the Drive client id still sit in the shell (`plan:core-decides-shells-act`, `plan:layer-deps`).
+- The clipboard clear still sits in the shell (`plan:core-decides-shells-act`).
 
 ### Views: `app/src` and `extension/src`
 
@@ -141,7 +141,7 @@ Each flow names the layers it crosses, top to bottom.
 | Browser socket | `$XDG_RUNTIME_DIR/vardo/browser.sock`, else `$TMPDIR/vardo-$USER/browser.sock`. Dir 700, socket 600. Unix only |
 | Native host manifests | `NativeMessagingHosts/app.vardo.browser.json` in each Chromium-family browser's config dir |
 | Extension id | `fkemoafedkbgljikdhjbglhlhfplamll`, fixed by the `key` in `extension/manifest.json` |
-| Build-time config | `VARDO_CLIENT_ID` and `VARDO_CLIENT_SECRET`, read by `option_env!` in `app/src-tauri/src/commands.rs`. Without them, Drive reports itself unavailable |
+| Build-time config | `VARDO_CLIENT_ID` and `VARDO_CLIENT_SECRET`, read by `option_env!` in `DriveClient::built_in` in `crates/vardo-core/src/drive_auth.rs`. Without them, Drive reports itself unavailable |
 
 ## Vocabulary
 

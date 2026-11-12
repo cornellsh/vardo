@@ -8,12 +8,6 @@ An item that changes a rule also updates `docs/INVARIANTS.md`. One that makes a 
 
 These come first because every later change gets cheaper and safer once they land.
 
-### plan:layer-deps
-
-- **Do:** Remove `vardo-kdbx`, `vardo-merge`, `vardo-sync` and `vardo-vault` from `app/src-tauri/Cargo.toml`, since nothing there uses them. Move the Drive client config built in `app/src-tauri/src/commands.rs` from `option_env!` into `vardo-core`. Add a gate that reads `cargo metadata` and fails on any edge not allowed by the tower in `docs/ARCHITECTURE.md`.
-- **Why:** The tower only helps if it is true (`inv:core-has-no-toolkit`).
-- **Done when:** Adding a forbidden dependency fails the check.
-
 ### plan:generated-ipc
 
 - **Do:** Generate the TypeScript types and command bindings from Rust, with `tauri-specta` or `ts-rs`. Delete the hand-written mirror in `app/src/ipc/types.ts` and the string command names in `app/src/ipc/tauri.ts`. Make `app/src/ipc/mock.ts` implement the generated interface. Add a gate that fails when generated files are stale.

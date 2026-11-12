@@ -154,8 +154,7 @@ Cite a rule in code as `inv:<name>`. The `doc-links` gate of `cargo xtask check`
 
 - **Rule:** `vardo-core` depends on no UI toolkit. Shells contain no decisions.
 - **Why:** Logic in a shell can only be checked by driving a window (`dec:core-decides-shells-act`).
-- **Proof:** `crates/vardo-core/Cargo.toml` has no Tauri dependency.
-- **Gap:** No gate enforces the allowed dependency edges (`plan:layer-deps`).
+- **Proof:** The `layers` gate fails on any edge outside the tower and on any toolkit crate in core's normal dependency graph: `xtask/src/layers.rs::an_upward_or_skipping_edge_fails`, `xtask/src/layers.rs::core_reaching_a_toolkit_fails_but_a_dev_dependency_does_not`.
 
 ## Browser
 
