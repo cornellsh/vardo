@@ -170,7 +170,13 @@ fn an_unreadable_sync_point_warns_instead_of_silently_degrading() {
 
 // --- saving ------------------------------------------------------------------
 
+// Unix only, because the failure is produced by making a directory unwritable,
+// and Windows has no equivalent reachable from std: it ignores the read-only
+// flag on directories when creating files in them. The first CI run on Windows
+// found this the honest way, with the save succeeding. The code path under test
+// is shared by every platform.
 #[test]
+#[cfg(unix)]
 fn a_failed_save_says_the_vault_is_unchanged() {
     // Every write goes to a temporary file and only renames on success, so a
     // failure genuinely does leave the original intact. Not saying so is the
