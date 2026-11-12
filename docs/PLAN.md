@@ -8,12 +8,6 @@ An item that changes a rule also updates `docs/INVARIANTS.md`. One that makes a 
 
 These come first because every later change gets cheaper and safer once they land.
 
-### plan:core-modules
-
-- **Do:** Group the flat modules of `crates/vardo-core/src/` by capability: session, sync, drive, browser, and small services such as TOTP, health, favicon and the generator. Give each module a `//!` header stating its contract and the `inv:` tags it keeps. Split `crates/vardo-core/src/session.rs`.
-- **Why:** An agent should find the contract of a module from its first lines, without reading the rest.
-- **Done when:** Every core module opens with a contract header, and no core source file passes 500 lines.
-
 ### plan:macos-shell
 
 - **Do:** Commit the tray template icon in `app/src-tauri/src/tray.rs` and the Dock reopen handler in `app/src-tauri/src/lib.rs`, both uncommitted in the working tree. First a person checks the tray icon, its menu, and close-then-Dock-click (`docs/RUNBOOKS.md`).

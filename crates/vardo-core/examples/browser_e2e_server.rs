@@ -43,7 +43,7 @@ fn main() {
         }
         Ok(())
     });
-    vardo_core::browser_server::serve(&path, Arc::new(Mutex::new(Some(session))), perform)
+    vardo_core::browser::server::serve(&path, Arc::new(Mutex::new(Some(session))), perform)
         .expect("serve");
 }
 

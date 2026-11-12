@@ -1,5 +1,12 @@
 //! Answers the browser extension.
 //!
+//! Contract: [`handle`] decides every reply to the extension. URL matching
+//! happens here (`inv:match-in-rust`), a fill re-checks the match
+//! (`inv:fill-rechecks-match`), a locked vault reveals nothing, and a secret
+//! leaves only to fill a matching page
+//! (`inv:browser-gets-secret-only-to-fill`). Replies stay under the native
+//! messaging limit (`inv:reply-fits-native-messaging`).
+//!
 //! Everything the extension can ask is decided here, where it can be tested
 //! without a window or a browser. The desktop app only moves bytes between
 //! this and a socket, and performs the two things that need the toolkit:
@@ -14,6 +21,9 @@
 //!   the browser, even though they are still in the file. Someone who deletes a
 //!   login because it leaked must not find it filled into a page the next day.
 
+#[cfg(unix)]
+pub mod server;
+
 use serde::Serialize;
 use vardo_browser::matching::{self, Match};
 use vardo_browser::protocol::{
@@ -22,8 +32,8 @@ use vardo_browser::protocol::{
 use vardo_vault::{Entry, Group, Vault};
 use zeroize::Zeroizing;
 
-use crate::entries::uuid_text;
 use crate::favicon::host_of;
+use crate::session::entries::uuid_text;
 use crate::Session;
 
 /// What the app must do besides replying.

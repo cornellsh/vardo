@@ -1,5 +1,8 @@
 //! One-time codes (RFC 6238 TOTP, RFC 4226 HOTP).
 //!
+//! Contract: the seed stays in Rust and only the current code crosses to the
+//! interface (`inv:secrets-stay-in-rust`).
+//!
 //! # Why this is in Rust and not the WebView
 //!
 //! The TOTP *seed* is a long-lived shared secret — strictly more valuable than

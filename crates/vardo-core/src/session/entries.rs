@@ -1,5 +1,9 @@
 //! Turning a vault into the view models the UI renders.
 //!
+//! Contract: pure functions over a borrowed vault. Only [`history_password`]
+//! returns a secret, and its caller wraps it in `Zeroizing`
+//! (`inv:secrets-stay-in-rust`).
+//!
 //! Pure functions over a borrowed [`Vault`], so they are testable without a
 //! window, a session, or a Tauri handle.
 

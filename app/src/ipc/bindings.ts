@@ -85,7 +85,7 @@ export type UnlockPhase = { phase: Phase, progress: number | null, };
 export type Phase = "reading" | "deriving" | "decrypting" | "parsing";
 
 /**
- * One field change in an [`crate::commands::update_entry`] call.
+ * One field change in an [`crate::Session::update_entry`] call.
  *
  * `value: None` means remove the field. That is distinct from `Some("")`,
  * which means the field exists and is empty — KeePass treats those the same

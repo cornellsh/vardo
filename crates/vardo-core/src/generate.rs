@@ -1,5 +1,8 @@
 //! Password generation.
 //!
+//! Contract: [`password`] draws from the OS CSPRNG, and the value never passes
+//! through JavaScript (`inv:secrets-stay-in-rust`).
+//!
 //! In Rust rather than JavaScript for two reasons. The generated value can be
 //! written straight into the vault without becoming a JS string, and the
 //! randomness is the OS CSPRNG — `Math.random()` is explicitly not

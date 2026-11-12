@@ -1,6 +1,6 @@
 //! Icons the vault already carries.
 
-use vardo_core::entries;
+use vardo_core::session::entries;
 use vardo_vault::Vault;
 
 fn vault_bytes(name: &str) -> Vec<u8> {

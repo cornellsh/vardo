@@ -1,5 +1,8 @@
 //! Wire types.
 //!
+//! Contract: no wire type has a field that can carry a protected value
+//! (`inv:secrets-stay-in-rust`).
+//!
 //! `camelCase` on the wire because the consumer is TypeScript. A test writes
 //! them to `app/src/ipc/bindings.ts` (`inv:ipc-types-are-generated`).
 
@@ -160,7 +163,7 @@ impl UnlockPhase {
     }
 }
 
-/// One field change in an [`crate::commands::update_entry`] call.
+/// One field change in an [`crate::Session::update_entry`] call.
 ///
 /// `value: None` means remove the field. That is distinct from `Some("")`,
 /// which means the field exists and is empty — KeePass treats those the same

@@ -5,8 +5,8 @@
 //! sequence looks dangerous to the person doing it, and until this test existed
 //! the phone's entry was silently gone.
 
-use vardo_core::session::{CoreError, Session};
 use vardo_core::source::{SourceContext, VaultSource};
+use vardo_core::{CoreError, Session};
 
 const PW: &str = "demopass";
 const FIXTURE: &str = "../../fixtures/test_db_kdbx4_with_password_argon2.kdbx";

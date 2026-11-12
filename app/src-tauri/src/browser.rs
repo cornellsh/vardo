@@ -28,7 +28,7 @@ pub fn start(app: tauri::AppHandle, state: crate::AppState) {
         .name("browser-socket".into())
         .spawn(move || {
             let path = vardo_browser::socket::path();
-            if let Err(e) = vardo_core::browser_server::serve(&path, state.session, perform) {
+            if let Err(e) = vardo_core::browser::server::serve(&path, state.session, perform) {
                 // The rest of Vardo works without the extension, so this is a
                 // message, not a reason to stop.
                 eprintln!("vardo: browser extension unavailable: {e}");

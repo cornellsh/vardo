@@ -12,6 +12,7 @@
 mod doclinks;
 mod ipc;
 mod layers;
+mod modules;
 
 use std::{
     env,
@@ -45,6 +46,11 @@ const GATES: &[Gate] = &[
         name: "layers",
         fast: true,
         run: layer_deps,
+    },
+    Gate {
+        name: "core-modules",
+        fast: true,
+        run: core_modules,
     },
     Gate {
         name: "ipc-names",
@@ -250,6 +256,21 @@ fn layer_deps(c: &mut Ctx) -> Outcome {
     let broken = match metadata {
         Ok(m) => layers::check(&m),
         Err(e) => vec![format!("cargo metadata is not JSON: {e}")],
+    };
+    for line in &broken {
+        let _ = writeln!(c.log, "{line}");
+    }
+    if broken.is_empty() {
+        Outcome::Ok
+    } else {
+        Outcome::Fail
+    }
+}
+
+fn core_modules(c: &mut Ctx) -> Outcome {
+    let broken = match modules::read_tree(&c.root.join("crates/vardo-core/src")) {
+        Ok(files) => modules::check(&files),
+        Err(e) => vec![format!("cannot read crates/vardo-core/src: {e}")],
     };
     for line in &broken {
         let _ = writeln!(c.log, "{line}");

@@ -1,5 +1,8 @@
 //! Writes the interface's copy of the wire types (`inv:ipc-types-are-generated`).
 //!
+//! Contract: `app/src/ipc/bindings.ts` equals what [`render`] produces, or
+//! `cargo test` fails. Test builds only.
+//!
 //! `cargo test` fails when `app/src/ipc/bindings.ts` is stale. Rewrite it with
 //! `UPDATE_FIXTURES=1 cargo test -p vardo-core --lib bindings`.
 

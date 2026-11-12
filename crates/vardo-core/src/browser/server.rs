@@ -1,5 +1,8 @@
 //! The socket the browser extension's native host connects to.
 //!
+//! Contract: the socket sits in a directory only this user can enter, and the
+//! host only relays bytes (`inv:host-is-a-relay`).
+//!
 //! Here rather than in the desktop shell so that it can be tested with a real
 //! socket and no window. The shell supplies one callback for the two things
 //! that need the window toolkit, copying and showing the window, and runs

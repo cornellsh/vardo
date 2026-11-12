@@ -1,5 +1,9 @@
 //! Sync orchestration and sync-point persistence.
 //!
+//! Contract: preview never writes (`inv:plan-before-apply`). Without a stored
+//! sync point nothing is deleted (`inv:no-base-no-delete`), and two different
+//! vaults refuse to merge (`inv:refuse-different-vaults`).
+//!
 //! # Why preview and apply are separate
 //!
 //! `vardo_sync::sync` will merge and upload in one call. That is right for an
@@ -19,6 +23,8 @@
 //! stored beside the app config, encrypted exactly as it came off the wire,
 //! because it *is* a vault.
 
+pub mod review;
+
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -28,7 +34,7 @@ use crate::source::{SourceContext, VaultSource};
 use vardo_sync::protocol::{self, Outcome, SyncPoint};
 use vardo_vault::Vault;
 
-use crate::session::CoreError as UiError;
+use crate::CoreError as UiError;
 
 /// Where the sync point for a given vault lives.
 ///

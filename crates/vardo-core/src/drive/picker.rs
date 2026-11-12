@@ -1,5 +1,9 @@
 //! Choosing a vault that already exists in someone's Drive.
 //!
+//! Contract: the Picker opens in the system browser
+//! (`fact:drive-picker-system-browser`), and a pick grants this app the file
+//! under `drive.file` (`fact:drive-picker-danger`).
+//!
 //! This exists because of a constraint that is easy to state and awkward to
 //! live with: under the `drive.file` scope, Drive will not tell us a file
 //! exists until the user has handed it over. Someone who already keeps
@@ -29,9 +33,9 @@ use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;
 use std::time::{Duration, Instant};
 
-use crate::drive_auth::{self, DriveClient};
-use crate::session::CoreError;
+use crate::drive::auth::{self, DriveClient};
 use crate::source::VaultSource;
+use crate::CoreError;
 
 /// Long enough to find a file in a large Drive, short enough that a forgotten
 /// tab does not hold a listener open for the rest of the session.
@@ -47,7 +51,7 @@ pub struct PendingPick {
 
 /// Prepares the picker page and starts listening.
 pub fn begin(client: &DriveClient, app_dir: &std::path::Path) -> Result<PendingPick, CoreError> {
-    let tokens = drive_auth::access(client, app_dir)?;
+    let tokens = auth::access(client, app_dir)?;
 
     let listener = TcpListener::bind("127.0.0.1:0").map_err(io)?;
     let port = listener.local_addr().map_err(io)?.port();

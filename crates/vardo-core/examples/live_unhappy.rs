@@ -15,9 +15,9 @@
 
 use std::path::PathBuf;
 
-use vardo_core::drive_auth::DriveClient;
-use vardo_core::session::{CoreError, Session};
+use vardo_core::drive::auth::DriveClient;
 use vardo_core::source::{SourceContext, VaultSource};
+use vardo_core::{CoreError, Session};
 
 const PASSWORD: &str = "throwaway-live-test";
 
@@ -66,7 +66,7 @@ fn run(failures: &mut i32) -> Result<(), String> {
         PASSWORD,
         &local,
     )?;
-    let source = vardo_core::drive_vaults::upload(&client, &app_dir, &local)
+    let source = vardo_core::drive::vaults::upload(&client, &app_dir, &local)
         .map_err(|e| format!("upload: {e}"))?;
     let VaultSource::GoogleDrive { file_id, name } = &source else {
         return Err("upload did not return a Drive source".into());

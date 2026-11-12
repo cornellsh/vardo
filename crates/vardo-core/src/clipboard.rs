@@ -1,5 +1,9 @@
 //! Clipboard writes that clear themselves.
 //!
+//! Contract: every write schedules a wipe after `CLIPBOARD_CLEAR_SECONDS`, and
+//! the wipe clears only if the clipboard still holds the value
+//! (`inv:clipboard-written-in-rust`).
+//!
 //! A password left on the clipboard has moved from an encrypted file into the
 //! most widely readable buffer on the machine, so every write is paired with a
 //! scheduled wipe. The shell supplies the clipboard; this module decides.

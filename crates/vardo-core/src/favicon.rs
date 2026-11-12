@@ -1,5 +1,8 @@
 //! Fetching a site's icon, on purpose and one at a time.
 //!
+//! Contract: icons come from the entry's own site, never an aggregator, with
+//! capped response sizes (`inv:no-phone-home`).
+//!
 //! # What this deliberately does not do
 //!
 //! **It never asks a favicon service.** Google's `s2/favicons` and DuckDuckGo's
@@ -29,7 +32,7 @@
 
 use vardo_drive::http::{HttpTransport, Method, Request};
 
-use crate::session::CoreError;
+use crate::CoreError;
 
 /// Nobody needs a 5 MB icon, and without a cap a hostile or broken server can
 /// stream until memory runs out.

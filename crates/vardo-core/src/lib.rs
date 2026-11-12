@@ -18,30 +18,34 @@
 //! deliberately awkward to call and returns a `Zeroizing` buffer. The view
 //! models in [`model`] have no shape that can carry a protected value.
 
+//! # Map
+//!
+//! - [`session`]: an unlocked vault, its edits, and saving it.
+//! - [`sync`]: preview and apply a merge with the stored copy.
+//! - [`drive`]: Google Drive sign-in, listing and handover.
+//! - [`browser`]: answers the browser extension over a local socket.
+//! - [`source`]: where a vault lives. [`model`]: wire types. [`CoreError`]: errors.
+//! - Small services: [`clipboard`], [`favicon`], [`generate`], [`health`],
+//!   [`recents`], [`totp`].
+
 #![forbid(unsafe_code)]
 
-pub mod backend_config;
 pub mod browser;
-#[cfg(unix)]
-pub mod browser_server;
 pub mod clipboard;
-pub mod drive_auth;
-pub mod drive_picker;
-pub mod drive_vaults;
-pub mod entries;
+pub mod drive;
+mod error;
 pub mod favicon;
 pub mod generate;
 pub mod health;
 pub mod model;
 pub mod recents;
-pub mod review;
-pub mod save;
 pub mod session;
 pub mod source;
 pub mod sync;
 pub mod totp;
 
-pub use session::{CoreError, Session};
+pub use error::CoreError;
+pub use session::Session;
 
 #[cfg(test)]
 mod bindings;
