@@ -2102,7 +2102,7 @@ dependencies = [
  "serde",
  "sha2 0.11.0",
  "thiserror 2.0.20",
- "twofish 0.8.0",
+ "twofish",
  "uuid",
  "zeroize",
 ]
@@ -4418,15 +4418,6 @@ dependencies = [
 
 [[package]]
 name = "twofish"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a78e83a30223c757c3947cd144a31014ff04298d8719ae10d03c31c0448c8013"
-dependencies = [
- "cipher 0.4.4",
-]
-
-[[package]]
-name = "twofish"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0218ef702a91e18ba84dd516edf8df33a9f9fb4431d6ada13e6f9502c3bcb6fc"
@@ -4657,7 +4648,7 @@ dependencies = [
  "salsa20 0.10.2",
  "sha2 0.10.9",
  "thiserror 2.0.20",
- "twofish 0.7.1",
+ "twofish",
  "zeroize",
 ]
 

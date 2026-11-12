@@ -39,7 +39,7 @@ hmac = "0.12"
 flate2 = "1"
 getrandom = "0.3"
 thiserror = "2"
-twofish = "0.7"
+twofish = "0.8"
 zeroize = { version = "1", features = ["derive"] }
 
 # Key derivation runs millions of rounds per unlock. Unoptimised, it makes the
