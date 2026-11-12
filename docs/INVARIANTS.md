@@ -148,6 +148,12 @@ Cite a rule in code as `inv:<name>`. The `doc-links` gate of `cargo xtask check`
 - **Why:** The plaintext DOM exists only while unlocked (`inv:plaintext-while-unlocked`).
 - **Proof:** `crates/vardo-core/tests/browser_socket.rs::locking_takes_effect_on_the_next_request`. `app/src/hooks/useAutoLock.dom.test.tsx` locks after five idle minutes, restarts on input, and locks on waking from sleep. `app/src/lib/saveThenLock.test.ts` saves before locking and stays unlocked when the save fails.
 
+### inv:second-window-is-told
+
+- **Rule:** A session on a vault already unlocked in another Vardo window, in the same app directory, reports `open_elsewhere` at unlock. The lock never stops anyone opening or editing.
+- **Why:** Without it the second window learns only when a save is refused, after the work is done.
+- **Proof:** `crates/vardo-core/tests/session.rs::a_second_window_on_the_same_vault_is_told_at_unlock`, `crates/vardo-core/src/session/instance.rs::a_second_claim_on_the_same_vault_sees_the_first_until_it_drops`.
+
 ### inv:core-has-no-toolkit
 
 - **Rule:** `vardo-core` depends on no UI toolkit. Shells contain no decisions.

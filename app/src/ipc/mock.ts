@@ -118,6 +118,7 @@ export class MockIpc implements Ipc {
 			// dismiss warnings without reading them.
 			storageWarning:
 				source.kind === "file" ? storageWarningFor(source.path) : null,
+			openElsewhere: false,
 			entryCount: ENTRIES.length,
 			format: "KDBX 4.0",
 			writable: true,

@@ -17,14 +17,14 @@ exclude = ["fuzz"]
 [workspace.package]
 version = "0.0.1"
 edition = "2021"
-# Set by dependencies, not by Vardo's own code: the ICU Unicode tables behind
-# URL parsing and `darling` behind Tauri both require 1.88. Vardo itself needs
-# 1.83, for `io::ErrorKind::StorageFull`.
+# Vardo needs 1.89, for `File::try_lock` (crates/vardo-core/src/session/instance.rs).
+# Dependencies need 1.88: the ICU Unicode tables behind URL parsing and
+# `darling` behind Tauri.
 #
 # This said 1.83 for a long time without anyone checking, and 1.83 cannot even
 # read the dependency manifests. CI now builds with exactly this version, so
 # the next time a dependency raises it the build says so.
-rust-version = "1.88"
+rust-version = "1.89"
 license = "Apache-2.0 OR MIT"
 repository = "https://github.com/cornellsh/vardo"
 

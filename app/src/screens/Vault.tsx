@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { EntryDetailPane } from "../components/EntryDetail";
+import { Notice } from "../components/Notice";
 import { EntryList } from "../components/EntryList";
 import { GroupRail } from "../components/GroupRail";
 import { useAutoLock } from "../hooks/useAutoLock";
@@ -69,6 +70,7 @@ export function Vault({ info, onLock }: Props) {
 	// Starts as what unlock reported and is refreshed after anything that can
 	// change the vault's shape.
 	const [live, setLive] = useState<VaultInfo>(info);
+	const [elsewhereSeen, setElsewhereSeen] = useState(false);
 
 	/**
 	 * Writes the vault, and throws if it could not.
@@ -340,6 +342,17 @@ export function Vault({ info, onLock }: Props) {
 			    every change writes where it is made, so there is no in-between
 			    state left for a bar to describe. Failures appear next to whatever
 			    failed, and locking saves rather than asking. */}
+
+			{live.openElsewhere && !elsewhereSeen && (
+				<div className="shrink-0 px-3 pt-3">
+					<Notice
+						tone="warning"
+						title="This vault is open in another Vardo window"
+						detail="You can edit here. If both windows save, the later save stops and asks you to merge. Locking the other window avoids that."
+						action={{ label: "Got it", onClick: () => setElsewhereSeen(true) }}
+					/>
+				</div>
+			)}
 
 			<div
 				className="relative flex min-h-0 flex-1"

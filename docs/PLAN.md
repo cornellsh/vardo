@@ -17,10 +17,6 @@ These come first because every later change gets cheaper and safer once they lan
 
 In rough priority order. Each needs its own design pass before code.
 
-### plan:instance-lock
-
-- A lock file so a second Vardo window on the same vault learns at once. Today the second window's save refuses later (`inv:atomic-verified-save`).
-
 ### plan:merge-properties
 
 - Property tests that merging twice changes nothing the second time, and that merging A into B and B into A converge.

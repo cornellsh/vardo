@@ -46,7 +46,7 @@ Setup facts that cost failed runs:
 - The e2e gate uses `$CHROMIUM`, else the newest Chrome for Testing under `~/.cache/chrome-for-testing` or `~/.cache/puppeteer`, else a Chromium on the path. Branded Chrome ignores `--load-extension`, so it is never picked.
 - Compiling `vardo-app` needs the built interface in app/dist, which git ignores. The check writes a placeholder when it is missing. A bare `cargo build` does not.
 - CI lints with the latest stable Rust. A new release can add a lint that fails `main` with no code change (`fact:clippy-moves`).
-- The minimum Rust version is 1.88, in `Cargo.toml`. CI builds with Node 22.
+- The minimum Rust version is 1.89, in `Cargo.toml`. CI builds with Node 22.
 - Some Rust tests call `keepassxc-cli` and skip without it. CI installs it.
 
 ## Test data
