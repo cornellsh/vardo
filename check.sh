@@ -6,6 +6,40 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
+# Docs, code and tests link through tags (inv:, dec:, fact:, plan:) and through
+# repo paths named in AGENTS.md and docs/. A link to nothing fails here, so the
+# map cannot drift from the code it describes.
+echo "== doc links =="
+bad=0
+# Assigned first so that a failing git grep stops the script instead of
+# looping over nothing and passing.
+tags=$(git grep --untracked -h -o -E '(inv|dec|fact|plan):[a-z0-9]+(-[a-z0-9]+)*' | sort -u)
+refs=$(git grep --untracked -h -o -E '`(crates|app|extension|fixtures|fuzz|docs)/[A-Za-z0-9_./-]*(::[A-Za-z0-9_]+)?`' -- AGENTS.md docs | tr -d '`' | sort -u)
+for tag in $tags; do
+	case "${tag%%:*}" in
+	inv) doc=docs/INVARIANTS.md ;;
+	dec) doc=docs/DECISIONS.md ;;
+	fact) doc=docs/FACTS.md ;;
+	plan) doc=docs/PLAN.md ;;
+	esac
+	grep -q -x "### $tag" "$doc" || {
+		echo "undefined tag: $tag"
+		bad=1
+	}
+done
+for ref in $refs; do
+	path=${ref%%::*}
+	if [ ! -e "$path" ]; then
+		echo "missing path: $path"
+		bad=1
+	elif [ "$path" != "$ref" ] && ! grep -q -E "fn ${ref##*::}[(<]" "$path"; then
+		echo "missing test: $ref"
+		bad=1
+	fi
+done
+[ "$bad" = 0 ] || exit 1
+echo "OK"
+
 echo "== fmt =="
 cargo fmt --all --check
 

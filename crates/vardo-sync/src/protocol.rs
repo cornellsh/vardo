@@ -2,7 +2,7 @@
 //!
 //! # Operating without compare-and-swap
 //!
-//! Drive offers no conditional write (`ADR-001-sync.md`), so between reading
+//! Drive offers no conditional write (`fact:drive-no-cas`), so between reading
 //! the remote version and writing our own, another device can land a write
 //! that we will silently overwrite. That window cannot be closed.
 //!
@@ -280,7 +280,7 @@ pub fn sync(
 // `StorageBackend::write_if_unchanged`'s default body. It moved because it is
 // a property of storage that cannot refuse a write, not of the protocol — and
 // leaving it here forced every backend to behave as though it shared Drive's
-// limitation. See `ADR-005`.
+// limitation. See `dec:conditional-write-trait`.
 
 fn combine(a: Applied, b: Applied) -> Applied {
     Applied {

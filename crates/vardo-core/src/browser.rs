@@ -3,7 +3,7 @@
 //! Everything the extension can ask is decided here, where it can be tested
 //! without a window or a browser. The desktop app only moves bytes between
 //! this and a socket, and performs the two things that need the toolkit:
-//! copying to the clipboard and showing the window. See ADR-006.
+//! copying to the clipboard and showing the window. See `dec:own-extension`.
 //!
 //! Two rules matter more than the rest:
 //!

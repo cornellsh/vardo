@@ -4,8 +4,7 @@
 //! reach it. Other programs running as the same user can, and the ADR explains
 //! why a secret stored beside it would not change that.
 //!
-//! Windows is not supported yet; it needs a named pipe, and is listed as later
-//! work in ADR-006.
+//! Windows is not supported yet. It needs a named pipe (`plan:windows-pipe`).
 
 use std::path::PathBuf;
 

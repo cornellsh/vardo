@@ -1,6 +1,6 @@
 //! Phase 0 conformance harness.
 //!
-//! Its only job is to falsify the recommendation in CRITIQUE.md §3.2 — that a
+//! It tested the claim behind `dec:own-kdbx-layer`: that a
 //! closed typed model cannot round-trip KDBX losslessly, and so we should write
 //! the container layer ourselves. If `keepass` round-trips the corpus clean,
 //! the recommendation is wrong and we save a month.

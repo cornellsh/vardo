@@ -4,7 +4,7 @@
 //!
 //! # Why merge at all
 //!
-//! Google Drive has no compare-and-swap (see `ADR-001-sync.md`): `etag` was
+//! Google Drive has no compare-and-swap (`fact:drive-no-cas`): `etag` was
 //! removed in API v3 and `If-Match` is silently ignored. Two devices can and
 //! will write concurrently, and no amount of care in the sync layer prevents
 //! it. The only thing standing between a race and lost passwords is a merge

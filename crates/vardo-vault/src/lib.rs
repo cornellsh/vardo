@@ -5,8 +5,8 @@
 //! The XML DOM is the source of truth. This crate is a *lens* over it, never a
 //! replacement. Nothing here copies the document into a parallel model, because
 //! the moment two representations exist, one of them starts losing fields —
-//! which is exactly the failure that disqualified the `keepass` crate (see
-//! `PHASE0-FINDINGS.md`).
+//! which is exactly the failure that disqualified the `keepass` crate
+//! (`dec:dom-is-truth`, `fact:keepass-crate-normalises`).
 //!
 //! So `Group` and `Entry` are borrowed views holding a reference to an
 //! `xml::Element`. Reading walks the tree; writing (later) will be a surgical

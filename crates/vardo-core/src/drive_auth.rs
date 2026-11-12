@@ -20,7 +20,7 @@
 //! bounds the damage is the scope: `drive.file` grants access only to files
 //! this app created or the user explicitly picked, so a stolen token cannot
 //! enumerate or read the rest of the account. Moving to the Secret Service,
-//! Keychain and DPAPI is tracked in `ROADMAP.md`.
+//! Keychain and DPAPI is `plan:os-keyring`.
 
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;

@@ -7,7 +7,9 @@
 //! - [`framing`]: Chrome's native messaging wire format.
 //! - [`socket`]: where the app listens for the host.
 //!
-//! The design and its reasons are in `docs/ADR-006-browser-extension.md`.
+//! The design and its reasons are `dec:own-extension` and
+//! `dec:native-messaging-relay`. The rules it keeps are the `inv:` entries
+//! under "Browser" in `docs/INVARIANTS.md`.
 
 #![forbid(unsafe_code)]
 

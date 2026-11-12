@@ -2,7 +2,8 @@
 /**
  * Contrast gate for the ported Telegram palette.
  *
- * DESIGN.md §7 says Telegram's palette is not APCA-verified, so contrast has to
+ * Telegram's palette is not APCA-verified (fact:telegram-palette-contrast), so
+ * contrast has to
  * be checked rather than assumed. This makes that a build step instead of a
  * claim in a comment: it reads the real token values out of tokens.css,
  * resolves var() chains, and fails if any declared pair drops below its
@@ -193,7 +194,7 @@ if (failures > 0) {
 	console.error(
 		`\ncontrast: ${failures} of ${checked} pairs below threshold.\n` +
 			`Fix the token, or if the deviation is deliberate, change the threshold ` +
-			`here and record why in tokens.css and DESIGN.md.`,
+			`here and record why in tokens.css.`,
 	);
 	process.exit(1);
 }

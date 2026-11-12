@@ -3,11 +3,11 @@
  *
  * Values come from tdesktop source — day-blue.tdesktop-theme and
  * night-custom-base.tdesktop-theme. Constant names are kept so any value can be
- * traced back. See DESIGN.md.
+ * traced back (dec:telegram-port).
  *
  * Do not add a colour that is not in the source palette. If something needs a
  * colour Telegram does not have, that is a design decision and belongs in
- * DESIGN.md first.
+ * docs/DECISIONS.md first.
  *
  * Every `-- deviation:` comment below is checked by `scripts/contrast.mjs`,
  * which runs in CI. The numbers are computed, not claimed.

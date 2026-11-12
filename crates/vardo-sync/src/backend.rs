@@ -1,14 +1,10 @@
 //! The storage abstraction.
 //!
-//! Modelled on what Google Drive actually provides, not on what a storage API
-//! ideally would — because the sync protocol has to survive the real one.
-//!
-//! Most importantly there is **no compare-and-swap**. Drive API v3 removed
-//! `etag` from the file resource and ignores `If-Match` on the upload
-//! endpoint, so a conditional write is not available at any price (see
-//! `ADR-001-sync.md`). This trait therefore does not offer one, and no backend
-//! may pretend to: a `write` can always be lost to a concurrent write, and the
-//! protocol above must be built for that.
+//! The trait offers the strongest write, [`StorageBackend::write_if_unchanged`],
+//! and backends that can refuse a stale write override it
+//! (`dec:conditional-write-trait`). Google Drive cannot: it has no
+//! compare-and-swap (`fact:drive-no-cas`). So the default body is the emulation
+//! Drive forces, and a plain `write` can always be lost to a concurrent one.
 //!
 //! What Drive *does* give, and what this trait exposes instead:
 //!
@@ -142,9 +138,8 @@ pub trait StorageBackend {
     /// The default below is the *emulation*, for backends that cannot. It is
     /// the shape Google Drive forces: write first, then look at what you
     /// replaced, and recover afterwards if it was not what you expected. Drive
-    /// v3 removed `etag` and ignores `If-Match` — confirmed against a live
-    /// account, see `vardo-drive/tests/contract_notes.md` — so there is no
-    /// conditional form to use.
+    /// v3 removed `etag` and ignores `If-Match`, confirmed against a live
+    /// account (`fact:drive-no-cas`), so there is no conditional form to use.
     ///
     /// Having the default be the weak version, rather than the trait only
     /// offering the weak version, is the point: previously every backend

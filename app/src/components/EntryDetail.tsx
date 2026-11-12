@@ -706,7 +706,7 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 function EmptyState() {
 	return (
 		<div className="flex h-full flex-col items-center justify-center gap-1 px-6 text-center">
-			{/* DESIGN.md: empty states say something useful, and no illustrations. */}
+			{/* Empty states say something useful, and carry no illustration. */}
 			<p className="text-[var(--window-sub-text-fg)]">
 				Select an entry to see its details.
 			</p>

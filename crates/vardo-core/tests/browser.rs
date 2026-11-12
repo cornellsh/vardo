@@ -1,6 +1,7 @@
 //! The browser extension's requests, answered against a real vault.
 //!
-//! Each test is one rule from ADR-006. The ones that matter most are the
+//! Each test is one `inv:` rule under "Browser" in `docs/INVARIANTS.md`.
+//! The ones that matter most are the
 //! refusals: a password for the wrong site, a deleted login, a locked vault.
 
 use std::path::PathBuf;

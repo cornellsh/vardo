@@ -1,5 +1,5 @@
 /* Self-hosted, not a CDN: the CSP is `default-src 'self'` and the app must work
-   offline. Open Sans is what tdesktop bundles — see DESIGN.md §2. */
+   offline. Open Sans is what tdesktop bundles (dec:telegram-port). */
 @import '@fontsource-variable/open-sans';
 @import 'tailwindcss';
 @import './tokens.css';
@@ -75,7 +75,7 @@ body {
   letter-spacing: 0.01em;
 }
 
-/* Keyboard-first is a release gate (DESIGN.md §7), so the ring is never
+/* inv:keyboard-reachable, so the ring is never
    removed — only hidden for pointer users via :focus-visible. */
 :focus-visible {
   outline: 2px solid var(--window-bg-active);
