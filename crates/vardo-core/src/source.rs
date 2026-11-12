@@ -34,6 +34,7 @@ use crate::session::CoreError;
 /// compatibility surface. `tag`/`content` rather than the default so the JSON
 /// stays readable and a new variant does not disturb the old ones.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum VaultSource {
     File { path: PathBuf },

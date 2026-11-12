@@ -147,6 +147,14 @@ The long-form records these came from (ADR-001 to ADR-006, CRITIQUE, RESEARCH, P
 - **Rejected:** Keeping the ADRs, README, STATUS and ROADMAP. They mixed decisions, history and status, so nothing in them could be checked.
 - **Date:** 2026-11-12.
 
+### dec:ts-rs-bindings
+
+- **Chose:** `ts-rs` derives TypeScript for the view models in test builds only. A test in `crates/vardo-core/src/bindings.rs` writes one file. The `ipc-names` gate checks command names.
+- **Because:** `ts-rs` 12 is a stable release, reads the serde attributes already there, and adds nothing to the shipped binary.
+- **Rejected:** `tauri-specta`, which also generates the command calls but was a release candidate and changes how every command returns errors.
+- **Reopen if:** `tauri-specta` ships a stable release, or argument mismatches cause a bug.
+- **Date:** 2026-11-12.
+
 ### dec:xtask-check
 
 - **Chose:** One Rust binary, `cargo xtask check` in `xtask/`, runs every gate CI runs. One summary line per gate, full output in `target/check/<gate>.log`, `--json` for tools.

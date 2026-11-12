@@ -21,7 +21,7 @@ import type { DriveVault, VaultSource } from "../ipc";
  */
 
 export function sourceKey(s: VaultSource): string {
-	return s.kind === "file" ? `file:${s.path}` : `gdrive:${s.fileId}`;
+	return s.kind === "file" ? `file:${s.path}` : `gdrive:${s.file_id}`;
 }
 
 export function sourceName(s: VaultSource): string {
@@ -376,7 +376,7 @@ function DriveList({ onPick }: { onPick: (s: VaultSource) => void }) {
 						key={v.fileId}
 						type="button"
 						onClick={() =>
-							onPick({ kind: "googleDrive", fileId: v.fileId, name: v.name })
+							onPick({ kind: "googleDrive", file_id: v.fileId, name: v.name })
 						}
 						className="btn btn-quiet flex w-full cursor-pointer items-center gap-3 rounded-[6px] px-2 py-2 text-left transition-colors hover:bg-[var(--window-bg-ripple)]"
 						style={{ transitionDuration: "var(--duration-universal)" }}

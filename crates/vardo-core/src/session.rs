@@ -12,8 +12,8 @@ use zeroize::Zeroizing;
 
 use crate::entries;
 use crate::model::{
-    EntryDetail, EntrySummary, FieldEdit, GroupNode, SaveResult, StorageWarning, SyncOutcome,
-    SyncPreview, VaultInfo,
+    EntryDetail, EntrySummary, FieldEdit, GroupNode, SaveResult, StorageKind, StorageWarning,
+    SyncOutcome, SyncPreview, VaultInfo,
 };
 
 /// Errors as the UI models them.
@@ -21,6 +21,7 @@ use crate::model::{
 /// Deliberately coarse. A caller must not be able to distinguish a wrong
 /// password from a corrupt file any more finely than KDBX itself does.
 #[derive(Debug, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum CoreError {
     WrongPassword,
@@ -156,7 +157,9 @@ impl From<vardo_vault::EditError> for CoreError {
 ///
 /// There is no fraction, because the KDF exposes no per-pass callback. An
 /// indeterminate bar that is honest beats a determinate one that is invented.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "lowercase")]
 pub enum Phase {
     Reading,
     Deriving,
@@ -494,7 +497,7 @@ impl Session {
         self.info.entry_count = self.vault.entries().len();
 
         Ok(SyncOutcome {
-            kind: kind.into(),
+            kind,
             detail,
             races_lost: 0,
             retries: 0,
@@ -525,12 +528,12 @@ fn storage_warning(path: &Path) -> Option<StorageWarning> {
     let risk = vardo_sync::storage_risk::assess(path);
     let kind = match &risk {
         StorageRisk::Local => return None,
-        StorageRisk::Fuse { .. } => "fuse",
-        StorageRisk::Network { .. } => "network",
-        StorageRisk::NameSuggestsSync { .. } => "name",
+        StorageRisk::Fuse { .. } => StorageKind::Fuse,
+        StorageRisk::Network { .. } => StorageKind::Network,
+        StorageRisk::NameSuggestsSync { .. } => StorageKind::Name,
     };
     Some(StorageWarning {
-        kind: kind.into(),
+        kind,
         explanation: risk.explain(),
         remedy: risk.remedy().to_string(),
         why: risk.why().to_string(),

@@ -7,7 +7,7 @@
 
 use vardo_merge::{Change, Conflict, MergePlan, Side};
 
-use crate::model::{ChangeView, ConflictView};
+use crate::model::{ChangeView, ConflictView, SyncOutcomeKind};
 
 fn side_name(side: Side) -> &'static str {
     match side {
@@ -186,15 +186,16 @@ fn list(items: &[String]) -> String {
 }
 
 /// What a completed sync did, as a sentence.
-pub fn describe_outcome(outcome: &vardo_sync::protocol::Outcome) -> (&'static str, String) {
+pub fn describe_outcome(outcome: &vardo_sync::protocol::Outcome) -> (SyncOutcomeKind, String) {
     use vardo_sync::protocol::Outcome as O;
+    use SyncOutcomeKind as K;
     match outcome {
-        O::UpToDate => ("up-to-date", "Already in sync.".into()),
-        O::Pushed => ("pushed", "Your changes were uploaded.".into()),
-        O::Created => ("created", "The remote file was created.".into()),
-        O::Merged(applied) => ("merged", describe_applied(applied)),
+        O::UpToDate => (K::UpToDate, "Already in sync.".into()),
+        O::Pushed => (K::Pushed, "Your changes were uploaded.".into()),
+        O::Created => (K::Created, "The remote file was created.".into()),
+        O::Merged(applied) => (K::Merged, describe_applied(applied)),
         O::NeedsReview(plan) => (
-            "needs-review",
+            K::NeedsReview,
             format!(
                 "{} item(s) need a decision. Nothing was uploaded.",
                 plan.conflicts.len()

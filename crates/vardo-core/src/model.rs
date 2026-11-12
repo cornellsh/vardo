@@ -1,11 +1,12 @@
 //! Wire types.
 //!
-//! These mirror `app/src/ipc/types.ts` exactly. They are `camelCase` on the
-//! wire because the consumer is TypeScript.
+//! `camelCase` on the wire because the consumer is TypeScript. A test writes
+//! them to `app/src/ipc/bindings.ts` (`inv:ipc-types-are-generated`).
 
 use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub struct VaultInfo {
     /// Where the vault lives. The UI needs this to decide what to offer:
@@ -26,10 +27,10 @@ pub struct VaultInfo {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub struct StorageWarning {
-    /// fuse | network | name
-    pub kind: String,
+    pub kind: StorageKind,
     pub explanation: String,
     pub remedy: String,
     /// The full reasoning, shown only if the user opens it.
@@ -39,7 +40,18 @@ pub struct StorageWarning {
     pub provider_hint: Option<String>,
 }
 
+/// Why a vault's location can corrupt it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "kebab-case")]
+pub enum StorageKind {
+    Fuse,
+    Network,
+    Name,
+}
+
 #[derive(Debug, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub struct GroupNode {
     pub uuid: String,
@@ -49,6 +61,7 @@ pub struct GroupNode {
 }
 
 #[derive(Debug, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub struct EntrySummary {
     pub uuid: String,
@@ -71,16 +84,19 @@ pub struct EntrySummary {
 /// the TypeScript declaration, where `value?: string` means "ask Rust", not
 /// "empty".
 #[derive(Debug, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub struct Field {
     pub key: String,
     pub protected: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional))]
     pub value: Option<String>,
     pub empty: bool,
 }
 
 #[derive(Debug, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub struct Times {
     pub created: i64,
@@ -90,6 +106,7 @@ pub struct Times {
 }
 
 #[derive(Debug, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub struct Attachment {
     pub name: String,
@@ -97,6 +114,7 @@ pub struct Attachment {
 }
 
 #[derive(Debug, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub struct EntryDetail {
     pub uuid: String,
@@ -112,6 +130,7 @@ pub struct EntryDetail {
 }
 
 #[derive(Debug, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub struct CopyResult {
     pub clear_after_seconds: u32,
@@ -125,16 +144,17 @@ pub struct CopyResult {
 /// that can report it, and the UI already renders an indeterminate bar when it
 /// is absent.
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub struct UnlockPhase {
-    pub phase: String,
+    pub phase: crate::session::Phase,
     pub progress: Option<f32>,
 }
 
 impl UnlockPhase {
-    pub fn new(phase: &str) -> Self {
+    pub fn new(phase: crate::session::Phase) -> Self {
         Self {
-            phase: phase.to_string(),
+            phase,
             progress: None,
         }
     }
@@ -146,6 +166,7 @@ impl UnlockPhase {
 /// which means the field exists and is empty — KeePass treats those the same
 /// for standard fields but not for custom ones.
 #[derive(Debug, serde::Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub struct FieldEdit {
     pub key: String,
@@ -155,6 +176,7 @@ pub struct FieldEdit {
 }
 
 #[derive(Debug, serde::Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub struct GeneratorOptions {
     pub lowercase: bool,
@@ -165,6 +187,7 @@ pub struct GeneratorOptions {
 }
 
 #[derive(Debug, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub struct SaveResult {
     pub bytes_written: usize,
@@ -177,6 +200,7 @@ pub struct SaveResult {
 /// The prose lives in Rust rather than the UI so that adding a `Change` variant
 /// is a compile error here, not a silently blank row on screen.
 #[derive(Debug, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub struct ChangeView {
     /// Machine-readable, for grouping and icon choice.
@@ -190,6 +214,7 @@ pub struct ChangeView {
 
 /// One thing the merge refuses to decide.
 #[derive(Debug, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub struct ConflictView {
     pub kind: String,
@@ -198,6 +223,7 @@ pub struct ConflictView {
 }
 
 #[derive(Debug, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub struct SyncPreview {
     pub remote: String,
@@ -212,14 +238,34 @@ pub struct SyncPreview {
 }
 
 #[derive(Debug, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub struct SyncOutcome {
-    /// up-to-date | pushed | merged | needs-review | created
-    pub kind: String,
+    pub kind: SyncOutcomeKind,
     pub detail: String,
     /// Non-zero means another writer beat us and the merge was redone.
     pub races_lost: u32,
     pub retries: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "kebab-case")]
+pub enum SyncOutcomeKind {
+    UpToDate,
+    Pushed,
+    Merged,
+    NeedsReview,
+    Created,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "kebab-case")]
+pub enum SyncWarningKind {
+    NoBase,
+    RemoteReadOnly,
+    ClockSkew,
 }
 
 /// Something the user should know about a sync that does not stop it.
@@ -228,10 +274,10 @@ pub struct SyncOutcome {
 /// happen, but will do something different from what the user expects unless
 /// they are told.
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub struct SyncWarning {
-    /// no-base | remote-read-only | clock-skew
-    pub kind: String,
+    pub kind: SyncWarningKind,
     pub detail: String,
 }
 
@@ -241,6 +287,7 @@ pub struct SyncWarning {
 /// stored as a protected field for that reason; only this derived value, which
 /// expires within seconds, crosses the boundary.
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub struct TotpCode {
     pub code: String,
@@ -254,6 +301,7 @@ pub struct TotpCode {
 /// have not signed in" are different problems and only one of them is the
 /// user's to fix.
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub struct DriveStatus {
     pub configured: bool,
@@ -262,6 +310,7 @@ pub struct DriveStatus {
 
 /// A vault found in Drive, for the chooser.
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub struct DriveVault {
     pub file_id: String,
@@ -272,6 +321,7 @@ pub struct DriveVault {
 
 /// An earlier version of an entry, as stored by KDBX.
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub struct HistoryVersion {
     /// Position in the stored history, needed to fetch the password later.

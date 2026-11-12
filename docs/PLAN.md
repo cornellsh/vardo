@@ -8,12 +8,6 @@ An item that changes a rule also updates `docs/INVARIANTS.md`. One that makes a 
 
 These come first because every later change gets cheaper and safer once they land.
 
-### plan:generated-ipc
-
-- **Do:** Generate the TypeScript types and command bindings from Rust, with `tauri-specta` or `ts-rs`. Delete the hand-written mirror in `app/src/ipc/types.ts` and the string command names in `app/src/ipc/tauri.ts`. Make `app/src/ipc/mock.ts` implement the generated interface. Add a gate that fails when generated files are stale.
-- **Why:** Two hand-kept copies of every view model drift without warning. Generated ones cannot.
-- **Done when:** Renaming a field in `crates/vardo-core/src/model.rs` fails the interface typecheck.
-
 ### plan:invariant-gaps
 
 - **Do:** Close every **Gap** in `docs/INVARIANTS.md`. An extension test asserts the exact manifest permissions. An eslint config enables `jsx-a11y` at error level, and a gate runs it. A test pins the CSP. Tests cover idle lock and save-before-lock.

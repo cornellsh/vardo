@@ -46,7 +46,7 @@ export function Unlock({ onUnlocked, lockedReason }: Props) {
 		e.preventDefault();
 		if (busy || !password || !source) return;
 		setError(null);
-		setPhase({ phase: "reading" });
+		setPhase({ phase: "reading", progress: null });
 		try {
 			const api = await ipc();
 			const info = await api.openVault(source, password, setPhase);

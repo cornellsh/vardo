@@ -96,11 +96,11 @@ Each block says what the layer owns, its entry points, what it must never do, an
 ### Shells: `app/src-tauri` and the host
 
 - `app/src-tauri` holds `#[tauri::command]` wrappers over `Session`, the tray, the clipboard and window events.
-- Commands return core view models as JSON. Each command name is a string the frontend repeats by hand today (`plan:generated-ipc`).
+- Commands return core view models as JSON. Their TypeScript types are generated and their names are checked (`inv:ipc-types-are-generated`).
 
 ### Views: `app/src` and `extension/src`
 
-- `app/src/ipc/` is the only door to Rust. `app/src/ipc/index.ts` picks `app/src/ipc/tauri.ts` inside the app and `app/src/ipc/mock.ts` in a plain browser. `app/src/ipc/types.ts` mirrors the Rust view models by hand.
+- `app/src/ipc/` is the only door to Rust. `app/src/ipc/index.ts` picks `app/src/ipc/tauri.ts` inside the app and `app/src/ipc/mock.ts` in a plain browser. `app/src/ipc/types.ts` re-exports the generated `app/src/ipc/bindings.ts` and declares the `Ipc` interface.
 - `app/src/screens/` holds Unlock, Vault, MergeReview and Health. `app/src/components/` holds the rest.
 - `extension/src/` holds the popup, the background worker, the native-messaging client and the fill script. It is plain JavaScript with no build step.
 

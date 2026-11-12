@@ -275,7 +275,7 @@ export class MockIpc implements Ipc {
 		onProgress?: (p: UnlockPhase) => void,
 	): Promise<VaultInfo> {
 		this.source = source;
-		onProgress?.({ phase: "reading" });
+		onProgress?.({ phase: "reading", progress: null });
 		await delay(120);
 
 		// Mirrors the measured 0.871s Argon2d pass on the real vault, because the
@@ -290,14 +290,14 @@ export class MockIpc implements Ipc {
 		onProgress?.({ phase: "deriving", progress: null });
 		await delay(871);
 
-		onProgress?.({ phase: "decrypting" });
+		onProgress?.({ phase: "decrypting", progress: null });
 		await delay(90);
 
 		if (password !== DEMO_PASSWORD) {
 			throw { kind: "wrong-password" };
 		}
 
-		onProgress?.({ phase: "parsing" });
+		onProgress?.({ phase: "parsing", progress: null });
 		await delay(140);
 
 		this.unlocked = true;
@@ -775,7 +775,7 @@ export class MockIpc implements Ipc {
 
 	async forgetVault(source: VaultSource): Promise<void> {
 		const key = (s: VaultSource) =>
-			s.kind === "file" ? `file:${s.path}` : `gdrive:${s.fileId}`;
+			s.kind === "file" ? `file:${s.path}` : `gdrive:${s.file_id}`;
 		this.recents = this.recents.filter((s) => key(s) !== key(source));
 	}
 
@@ -995,7 +995,7 @@ export class MockIpc implements Ipc {
 		await delay(1800);
 		const source: VaultSource = {
 			kind: "googleDrive",
-			fileId: "picked-1",
+			file_id: "picked-1",
 			name: "passwords.kdbx",
 		};
 		this.driveVaults.push({
@@ -1012,11 +1012,11 @@ export class MockIpc implements Ipc {
 		const name = path.split("/").pop() ?? "vault.kdbx";
 		const source: VaultSource = {
 			kind: "googleDrive",
-			fileId: `mock-${this.driveVaults.length + 1}`,
+			file_id: `mock-${this.driveVaults.length + 1}`,
 			name,
 		};
 		this.driveVaults.push({
-			fileId: source.kind === "googleDrive" ? source.fileId : "",
+			fileId: source.kind === "googleDrive" ? source.file_id : "",
 			name,
 			size: 646_000,
 			modifiedUnix: Math.floor(Date.now() / 1000),

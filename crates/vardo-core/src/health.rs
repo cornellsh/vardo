@@ -42,6 +42,7 @@ const STALE_SECONDS: i64 = 63_072_000;
 const SHORT: usize = 12;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(rename_all = "kebab-case")]
 pub enum Issue {
     /// The same password is on more than one entry.
@@ -58,6 +59,7 @@ pub enum Issue {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub struct Finding {
     pub uuid: String,
@@ -70,7 +72,9 @@ pub struct Finding {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, ts(rename = "HealthReport"))]
 pub struct Report {
     pub findings: Vec<Finding>,
     /// Entries that were examined, so the UI can say "3 of 412" rather than a
