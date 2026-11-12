@@ -117,4 +117,32 @@ describe("EntryDetailPane", () => {
 		// the field rendered at all rather than being quietly dropped.
 		expect(document.body.textContent).toContain("\u2022");
 	});
+
+	it("labels fields in words people use, not KeePass's key names", async () => {
+		// Shipped as "UserName", directly beneath an editor that said
+		// "Username". Found in a screenshot taken for the README.
+		const api = await unlocked();
+		// The mock is deliberately messy and plenty of its entries have no
+		// username, which would hide the label entirely.
+		const rows = await api.listEntries({});
+		const withUsername = rows.find((r) => r.username);
+		if (!withUsername) throw new Error("no mock entry has a username");
+		const uuid = withUsername.uuid;
+
+		render(
+			<EntryDetailPane
+				uuid={uuid}
+				writable
+				onChanged={() => {}}
+				onSaveVault={async () => {}}
+				editing={false}
+				onEditing={() => {}}
+			/>,
+		);
+
+		await waitFor(() => expect(screen.getByText("Username")).toBeTruthy());
+		expect(document.body.textContent).not.toContain("UserName");
+		// The screen-reader name too, which is where nobody looks.
+		expect(screen.getByLabelText("Copy Username")).toBeTruthy();
+	});
 });

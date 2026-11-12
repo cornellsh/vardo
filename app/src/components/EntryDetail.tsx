@@ -741,6 +741,18 @@ function Kbd({ children }: { children: React.ReactNode }) {
 	);
 }
 
+/**
+ * What a person calls a field, as opposed to what KeePass calls it.
+ *
+ * The detail view printed the raw key, so it said "UserName" directly under
+ * an editor that said "Username", and a screen reader announced "Copy User
+ * Name". Only KeePass's own standard key needs translating; custom fields are
+ * shown exactly as the person typed them, because that spelling was theirs.
+ */
+export function labelOf(key: string): string {
+	return key === "UserName" ? "Username" : key;
+}
+
 function FieldRow({
 	uuid,
 	field,
@@ -784,6 +796,7 @@ function FieldRow({
 	const shown = field.protected
 		? (revealed ?? "••••••••••••")
 		: (field.value ?? "");
+	const label = labelOf(field.key);
 
 	// Hover is handled by the stylesheet rather than by two mouse handlers
 	// writing inline styles. Those worked, and were a small state machine per
@@ -805,7 +818,7 @@ function FieldRow({
 			<button
 				type="button"
 				onClick={copy}
-				title={`Copy ${field.key.toLowerCase()}`}
+				title={`Copy ${label.toLowerCase()}`}
 				// No hover of its own: the row it sits in already has one, and two
 				// nested hover backgrounds make the inner one look like a
 				// separate control floating on the row.
@@ -819,7 +832,7 @@ function FieldRow({
 				</div>
 				<FieldLabel>
 					{copiedFor === null
-						? field.key
+						? label
 						: `Copied. Clipboard clears in ${copiedFor}s`}
 				</FieldLabel>
 			</button>
@@ -834,7 +847,7 @@ function FieldRow({
 						{revealed !== null ? <EyeOffIcon /> : <EyeIcon />}
 					</GlyphButton>
 				)}
-				<GlyphButton label={`Copy ${field.key}`} onClick={copy} pressed={false}>
+				<GlyphButton label={`Copy ${label}`} onClick={copy} pressed={false}>
 					<CopyIcon />
 				</GlyphButton>
 			</div>

@@ -788,8 +788,13 @@ export class MockIpc implements Ipc {
 
 	async fetchIcon(_uuid: Uuid): Promise<string | null> {
 		await delay(700);
-		// A real one-pixel PNG, so the img tag is exercised rather than a stub.
-		return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+		// Nothing, which is what the browser build can actually fetch.
+		//
+		// This used to return a one-pixel red PNG "so the img tag is exercised".
+		// It was never stored, so the list kept showing a letter while the header
+		// showed a red square stretched to fill the avatar: a disagreement the real
+		// app does not have, and the first thing anyone saw in a screenshot.
+		return null;
 	}
 
 	async entriesMissingIcons(): Promise<Uuid[]> {
