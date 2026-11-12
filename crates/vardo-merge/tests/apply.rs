@@ -14,6 +14,7 @@ use vardo_vault::Vault;
 const FIXTURE: &str = "test_db_kdbx41_with_password_aes.kdbx";
 const ENTRY: &str = "entry with no quality check";
 const OTHER: &str = "entry that was moved";
+const ICON: &str = "entry with named custom icon";
 
 /// Applies a plan and returns the merged vault, re-read from bytes.
 fn merge(
@@ -320,6 +321,72 @@ fn keep_remote_policy_takes_the_remote_version() {
             .username(),
         "bob"
     );
+}
+
+/// After every time in the fixture, as a real edit would be.
+const NOW: i64 = 2_000_000_000;
+
+fn in_group(v: &Vault, group: &str, title: &str) -> bool {
+    v.root()
+        .unwrap()
+        .groups()
+        .find(|g| g.name() == group)
+        .is_some_and(|g| g.entries().any(|e| e.title() == title))
+}
+
+fn edit(v: &mut Variant, title: &str, value: &str, at: i64) {
+    v.set_field(title, "UserName", value);
+    v.set_time(title, "LastModificationTime", at);
+}
+
+#[test]
+fn keep_remote_restores_an_entry_deleted_here_and_edited_there() {
+    // Found by tests/properties.rs: the remote edit was silently dropped.
+    let (base, local, remote) = scenario(
+        |v| v.delete_entry(ENTRY, NOW),
+        |v| edit(v, ENTRY, "edited-there", NOW),
+    );
+    let (merged, applied) = merge(&base, &local, &remote, ConflictPolicy::KeepRemote);
+    assert!(applied.skipped.is_empty(), "{:?}", applied.skipped);
+    let v = merged.vault();
+    let entry = v.entries().into_iter().find(|e| e.title() == ENTRY);
+    assert_eq!(entry.map(|e| e.username()).as_deref(), Some("edited-there"));
+}
+
+#[test]
+fn keep_remote_takes_a_delete_made_there() {
+    // Found by tests/properties.rs: the local edit silently survived.
+    let (base, local, remote) = scenario(
+        |v| edit(v, ENTRY, "edited-here", NOW),
+        |v| v.delete_entry(ENTRY, NOW),
+    );
+    let (merged, applied) = merge(&base, &local, &remote, ConflictPolicy::KeepRemote);
+    assert!(applied.skipped.is_empty(), "{:?}", applied.skipped);
+    assert!(!titles(&merged.vault()).contains(&ENTRY.to_string()));
+}
+
+#[test]
+fn keep_remote_follows_a_move_made_there_in_the_same_second() {
+    let (base, local, remote) = scenario(
+        |v| v.move_entry(ENTRY, "Group that was moved", NOW),
+        |v| v.move_entry(ENTRY, "Group with tags", NOW),
+    );
+    let (merged, _) = merge(&base, &local, &remote, ConflictPolicy::KeepRemote);
+    assert!(in_group(&merged.vault(), "Group with tags", ENTRY));
+}
+
+#[test]
+fn a_local_move_survives_merging_a_remote_edit_twice() {
+    // Found by tests/properties.rs: taking the remote content also took its
+    // move time, so the second merge moved the entry back.
+    let (base, local, remote) = scenario(
+        |v| v.move_entry(ICON, "Group that was moved", NOW + 1),
+        |v| edit(v, ICON, "edited-there", NOW + 2),
+    );
+    let (once, _) = merge(&base, &local, &remote, ConflictPolicy::KeepRemote);
+    assert!(in_group(&once.vault(), "Group that was moved", ICON));
+    let (twice, _) = merge(&base, &once, &remote, ConflictPolicy::KeepRemote);
+    assert!(in_group(&twice.vault(), "Group that was moved", ICON));
 }
 
 #[test]

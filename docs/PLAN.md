@@ -17,10 +17,6 @@ These come first because every later change gets cheaper and safer once they lan
 
 In rough priority order. Each needs its own design pass before code.
 
-### plan:merge-properties
-
-- Property tests that merging twice changes nothing the second time, and that merging A into B and B into A converge.
-
 ### plan:quick-access
 
 - A global hotkey overlay: type to search, Enter to copy.

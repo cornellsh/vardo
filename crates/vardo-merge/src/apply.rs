@@ -172,7 +172,7 @@ pub fn apply(
     }
 
     for conflict in &plan.conflicts {
-        resolve_conflict(conflict, local, &remote_root, policy, &mut applied);
+        resolve_conflict(conflict, local, remote, &remote_root, policy, &mut applied);
     }
 
     Ok(applied)
@@ -181,22 +181,50 @@ pub fn apply(
 fn resolve_conflict(
     conflict: &Conflict,
     local: &mut Vault,
+    remote: &Vault,
     remote_root: &Element,
     policy: ConflictPolicy,
     applied: &mut Applied,
 ) {
-    let uuid = match conflict {
-        Conflict::ConcurrentEdit { uuid, .. }
-        | Conflict::DeleteVersusEdit { uuid, .. }
-        | Conflict::MissingTimestamp { uuid, .. }
-        | Conflict::ConcurrentMove { uuid, .. } => *uuid,
+    let (uuid, title) = match conflict {
+        Conflict::ConcurrentEdit { uuid, title, .. }
+        | Conflict::DeleteVersusEdit { uuid, title, .. }
+        | Conflict::MissingTimestamp { uuid, title }
+        | Conflict::ConcurrentMove { uuid, title, .. } => (*uuid, title),
     };
 
     match policy {
         // Leave local untouched; the remote version is simply not taken.
         ConflictPolicy::KeepLocal | ConflictPolicy::Refuse => {}
         ConflictPolicy::KeepRemote => {
-            replace_entry(local, remote_root, uuid, false);
+            // The remote copy wins whichever side deleted. Replacing in place
+            // works only when both sides still hold the entry, so a delete is
+            // taken or undone explicitly, or the choice would silently do the
+            // opposite of what the person picked.
+            let ok = match conflict {
+                Conflict::DeleteVersusEdit {
+                    deleted_by: Side::Remote,
+                    ..
+                } => delete_entry(local, uuid, remote.deleted_objects()),
+                Conflict::DeleteVersusEdit {
+                    deleted_by: Side::Local,
+                    ..
+                } => {
+                    let restored = add_entry(local, remote, remote_root, uuid);
+                    if restored {
+                        remove_tombstone(local, uuid);
+                    }
+                    restored
+                }
+                // Both moved in the same second: the remote copy's group wins.
+                Conflict::ConcurrentMove { .. } => move_entry(local, remote_root, uuid),
+                _ => replace_entry(local, remote_root, uuid, false),
+            };
+            if !ok {
+                applied
+                    .skipped
+                    .push(format!("keep the other copy of {title:?}"));
+            }
         }
         ConflictPolicy::Duplicate => {
             if duplicate_remote(local, remote_root, uuid) {
@@ -301,8 +329,29 @@ fn replace_entry(
     dedupe_history(&mut history);
 
     set_history(&mut winner, history);
+    // Replaced in place, so the entry stays in the local group and keeps the
+    // time it moved there. The remote's time would claim a move that did not
+    // happen, and the next merge would move it back.
+    copy_location_changed(existing, &mut winner);
     *existing = winner;
     true
+}
+
+/// Sets `to`'s `Times/LocationChanged` to `from`'s, when both have one.
+fn copy_location_changed(from: &Element, to: &mut Element) {
+    let Some(when) = from
+        .child("Times")
+        .and_then(|t| t.child("LocationChanged"))
+        .map(|e| e.text())
+    else {
+        return;
+    };
+    if let Some(e) = to
+        .child_mut("Times")
+        .and_then(|t| t.child_mut("LocationChanged"))
+    {
+        e.set_text(&when);
+    }
 }
 
 /// Local won, but the remote's version still deserves to be recorded.
@@ -357,9 +406,14 @@ fn move_entry(local: &mut Vault, remote_root: &Element, uuid: Uuid) -> bool {
     let Some(node) = dom::take_entry(root, uuid) else {
         return false;
     };
-    let Node::Element(element) = node else {
+    let Node::Element(mut element) = node else {
         return false;
     };
+    // The entry now sits where the remote put it, so it carries the time the
+    // remote moved it.
+    if let Some(source) = dom::find_entry(remote_root, uuid) {
+        copy_location_changed(source, &mut element);
+    }
     // `insert_into_group` falls back to the root group, so a missing target
     // relocates the entry rather than losing it.
     insert_into_group(local, Some(target_parent), element)
