@@ -140,8 +140,7 @@ Cite a rule in code as `inv:<name>`. The `doc-links` gate of `cargo xtask check`
 
 - **Rule:** Copying writes the clipboard from Rust and clears it after 15 seconds, only if it still holds what Vardo wrote. The interface never uses `navigator.clipboard` for a secret.
 - **Why:** Routing a password through the WebView to copy it would undo `inv:secrets-stay-in-rust`. Clearing someone's later copy would destroy their data.
-- **Proof:** `crates/vardo-core/tests/browser_socket.rs::copying_is_done_by_the_app_and_a_failed_copy_is_not_reported_as_copied`.
-- **Gap:** The clear-only-if-unchanged decision lives in `app/src-tauri/src/clipboard.rs` and has no test (`plan:core-decides-shells-act`).
+- **Proof:** `crates/vardo-core/tests/browser_socket.rs::copying_is_done_by_the_app_and_a_failed_copy_is_not_reported_as_copied`, `crates/vardo-core/src/clipboard.rs::keeps_what_the_user_copied_since`, `crates/vardo-core/src/clipboard.rs::leaves_an_unreadable_clipboard_alone`, `crates/vardo-core/src/clipboard.rs::copy_writes_now_and_clears_later`.
 
 ### inv:lock-drops-plaintext
 

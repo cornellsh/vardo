@@ -97,7 +97,6 @@ Each block says what the layer owns, its entry points, what it must never do, an
 
 - `app/src-tauri` holds `#[tauri::command]` wrappers over `Session`, the tray, the clipboard and window events.
 - Commands return core view models as JSON. Each command name is a string the frontend repeats by hand today (`plan:generated-ipc`).
-- The clipboard clear still sits in the shell (`plan:core-decides-shells-act`).
 
 ### Views: `app/src` and `extension/src`
 
@@ -113,7 +112,7 @@ Each flow names the layers it crosses, top to bottom.
 
 **Read.** The view asks for groups, entry lists and entry details. Core returns metadata only. A protected field arrives as its name and a flag.
 
-**Use a secret.** Copy: core hands the value to the shell, which writes the clipboard and clears it after 15 seconds if it still holds that value. Reveal: one field, on request. Fill: see the browser flow.
+**Use a secret.** Copy: core hands the value and a clipboard to `crates/vardo-core/src/clipboard.rs`, which writes it and clears it after 15 seconds if it still holds that value. The shell supplies only the system clipboard. Reveal: one field, on request. Fill: see the browser flow.
 
 **Edit and save.** The view sends a `FieldEdit`. `vardo-vault` applies it and pushes one history record. Save writes a temp file, reopens and verifies it, renames it over the original, and keeps five backups. A save refuses if the file changed on disk since it was opened.
 

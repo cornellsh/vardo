@@ -200,22 +200,8 @@ pub fn generate_password(length: usize, options: GeneratorOptions) -> CmdResult<
 /// file-manager association keep working.
 #[tauri::command]
 pub fn recent_vaults(app: tauri::AppHandle) -> Vec<VaultSource> {
-    let mut out: Vec<VaultSource> = std::env::args()
-        .skip(1)
-        .filter(|a| !a.starts_with('-'))
-        .filter(|a| std::path::Path::new(a).is_file())
-        .take(1)
-        .map(VaultSource::file)
-        .collect();
-
-    if let Ok(dir) = app_dir(&app) {
-        for source in vardo_core::recents::load(&dir) {
-            if !out.contains(&source) {
-                out.push(source);
-            }
-        }
-    }
-    out
+    let dir = app_dir(&app).ok();
+    vardo_core::recents::chooser_list(dir.as_deref(), std::env::args().skip(1))
 }
 
 /// Removes a vault from the list without touching the vault itself.
