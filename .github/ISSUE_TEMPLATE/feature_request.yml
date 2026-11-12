@@ -1,0 +1,30 @@
+name: An idea or a request
+description: Something Vardo could do, or do better.
+labels: [idea]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ideas are welcome. Before writing one up, it is worth glancing at
+        [what does not fit](https://github.com/cornellsh/vardo/blob/main/CONTRIBUTING.md#what-does-not-fit),
+        so your time is not spent on something that cannot be accepted.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: Describe the situation, not the solution. "I keep having to..." is a great start.
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help?
+      description: Your idea of how Vardo could handle it, if you have one.
+
+  - type: textarea
+    id: today
+    attributes:
+      label: How do you manage today?
+      description: A workaround, another app, or nothing at all.

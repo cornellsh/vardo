@@ -1,0 +1,141 @@
+# Actions are pinned to a full commit hash with the version in a trailing
+# comment, which Dependabot only recognises on the same line. Those lines cannot
+# be wrapped, so the length rule is off for this file.
+# yamllint disable rule:line-length
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A newer push to the same branch makes the older run pointless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  # Incremental builds only help when the same tree is rebuilt, which CI never
+  # does, and they make the cache much larger.
+  CARGO_INCREMENTAL: 0
+
+# Every action is pinned to a commit, with its version in a comment. A tag can
+# be moved to different code after the fact; a commit cannot. Dependabot keeps
+# the pins current.
+
+jobs:
+  check:
+    name: Full check (Linux)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Nothing here pushes, so the token has no reason to stay on disk
+          # where every later step, and every build script, could read it.
+          persist-credentials: false
+
+      # WebKitGTK and the tray library for the app crate. keepassxc so the
+      # interoperability tests actually run: they skip themselves without
+      # keepassxc-cli, and a skipped compatibility test proves nothing.
+      - name: System libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev \
+            keepassxc
+
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Install interface dependencies
+        working-directory: app
+        run: npm ci
+
+      # The app crate embeds the built interface at compile time, so it has to
+      # exist before clippy and the tests compile that crate.
+      - name: Build interface
+        working-directory: app
+        run: npx vite build
+
+      - name: Confirm KeePassXC is present
+        run: keepassxc-cli --version
+
+      - name: check.sh
+        run: ./check.sh
+
+  core:
+    name: Core tests (${{ matrix.os }})
+    # The libraries that read, write and merge vaults have no platform-specific
+    # code paths on purpose. Running them on Windows and macOS is how that stays
+    # true. The window itself is only built on Linux, above.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - name: Test
+        run: cargo test --workspace --exclude vardo-app --locked
+
+  msrv:
+    name: Minimum Rust version
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: System libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev
+      # Kept in step with `rust-version` in Cargo.toml. A minimum that nobody
+      # checks drifts upward silently, and the first person to notice is someone
+      # whose build fails with an error that does not mention the cause.
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: "1.88"
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      # Checking does not need the real interface, only something for the app
+      # crate to embed.
+      - name: Placeholder interface
+        run: mkdir -p app/dist && echo '<!doctype html>' > app/dist/index.html
+      - name: Check
+        run: cargo check --workspace --all-targets --locked
+
+  audit:
+    name: Known vulnerabilities
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+        with:
+          command: check advisories
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - name: npm audit
+        working-directory: app
+        run: npm audit --audit-level=moderate

@@ -1,115 +1,387 @@
-# Vardo
+<p align="center">
+  <img src="app/src-tauri/icons/icon.svg" width="72" alt="">
+</p>
 
-A KDBX-native password manager for Windows, macOS, and Linux. Stays
-byte-compatible with KeePassium on iOS.
+<h1 align="center">Vardo</h1>
 
-A vault can be a file on this machine or a file in Google Drive, and the two
-behave the same everywhere in the app. Drive is reached through its own API
-rather than a synced folder, which is what makes it possible to merge two
-devices that edited at once instead of one silently overwriting the other.
-Other backends are a variant in one enum, not a rewrite.
+<p align="center">
+  A password manager for your desktop that keeps your passwords in a file you own.
+</p>
 
-**Status:** the app reads, edits, saves, syncs and merges real vaults, locally
-and in Google Drive. The Drive path has been run end to end against a live
-account - upload, open with no local file involved, edit, save, reopen in a
-fresh session, sync - and `keepassxc-cli` reads back what it wrote. Two
-concurrent sessions were used to check that a save cannot destroy another
-device's edit. See [`STATUS.md`](STATUS.md) for what works and
-[`ROADMAP.md`](ROADMAP.md) for what does not.
+<p align="center">
+  <a href="https://github.com/cornellsh/vardo/actions/workflows/ci.yml"><img src="https://github.com/cornellsh/vardo/actions/workflows/ci.yml/badge.svg" alt="Tests"></a>
+  <a href="#license"><img src="https://img.shields.io/badge/license-Apache--2.0%20OR%20MIT-blue" alt="License: Apache-2.0 or MIT"></a>
+</p>
 
-Those runs live in `crates/vardo-core/examples/`. They need real credentials, so
-they are not part of `./check.sh`; each creates its own throwaway vault and can
-reach nothing else.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/vardo-dark.png">
+  <img src="docs/images/vardo-light.png" alt="Vardo showing a list of saved logins on the left and the details of one login on the right">
+</picture>
 
-### One surprise worth knowing about Drive
+Vardo keeps your passwords in a KeePass file, the same `.kdbx` format used by
+KeePassXC on the desktop and KeePassium on the iPhone. You can keep that file on
+your computer, or keep it in your Google Drive and let Vardo keep your devices
+in step.
 
-Vardo asks for the `drive.file` scope, which lets it see only files it created
-or that you explicitly gave it. It cannot list, read, or touch anything else in
-your Drive, and it cannot be made to.
+There is no account to create, no subscription, and no company server holding
+your passwords. If Vardo disappeared tomorrow, any KeePass app would open your
+file exactly as before.
 
-The cost of that is real and shows up immediately: a vault already sitting in
-your Drive **will not appear** in Vardo's list until you add it once. The
-alternative is requesting read access to your entire Drive in order to populate
-a dropdown, which is not a reasonable thing for a password manager to ask.
+> [!IMPORTANT]
+> **Vardo is early software.** It works, and its author uses it every day, but it
+> has not been independently audited and there are no ready-made downloads yet.
+> Keep a backup copy of your password file while you try it.
 
-## Running it
+## Contents
 
-Linux needs `webkit2gtk-4.1` (GTK3 — Tauri does not support `webkitgtk-6.0`):
+- [Why Vardo exists](#why-vardo-exists)
+- [What it can do](#what-it-can-do)
+- [What it cannot do yet](#what-it-cannot-do-yet)
+- [Is it safe?](#is-it-safe)
+- [Google Drive, explained](#google-drive-explained)
+- [Installing](#installing)
+- [Everyday use](#everyday-use)
+- [Questions people ask](#questions-people-ask)
+- [For developers](#for-developers)
+- [License](#license)
+
+## Why Vardo exists
+
+Password managers usually make you choose.
+
+**Cloud services** such as 1Password and Bitwarden are convenient. Your
+passwords appear on every device. But they live on the company's servers, in
+the company's format, behind the company's subscription.
+
+**KeePass apps** let you keep the file yourself, but syncing it between devices
+is your problem. Most people put the file in Dropbox or Google Drive and hope.
+That works until two devices save at the same moment, and then one set of
+changes quietly disappears.
+
+Vardo tries to give you both:
+
+- **Your passwords stay in an ordinary file that you control.** Copy it, back it
+  up, open it in another app. Nothing about it is special to Vardo.
+- **Syncing is built in, and it does not lose changes.** If you edit a login on
+  your laptop and a different one on your phone, Vardo combines both instead of
+  letting one overwrite the other. When it cannot tell which version you meant,
+  it shows you both and asks.
+- **It is pleasant to use.** Vardo borrows the calm look of a modern messaging
+  app rather than the spreadsheet look of older password managers.
+
+## What it can do
+
+**Open your vault**
+
+- Unlock with your master password.
+- Pick a file on your computer, or a file in your Google Drive.
+- Vardo remembers the vaults you have opened, so next time it is one click.
+
+**Find and use a password**
+
+- Search as you type.
+- Click a username or password to copy it. Your clipboard is cleared again after
+  15 seconds.
+- Reveal a password on screen when you need to read it.
+- See two-factor codes (the six-digit codes that change every 30 seconds) next
+  to the login they belong to.
+
+**Keep things organised**
+
+- Folders inside folders, which KeePass calls groups. Create, rename and delete
+  them.
+- Tags, expiry dates, notes and extra fields of your own.
+- File attachments up to 8 MB each, such as recovery codes or a scanned card.
+- Sort by name or by when you last changed something.
+- Each site's icon, fetched once and stored inside your vault.
+
+**Look after your passwords**
+
+- A **password health** page lists passwords that are reused, weak, expired or
+  very old.
+- A password generator.
+- Every change keeps the previous version, so you can look back at an old
+  password if a site still expects it.
+
+**Stay safe while you work**
+
+- Vardo locks itself after 5 minutes without use.
+- Closing the window keeps Vardo in the system tray, so you do not have to type
+  your master password every time. The tray icon shows whether your vault is
+  locked or unlocked.
+- Every save is checked before your old file is replaced (see
+  [Is it safe?](#is-it-safe)).
+
+## What it cannot do yet
+
+It is better that you know this before you start than after.
+
+- **No browser autofill yet.** For now you copy and paste. A Chrome extension
+  is being built.
+- **No phone app.** Use [KeePassium](https://keepassium.com) on iPhone and iPad,
+  or [KeePassDX](https://www.keepassdx.com) on Android, with the same file.
+- **Master password only.** Key files, YubiKeys, and unlocking with your
+  fingerprint or Windows Hello are not supported.
+- **No installers to download.** For now you build Vardo yourself, which takes
+  a few commands (see [Installing](#installing)).
+- **Used daily on Linux only.** It should work on Windows and macOS, and its
+  core is tested on all three systems automatically, but nobody uses it there
+  day to day yet.
+- **Google Drive is the only built-in sync.** You can keep your file in a
+  Dropbox or OneDrive folder, but those apps copy files on their own schedule
+  and can lose changes when two devices save at once. Vardo warns you when it
+  sees your vault in one of those folders.
+- **No settings screen.** The auto-lock time and clipboard time are fixed.
+- **Older KeePass files open read-only.** Files in the old KDBX 3.1 format can
+  be viewed but not changed. Opening and saving them once in KeePassXC converts
+  them to the current format.
+
+## Is it safe?
+
+The honest answer: it is built carefully, it is tested heavily, and nobody
+independent has checked it yet. Here is what that means in practice.
+
+**Vardo does not invent its own encryption.** It uses the KeePass file format,
+which has been public and widely studied for many years. Your whole vault is
+encrypted with AES-256 or ChaCha20, and your master password is run through
+Argon2, a method designed to make guessing slow and expensive. That is why
+unlocking takes about a second. The pause is intentional.
+
+**Nobody can recover a forgotten master password**, including Vardo. There is
+no reset link, because there is no server to send one from. Write it down
+somewhere safe if you are worried about forgetting it.
+
+**Your passwords are kept away from the visible part of the app.** Vardo's
+window is drawn with web technology, which is good at looking nice and bad at
+keeping secrets in memory. So passwords stay in a separate part of the program
+written in Rust. The window only receives a password when you click **Show**,
+and copying goes straight from that separate part to your clipboard.
+
+**Every save is checked before it counts.** Vardo writes the new file, opens it
+again to make sure it decrypts correctly, and only then replaces your old one.
+If anything goes wrong, your previous file is untouched. For files on your
+computer, the last 5 versions are also kept as backups next to the file.
+
+**It is tested against the apps you might already use.** Files written by
+Vardo are opened by KeePassXC as part of the automated tests. Hundreds of tests
+run on every change, and the code that reads files has been fed about 15
+million deliberately broken inputs to make sure it fails safely instead of
+crashing or misbehaving.
+
+**What Vardo connects to.** Nothing, unless you ask it to. There is no
+analytics and no tracking. It goes online for two things only:
+
+- **Google Drive,** if you choose to use it.
+- **Site icons.** When you open a login that has no icon, Vardo asks that
+  website for its icon, once, and saves it in your vault. It asks the website
+  directly, not a third-party icon service, so nobody else learns which sites
+  you use.
+
+**Found a security problem?** Please report it privately, as described in
+[SECURITY.md](SECURITY.md), rather than in a public issue.
+
+## Google Drive, explained
+
+**Vardo can only see the files you give it.** When you sign in, Google asks
+whether Vardo may access "files you use with this app". That is a narrow
+permission: Vardo can see files it created and files you choose for it, and
+nothing else in your Drive. It cannot list, read or change your other files.
+
+That has one consequence that surprises people. **A vault that is already in
+your Drive will not appear in Vardo's list at first.** Choose **Google Drive**,
+then **Choose from Drive**, and pick it once. From then on it is remembered.
+
+**You sign in through your own web browser,** not a window inside Vardo. That
+way you can see that the page really is Google's, with your saved logins and
+security keys working as usual.
+
+**When two devices change the vault at the same time,** Vardo downloads the
+latest copy and combines the two:
+
+- Changes to different logins are simply kept, both of them.
+- If the same login was changed on both devices, the newer version wins, and the
+  older one is kept in that login's history, so nothing is thrown away.
+- If Vardo cannot tell which change came first, it shows you both and lets you
+  decide.
+
+Vardo never overwrites a copy in Drive that changed since you opened it. If
+that happens, it tells you, and you sync first so both sets of changes are kept.
+
+> [!NOTE]
+> If you build Vardo yourself, Google Drive needs a free Google Cloud setup
+> first, because Google requires every app to identify itself.
+> [docs/google-drive-setup.md](docs/google-drive-setup.md) walks through it in
+> about ten minutes. Files on your computer work without it.
+
+## Installing
+
+There are no downloads yet, so for now you build Vardo from its source code.
+You do not need to know how to program. It takes a few commands and about ten
+minutes, most of which is waiting.
+
+### 1. Install the tools
+
+You need **Rust** (from [rustup.rs](https://rustup.rs)) and **Node.js 20 or
+newer** (from [nodejs.org](https://nodejs.org)), plus a few things specific to
+your system:
+
+- **Linux.** WebKitGTK and a compiler.
+
+  ```sh
+  # Arch
+  sudo pacman -S --needed webkit2gtk-4.1 base-devel librsvg libayatana-appindicator
+  # Debian and Ubuntu
+  sudo apt install libwebkit2gtk-4.1-dev build-essential librsvg2-dev libayatana-appindicator3-dev
+  # Fedora
+  sudo dnf install webkit2gtk4.1-devel libappindicator-gtk3-devel librsvg2-devel
+  ```
+
+- **Windows.** The
+  [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
+  with "Desktop development with C++". WebView2 is already part of Windows 10
+  and 11.
+- **macOS.** The Xcode command line tools: `xcode-select --install`.
+
+### 2. Build Vardo
 
 ```sh
-sudo pacman -S --needed webkit2gtk-4.1 base-devel librsvg    # Arch
-sudo apt install libwebkit2gtk-4.1-dev build-essential librsvg2-dev  # Debian/Ubuntu
+git clone https://github.com/cornellsh/vardo.git
+cd vardo/app
+npm ci
+npm run app:release
 ```
 
-Then:
+When it finishes, Vardo is at `target/release/vardo-app` (`vardo-app.exe` on
+Windows), in the `vardo` folder you cloned.
+
+### 3. Try it without risking your real passwords
+
+The project includes sample vaults for exactly this. Copy one and open it:
 
 ```sh
-cd app && npm install
-npm run app                  # development, with hot reload
+cp ../fixtures/test_db_kdbx4_with_password_argon2id.kdbx /tmp/demo.kdbx
+../target/release/vardo-app /tmp/demo.kdbx
 ```
 
-To build a standalone binary that needs no dev server:
+The password is `demopass`. Change anything you like; it is your copy.
+
+### 4. Add it to your applications menu (Linux)
+
+Building Vardo does not add it to your launcher. To do that, copy the program
+somewhere permanent and describe it to your desktop:
 
 ```sh
-cd app && npm run app:release
-../target/release/vardo-app path/to/vault.kdbx
+install -Dm755 ../target/release/vardo-app ~/.local/bin/vardo
+install -Dm644 src-tauri/icons/icon.svg ~/.local/share/icons/hicolor/scalable/apps/vardo.svg
+cat > ~/.local/share/applications/vardo.desktop <<EOF
+[Desktop Entry]
+Type=Application
+Name=Vardo
+GenericName=Password Manager
+Exec=$HOME/.local/bin/vardo %f
+Icon=vardo
+Categories=Utility;Security;
+MimeType=application/x-keepass2;
+StartupWMClass=app.vardo.desktop
+EOF
 ```
 
-A path on the command line is opened directly, so file managers can hand it
-one. Without one, the unlock screen lists vaults you have opened before and
-offers a file picker, or Google Drive.
+## Everyday use
 
-### Try it without risking a real vault
+**Unlocking.** Choose your vault, type your master password, press Enter.
 
-```sh
-cp fixtures/test_db_kdbx4_with_password_argon2id.kdbx /tmp/demo.kdbx
-./target/release/vardo-app /tmp/demo.kdbx      # password: demopass
-```
+**Copying.** Click anywhere on a username or password row to copy it. The
+clipboard is cleared 15 seconds later, but only if it still holds what Vardo put
+there, so anything you copied since is left alone.
 
-The fixtures are MIT-licensed test databases. Editing, saving and syncing all
-work against them, and the sync target is the file itself — so opening a second
-copy of the app, or editing with `keepassxc-cli`, exercises the merge path.
+**Saving.** Press **Save** in the editor and your change is written to disk, or
+to Drive, there and then. There is no second "save the whole vault" step to
+forget.
 
-### The UI alone, no Rust
+**Locking.** Press <kbd>Ctrl</kbd>+<kbd>L</kbd>, click the padlock, or wait 5
+minutes. If you have unsaved changes, Vardo saves them first. If that save
+fails, Vardo stays unlocked and tells you, rather than throwing your changes
+away.
 
-```sh
-cd app && npm run build && npm run preview
-```
+**Closing the window.** Vardo keeps running in the system tray. A filled icon
+means your vault is unlocked; an outlined one means it is locked. Click the icon
+to bring the window back, or use its menu to lock or quit. On GNOME, tray icons
+need the
+[AppIndicator extension](https://extensions.gnome.org/extension/615/appindicator-support/).
 
-Runs against a mock vault of 400 entries with deliberately messy data. Useful
-for design work; it cannot touch a real file.
+**Keyboard shortcuts**
 
-> The Vite **dev** server occasionally serves a stale or empty module after
-> rapid edits, which shows up as a blank window. `rm -rf node_modules/.vite`
-> fixes it. Building and previewing avoids the class entirely.
+| Keys | What it does |
+|---|---|
+| <kbd>Ctrl</kbd>+<kbd>F</kbd> | Search |
+| <kbd>↑</kbd> <kbd>↓</kbd> | Move through the list |
+| <kbd>Ctrl</kbd>+<kbd>N</kbd> | New login |
+| <kbd>Ctrl</kbd>+<kbd>S</kbd> | Save |
+| <kbd>Ctrl</kbd>+<kbd>L</kbd> | Lock |
+| <kbd>Esc</kbd> | Close or cancel |
 
-Reads KDBX 3.1/4.0/4.1 (AES, ChaCha20, Twofish; Argon2d/id, AES-KDF) and writes
-KDBX 4.x preserving the input's format. Files it writes are opened by
-`keepassxc-cli`; passwords it decrypts match `keepassxc-cli show -a Password`.
+On a Mac, use <kbd>Cmd</kbd> instead of <kbd>Ctrl</kbd>.
 
-The defining property: **parse → serialise is byte-identical.** A save must not
-change bytes it was not asked to change, or the merge engine will invent
-conflicts that do not exist.
+## Questions people ask
 
-373 Rust tests and 23 frontend tests, clippy clean, ~14.9M fuzz executions with
-zero failures, no `unsafe`.
+**Can I keep using KeePassXC or KeePassium with the same file?**
+Yes. That is the point of using the KeePass format. Vardo leaves everything it
+does not understand, such as other apps' settings, exactly as it found it.
 
-Run everything with `./check.sh` — fmt, clippy at `-D warnings`, the Rust
-suite, the frontend typecheck and tests, the WCAG contrast gate, and the app
-build.
+**I forgot my master password. What now?**
+It cannot be recovered, by Vardo or anyone else. If you have an old backup and
+remember that password, open the backup.
 
-- [`STATUS.md`](STATUS.md) — what works, and the three decisions that shaped it
-- [`UI-PLAN.md`](UI-PLAN.md) — what the app looks like and the order it gets built
-- [`DESIGN.md`](DESIGN.md) — colour, type, icons, motion, and the constraint list
-- [`RESEARCH.md`](RESEARCH.md) — landscape and initial architecture
-- [`CRITIQUE.md`](CRITIQUE.md) — red team of the above; corrections and arguments
-- [`ADR-001-sync.md`](ADR-001-sync.md) — sync architecture (supersedes CRITIQUE §3.1)
-- [`ADR-002-ui-toolkit.md`](ADR-002-ui-toolkit.md) — Tauri vs Flutter (supersedes RESEARCH §4)
-- [`ADR-003-frontend-framework.md`](ADR-003-frontend-framework.md) — Svelte vs React, two wrong reasons retracted (superseded)
-- [`ADR-004-base-ui-reversal.md`](ADR-004-base-ui-reversal.md) — reversed to React 19 + Base UI, and why
-- [`ADR-005-backend-strategy.md`](ADR-005-backend-strategy.md) — Drive is a backend, not the architecture
-- [`ROADMAP.md`](ROADMAP.md) — what is wrong now, what is unhandled, and the order to fix it
-- [`PHASE0-FINDINGS.md`](PHASE0-FINDINGS.md) — library decision, with evidence
-- [`fuzz/README.md`](fuzz/README.md) — what fuzzing found
+**Where does Vardo keep its own settings?**
+In a folder named `app.vardo.desktop` inside your system's settings folder:
+`~/.config` on Linux, `%APPDATA%` on Windows, and `~/Library/Application
+Support` on macOS. It holds the list of recent vaults and, if you use Drive,
+your Google sign-in. It never holds your passwords.
 
-License: Apache-2.0 OR MIT
+**How is the Google sign-in stored?**
+In a file in that folder that only your user account can read. That is weaker
+than your system's password keychain, and moving it there is planned. The
+damage a stolen sign-in could do is limited by the narrow permission described
+in [Google Drive, explained](#google-drive-explained): it reaches your vault
+files and nothing else in your Drive.
+
+**What happens if Vardo crashes while saving?**
+Your previous file stays as it was. Vardo writes a new file next to it and
+swaps it in only after checking that it opens.
+
+**Why is it called Vardo?**
+A vardo is a horse-drawn wagon that a family lived in and took with them
+wherever they went. A home you carry with you. That is what a password vault
+should be.
+
+## For developers
+
+Vardo is written in [Rust](https://www.rust-lang.org) with a
+[React](https://react.dev) interface, held together by
+[Tauri](https://tauri.app). The parts that handle your data are plain Rust
+libraries that know nothing about the window, so they can be tested on their
+own.
+
+| Folder | What lives there |
+|---|---|
+| `crates/vardo-kdbx` | Reads and writes KeePass files, byte for byte |
+| `crates/vardo-vault` | Logins, groups, history and attachments on top of that |
+| `crates/vardo-merge` | Combines two copies of a vault without losing changes |
+| `crates/vardo-sync` | Saving safely, and the storage interface |
+| `crates/vardo-drive` | Google Drive and Google sign-in |
+| `crates/vardo-core` | Everything the app does, with no window involved |
+| `app/` | The desktop window: Tauri in `src-tauri/`, React in `src/` |
+
+Run `./check.sh` before sending a change. It runs every test, the linters,
+the colour-contrast check, and a full build, and it stops at the first failure.
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) explains how to set up, test and send a
+  change.
+- [docs/STATUS.md](docs/STATUS.md) describes what works and how it was proven.
+- [docs/ROADMAP.md](docs/ROADMAP.md) lists what is next and why.
+- [docs/](docs/) holds the design and the reasoning behind each major decision.
+
+## License
+
+Vardo is free and open source, under your choice of the
+[Apache License 2.0](LICENSE-APACHE) or the [MIT License](LICENSE-MIT).

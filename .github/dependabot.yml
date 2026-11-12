@@ -1,0 +1,33 @@
+version: 2
+
+# Weekly, and grouped, so updates arrive as a few reviewable pull requests
+# rather than a stream of one-line bumps that get merged without being read.
+# Security updates are not batched: GitHub opens those as soon as an advisory
+# is published, regardless of this schedule.
+
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      rust:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /app
+    schedule:
+      interval: weekly
+    groups:
+      interface:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

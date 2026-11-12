@@ -1,0 +1,74 @@
+name: Something is not working
+description: Vardo did something wrong, or did not do what you expected.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to report this.
+
+        **Never attach a real vault or share any part of a real password.** If a
+        vault is needed to show the problem, create a new one with a throwaway
+        password.
+
+        If the problem could expose someone's passwords, please do not report
+        it here. Follow [SECURITY.md](https://github.com/cornellsh/vardo/blob/main/SECURITY.md)
+        instead.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, and what did Vardo do?
+      placeholder: I opened a vault from Google Drive, edited a login and pressed Save. Vardo said...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: How can someone else make it happen?
+      description: Numbered steps are ideal. "It happens sometimes" is fine too, if that is the truth.
+      placeholder: |
+        1. Open the sample vault from fixtures/
+        2. ...
+
+  - type: dropdown
+    id: storage
+    attributes:
+      label: Where is the vault?
+      options:
+        - A file on this computer
+        - Google Drive, opened through Vardo
+        - A synced folder (Dropbox, OneDrive, an rclone mount and so on)
+        - Not about a particular vault
+    validations:
+      required: true
+
+  - type: input
+    id: system
+    attributes:
+      label: Operating system
+      placeholder: Arch Linux with GNOME 48, Windows 11, macOS 15...
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Vardo version or commit
+      description: Run `git rev-parse --short HEAD` in the folder you built from.
+      placeholder: a07ce5e
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Screenshots help, as long as no passwords are visible in them.

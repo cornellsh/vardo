@@ -1,20 +1,22 @@
 # Status
 
-Container, typed view, merge planning and sync are done. The desktop app reads
-real vaults end to end; writing from the UI is not started.
+The desktop app reads, edits, saves, syncs and merges real vaults, both local
+files and files in Google Drive. The Drive path has been run end to end against
+a live account, and files Vardo writes there are read back by `keepassxc-cli`.
 
-Run `./check.sh` — fmt, clippy `-D warnings`, and the full suite. It fails
-loudly rather than printing a total that hides failures, which an earlier
-version of that command did.
+Run `./check.sh` — fmt, clippy `-D warnings`, the Rust and frontend suites,
+the contrast gate and the app build. It fails loudly rather than printing a
+total that hides failures, which an earlier version of that command did.
 
 | Crate | State |
 |---|---|
 | `vardo-kdbx` | complete, fuzzed |
-| `vardo-vault` | typed view + safe editing |
+| `vardo-vault` | typed view, editing, history, attachments, groups |
 | `vardo-merge` | planning and application, chaos-tested |
-| `vardo-sync` | backends, fake Drive, race protocol |
-| `vardo-drive` | Drive backend + OAuth, tested offline |
-| `vardo-app` | Tauri shell, read-only UI (Phase A) |
+| `vardo-sync` | backends, conditional writes, race protocol |
+| `vardo-drive` | Drive backend, OAuth and Picker, verified live |
+| `vardo-core` | sessions, save, sync, TOTP, health, icons |
+| `vardo-app` | Tauri shell: full editor, tray, Drive |
 
 ## What works
 
@@ -43,7 +45,7 @@ reads 3.1 also reads 4.x), ARC4 inner streams (broken since 2014).
 
 | | |
 |---|---|
-| Tests | 188, all passing (~50 s) |
+| Tests | 373 Rust and 24 frontend, all passing |
 | Clippy | clean at `-D warnings`, `--all-targets` |
 | Fuzz executions | ~14.9M across four targets, zero failures |
 | `unsafe` | none — `#![forbid(unsafe_code)]` |
@@ -273,15 +275,9 @@ darken instead.
 
 ## Next
 
-1. **Google Drive in the UI** — the backend and OAuth are written and tested
-   offline; what is missing is the connect flow and swapping `LocalFile` for
-   `DriveBackend` behind the same commands. Needs a throwaway Google account
-   before the eight contract tests can run.
-2. **Cloud-mount migration prompt** — `looks_cloud_synced()` already detects the
-   dangerous case; the UI has to offer the move.
-3. Quick-access global-hotkey overlay; attachments; TOTP; password health.
-4. Distribution: Ed25519 updater signing, Apple notarisation, Azure Trusted
-   Signing.
+See [`ROADMAP.md`](ROADMAP.md). In short: the browser extension
+([`ADR-006`](ADR-006-browser-extension.md)), the OS keyring for the Drive
+token, and signed release builds.
 
 ## Building the app
 

@@ -1,0 +1,16 @@
+extends: default
+
+rules:
+  # Workflow steps pin actions to a full commit hash with the version in a
+  # comment, which cannot be wrapped and runs past 80 columns by design.
+  line-length:
+    max: 120
+  # `@<sha> # v7.0.1` with one space is the form Dependabot reads and rewrites
+  # when it bumps a pinned action.
+  comments:
+    min-spaces-from-content: 1
+  # GitHub workflow files do not start with `---`.
+  document-start: disable
+  # `on:` is a workflow key, not the boolean yamllint suspects it of being.
+  truthy:
+    check-keys: false

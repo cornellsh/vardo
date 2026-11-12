@@ -1,0 +1,15 @@
+# Line endings are normalised to LF in the repository. Without this, a checkout
+# on Windows can turn check.sh into a script bash refuses to run.
+* text=auto eol=lf
+
+# Encrypted vaults and images must never have their bytes touched.
+*.kdbx binary
+*.kdb binary
+*.png binary
+*.ico binary
+*.icns binary
+*.woff2 binary
+
+# Generated; hidden from diffs and language statistics.
+Cargo.lock linguist-generated
+app/package-lock.json linguist-generated
