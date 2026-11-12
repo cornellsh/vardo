@@ -21,14 +21,8 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-clipboard-manager = "2"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-getrandom = { workspace = true }
 
-vardo-kdbx = { path = "../../crates/vardo-kdbx" }
-vardo-vault = { path = "../../crates/vardo-vault" }
+# A shell talks to core only, plus the browser contract it shares with the
+# native host. `cargo xtask check` enforces this (xtask/src/layers.rs).
 vardo-core = { path = "../../crates/vardo-core" }
 vardo-browser = { path = "../../crates/vardo-browser" }
-vardo-merge = { path = "../../crates/vardo-merge" }
-vardo-sync = { path = "../../crates/vardo-sync" }
-zeroize = { workspace = true }

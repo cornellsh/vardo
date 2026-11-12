@@ -43,6 +43,20 @@ pub struct DriveClient {
 }
 
 impl DriveClient {
+    /// The OAuth client this build ships with, from `VARDO_CLIENT_ID` and
+    /// `VARDO_CLIENT_SECRET` at compile time.
+    ///
+    /// `None` in a source build without them. That is why the app reports
+    /// "configured" apart from "connected": "you have not signed in" and
+    /// "this build has no client id" have different answers.
+    pub fn built_in() -> Option<Self> {
+        let id = option_env!("VARDO_CLIENT_ID").filter(|id| !id.is_empty())?;
+        Some(DriveClient {
+            client_id: id.to_string(),
+            client_secret: option_env!("VARDO_CLIENT_SECRET").unwrap_or("").to_string(),
+        })
+    }
+
     pub fn config(&self) -> ClientConfig {
         ClientConfig {
             client_id: self.client_id.clone(),

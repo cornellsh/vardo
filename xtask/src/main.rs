@@ -10,6 +10,7 @@
 #![forbid(unsafe_code)]
 
 mod doclinks;
+mod layers;
 
 use std::{
     env,
@@ -38,6 +39,11 @@ const GATES: &[Gate] = &[
         name: "doc-links",
         fast: true,
         run: doc_links,
+    },
+    Gate {
+        name: "layers",
+        fast: true,
+        run: layer_deps,
     },
     Gate {
         name: "fmt",
@@ -214,6 +220,33 @@ fn doc_links(c: &mut Ctx) -> Outcome {
             let _ = writeln!(c.log, "{e}");
             Outcome::Fail
         }
+    }
+}
+
+fn layer_deps(c: &mut Ctx) -> Outcome {
+    let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".into());
+    let out = Command::new(cargo)
+        .args(["metadata", "--format-version", "1"])
+        .current_dir(&c.root)
+        .output();
+    let metadata = match out.map(|o| (o.status.success(), o)) {
+        Ok((true, o)) => serde_json::from_slice(&o.stdout),
+        other => {
+            let _ = writeln!(c.log, "cargo metadata failed: {other:?}");
+            return Outcome::Fail;
+        }
+    };
+    let broken = match metadata {
+        Ok(m) => layers::check(&m),
+        Err(e) => vec![format!("cargo metadata is not JSON: {e}")],
+    };
+    for line in &broken {
+        let _ = writeln!(c.log, "{line}");
+    }
+    if broken.is_empty() {
+        Outcome::Ok
+    } else {
+        Outcome::Fail
     }
 }
 
