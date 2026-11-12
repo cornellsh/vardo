@@ -34,6 +34,11 @@ Optional, but recommended: install KeePassXC so that `keepassxc-cli` is on your
 path. Several tests use it to confirm that other apps can open what Vardo
 writes, and they skip themselves without it.
 
+For the browser extension, run `npm ci` in `extension/` as well. It is plain
+JavaScript loaded as it is, so there is nothing to build. Its end-to-end check
+needs Chromium; set `CHROMIUM` if it is not on your path as `chromium`.
+Branded Google Chrome will not do, because it ignores `--load-extension`.
+
 ## Checking your change
 
 Run this from the top of the repository before you send anything:
@@ -43,8 +48,9 @@ Run this from the top of the repository before you send anything:
 ```
 
 It checks formatting, runs the linters with warnings treated as errors, runs
-every Rust and interface test, checks colour contrast, and builds the app. It
-stops at the first failure. The same checks run automatically on every pull
+every Rust, interface and extension test, checks colour contrast, builds the
+app, and runs the extension in a real browser against a real vault. It stops
+at the first failure. The same checks run automatically on every pull
 request.
 
 Useful smaller commands while you work:
@@ -54,6 +60,8 @@ Useful smaller commands while you work:
 | `cargo test -p vardo-kdbx` | Tests one crate |
 | `cd app && npm test` | Runs the interface tests |
 | `cd app && npm run contrast` | Explains every colour-contrast measurement |
+| `cd extension && npm test` | Runs the extension's tests |
+| `cd extension && npm run e2e` | Runs the extension in headless Chromium, end to end |
 | `cargo fmt --all` | Formats the Rust code |
 
 ## What makes a change easy to accept

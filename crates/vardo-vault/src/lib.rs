@@ -264,7 +264,7 @@ impl std::fmt::Debug for FieldValue {
         if self.protected {
             write!(f, "FieldValue(<protected, {} chars>)", self.value.len())
         } else {
-            write!(f, "FieldValue({:?})", &*self.value)
+            write!(f, "FieldValue({:?})", *self.value)
         }
     }
 }

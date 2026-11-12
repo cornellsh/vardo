@@ -257,6 +257,11 @@ impl Session {
         &self.info
     }
 
+    /// The open vault, for read-only views inside this crate.
+    pub(crate) fn vault(&self) -> &Vault {
+        &self.vault
+    }
+
     pub fn is_dirty(&self) -> bool {
         self.dirty
     }

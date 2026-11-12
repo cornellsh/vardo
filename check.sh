@@ -64,3 +64,25 @@ else
 	echo
 	echo "skipping app checks (run: cd app && npm install)"
 fi
+
+# --- browser extension -------------------------------------------------------
+if [ -d extension/node_modules ]; then
+	echo
+	echo "== extension: typecheck =="
+	(cd extension && npx tsc --noEmit -p .)
+	echo "== extension: tests =="
+	(cd extension && npx vitest run --reporter dot)
+
+	# The whole path in a real browser: popup, native host, socket, vault, and
+	# the page it fills. Needs Chromium, so it is skipped without one, and says
+	# so, rather than passing silently.
+	if command -v "${CHROMIUM:-chromium}" >/dev/null 2>&1; then
+		echo "== extension: end to end =="
+		(cd extension && node e2e/run.mjs)
+	else
+		echo "skipping the extension's end-to-end check: no Chromium (set CHROMIUM)"
+	fi
+else
+	echo
+	echo "skipping extension checks (run: cd extension && npm install)"
+fi

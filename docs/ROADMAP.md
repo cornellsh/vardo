@@ -7,9 +7,15 @@
 >
 > **Still open:** property-based merge testing (4.3), the OS keyring for the
 > Drive token, a lock against two instances editing one local file, the quick-
-> access hotkey and command palette, signed release builds, and the browser
-> extension ([`ADR-006`](ADR-006-browser-extension.md)). WebDAV waits until
-> someone needs it.
+> access hotkey and command palette, and signed release builds. WebDAV waits
+> until someone needs it.
+>
+> **The browser extension** ([`ADR-006`](ADR-006-browser-extension.md)) fills
+> logins and codes. Next for it, in order: offering to save a login after
+> sign-up, generating a password into a sign-up form, logins inside iframes,
+> Firefox, Windows (a named pipe instead of a Unix socket), and the Chrome Web
+> Store. Settings in the desktop app to install the browser helper, instead
+> of a terminal command, belong with the first release.
 
 Written after Phase D, when the app can read, edit, save and sync real vaults.
 Ordered by what gets **more expensive the longer it waits**, not by what is

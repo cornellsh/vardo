@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="color-scheme" content="light dark" />
+		<title>Vardo</title>
+		<link rel="stylesheet" href="popup.css" />
+	</head>
+	<body>
+		<header>
+			<input
+				id="search"
+				type="search"
+				placeholder="Search all logins"
+				aria-label="Search all logins"
+				autocomplete="off"
+				spellcheck="false"
+				hidden
+			/>
+		</header>
+		<main id="content" aria-live="polite"></main>
+		<p id="toast" role="status" hidden></p>
+		<script type="module" src="popup.js"></script>
+	</body>
+</html>

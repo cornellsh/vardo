@@ -8,6 +8,19 @@ follow [Semantic Versioning](https://semver.org) once there is a first release.
 
 Everything so far. There has not been a release yet.
 
+### Browser extension
+
+- Fills logins and two-factor codes in Chrome, Brave, Edge, Vivaldi and
+  Chromium, from the toolbar or with Alt+Shift+L.
+- Sees no page until asked to fill, and draws nothing inside pages, so the
+  2025 clickjacking attacks on password managers have nothing to target.
+- Vardo checks every fill belongs to the site, never fills subdomain matches
+  without a choice, never downgrades https to http, skips deleted logins and
+  invisible fields.
+- Copying is done by Vardo, so the extension never receives the password.
+- Honours the extra addresses KeePassXC and KeePassDX store in `KP2A_URL`.
+- Linux and macOS for now.
+
 ### Vaults
 
 - Opens KeePass files in the KDBX 3.1, 4.0 and 4.1 formats, and saves 4.x files

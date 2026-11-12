@@ -143,7 +143,7 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<TrayIcon<R>> {
 /// `unminimize` before `show`: a window hidden while minimised comes back
 /// minimised on some window managers, which looks exactly like the tray icon
 /// not working.
-fn reveal<R: Runtime>(app: &AppHandle<R>) {
+pub(crate) fn reveal<R: Runtime>(app: &AppHandle<R>) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
         let _ = window.show();

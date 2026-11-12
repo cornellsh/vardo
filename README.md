@@ -39,6 +39,7 @@ file exactly as before.
 - [What it cannot do yet](#what-it-cannot-do-yet)
 - [Is it safe?](#is-it-safe)
 - [Google Drive, explained](#google-drive-explained)
+- [The browser extension](#the-browser-extension)
 - [Installing](#installing)
 - [Everyday use](#everyday-use)
 - [Questions people ask](#questions-people-ask)
@@ -103,6 +104,15 @@ Vardo tries to give you both:
 - Every change keeps the previous version, so you can look back at an old
   password if a site still expects it.
 
+**Sign in to websites**
+
+- A browser extension for Chrome, Brave, Edge, Vivaldi and Chromium fills
+  your username and password, and the two-factor code on the page after.
+- Press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd>, or click the Vardo button
+  in the toolbar and choose a login.
+- See [The browser extension](#the-browser-extension) for what it can and
+  cannot see.
+
 **Stay safe while you work**
 
 - Vardo locks itself after 5 minutes without use.
@@ -116,8 +126,9 @@ Vardo tries to give you both:
 
 It is better that you know this before you start than after.
 
-- **No browser autofill yet.** For now you copy and paste. A Chrome extension
-  is being built.
+- **The browser extension is new.** It works in Chromium-based browsers on
+  Linux and macOS, you install it by hand, and it does not yet offer to save a
+  login you have just created. Firefox, Safari and Windows come later.
 - **No phone app.** Use [KeePassium](https://keepassium.com) on iPhone and iPad,
   or [KeePassDX](https://www.keepassdx.com) on Android, with the same file.
 - **Master password only.** Key files, YubiKeys, and unlocking with your
@@ -177,6 +188,9 @@ analytics and no tracking. It goes online for two things only:
   directly, not a third-party icon service, so nobody else learns which sites
   you use.
 
+The browser extension talks only to Vardo on your own computer, never to the
+internet.
+
 **Found a security problem?** Please report it privately, as described in
 [SECURITY.md](SECURITY.md), rather than in a public issue.
 
@@ -212,6 +226,49 @@ that happens, it tells you, and you sync first so both sets of changes are kept.
 > first, because Google requires every app to identify itself.
 > [docs/google-drive-setup.md](docs/google-drive-setup.md) walks through it in
 > about ten minutes. Files on your computer work without it.
+
+## The browser extension
+
+The extension fills logins into websites. It is deliberately built so that it
+**cannot see anything until you ask it to fill**.
+
+**What happens when you use it.** Press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd>
+on a sign-in page. If you have exactly one login saved for that site, Vardo
+fills it. Otherwise a small window opens next to the toolbar, listing the
+logins for that site, so you can pick one. On the next page, if the site asks
+for a two-factor code, the same key fills the code. It never presses **Sign in**
+for you: that last look at the address bar is yours.
+
+**What it can see.** Nothing until you press the key or click its button.
+Chrome then lets it see that one tab, until you leave the page. When you
+install it, Chrome does not warn that it can "read and change all your data on
+all websites", because it cannot. Most password extensions can, so that they
+can draw buttons inside every page you visit.
+
+**Why that matters.** In 2025, a security researcher showed that the fill
+buttons password managers draw inside web pages can be hidden by a malicious
+page and clicked without the user knowing, handing over their passwords. All
+eleven password managers he tested were affected. Vardo draws nothing inside
+pages, so there is nothing to hide.
+
+**What it will not do:**
+
+- Fill a login into a site it was not saved for, even if asked. Vardo checks
+  this itself, not just the extension.
+- Fill a login saved for `google.com` into `accounts.google.com` without you
+  choosing it. Logins for the parent site are listed separately.
+- Fill a login saved for an `https://` address into an insecure `http://` page.
+- Fill fields you cannot see, which is how hidden forms steal passwords.
+- Show you a login you have deleted.
+- Receive your password when you copy it. Vardo copies it for you and clears
+  the clipboard after 15 seconds; the extension never sees it.
+- Ask for your master password. If Vardo is locked, it brings Vardo's window
+  forward so you can unlock it there.
+
+**What it needs.** Vardo must be running. If it is not, the extension offers to
+start it.
+
+Installing it is described in step 5 below.
 
 ## Installing
 
@@ -285,6 +342,39 @@ MimeType=application/x-keepass2;
 StartupWMClass=app.vardo.desktop
 EOF
 ```
+
+### 5. Add the browser extension
+
+The extension needs a small helper program that lets your browser talk to
+Vardo. Build it, put it next to Vardo, and let it register itself with your
+browsers:
+
+```sh
+cd ..
+cargo build --release -p vardo-browser
+install -Dm755 target/release/vardo-browser-host ~/.local/bin/vardo-browser-host
+~/.local/bin/vardo-browser-host --install
+```
+
+It registers with every Chromium-based browser it finds that you have opened
+at least once, and tells you which.
+
+Then load the extension itself:
+
+1. Open your browser's extensions page: `chrome://extensions`, or
+   `vivaldi://extensions` in Vivaldi.
+2. Turn on **Developer mode**.
+3. Choose **Load unpacked** and pick the `extension` folder inside the `vardo`
+   folder you cloned.
+4. Pin Vardo to the toolbar, if you like having the button visible.
+
+To check it worked, open any sign-in page and press
+<kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd>. If another extension or your
+browser already uses that key, the Vardo button's window says so and takes you
+to the page where you can choose a different one.
+
+To remove it later, run `vardo-browser-host --uninstall` and remove the
+extension from the extensions page.
 
 ## Everyday use
 
@@ -370,7 +460,9 @@ own.
 | `crates/vardo-sync` | Saving safely, and the storage interface |
 | `crates/vardo-drive` | Google Drive and Google sign-in |
 | `crates/vardo-core` | Everything the app does, with no window involved |
+| `crates/vardo-browser` | What the app and the browser helper share: the messages, and which logins belong to which site |
 | `app/` | The desktop window: Tauri in `src-tauri/`, React in `src/` |
+| `extension/` | The browser extension: plain JavaScript, no build step |
 
 Run `./check.sh` before sending a change. It runs every test, the linters,
 the colour-contrast check, and a full build, and it stops at the first failure.
