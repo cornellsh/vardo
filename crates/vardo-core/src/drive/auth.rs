@@ -1,8 +1,7 @@
 //! Connecting to Google Drive, and remembering the connection.
 //!
-//! Contract: OAuth runs with PKCE and a loopback redirect. Tokens live in a
-//! file written 0600 under the app directory
-//! (`fact:drive-refresh-token-persists`).
+//! Contract: OAuth runs with PKCE and a loopback redirect, in the system
+//! browser. The refresh token is kept by [`super::tokens`].
 //!
 //! # The flow
 //!
@@ -15,24 +14,16 @@
 //!
 //! # What is stored
 //!
-//! The refresh token, which is a long-lived credential for the `drive.file`
-//! scope. It is written with `0600` permissions to the app config directory.
-//!
-//! That is **not** as good as the OS keyring, and this module says so rather
-//! than implying otherwise. A file readable by the user's own account is
-//! readable by anything running as that user. The mitigation that actually
-//! bounds the damage is the scope: `drive.file` grants access only to files
-//! this app created or the user explicitly picked, so a stolen token cannot
-//! enumerate or read the rest of the account. Moving to the Secret Service,
-//! Keychain and DPAPI is `plan:os-keyring`.
+//! Only the refresh token, by [`super::tokens`]. See there for where.
 
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use vardo_drive::oauth::{self, ClientConfig, Pkce, Tokens};
 use vardo_drive::ureq_transport::UreqTransport;
 
+use super::tokens;
 use crate::CoreError;
 
 /// The OAuth client this build ships with.
@@ -66,65 +57,6 @@ impl DriveClient {
             client_id: self.client_id.clone(),
             client_secret: self.client_secret.clone(),
         }
-    }
-}
-
-fn token_path(app_dir: &Path) -> PathBuf {
-    app_dir.join("drive-tokens")
-}
-
-pub fn stored_tokens(app_dir: &Path) -> Option<Tokens> {
-    let text = std::fs::read_to_string(token_path(app_dir)).ok()?;
-    let mut lines = text.lines();
-    let access = lines.next()?.to_string();
-    let refresh = lines.next().unwrap_or("").to_string();
-    if refresh.is_empty() {
-        return None;
-    }
-    Some(Tokens {
-        access_token: access,
-        refresh_token: Some(refresh),
-        expires_in: None,
-    })
-}
-
-pub fn is_connected(app_dir: &Path) -> bool {
-    stored_tokens(app_dir).is_some()
-}
-
-pub fn store_tokens(app_dir: &Path, tokens: &Tokens) -> Result<(), CoreError> {
-    let path = token_path(app_dir);
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(io)?;
-    }
-    let text = format!(
-        "{}\n{}\n",
-        tokens.access_token,
-        tokens.refresh_token.clone().unwrap_or_default()
-    );
-    std::fs::write(&path, text).map_err(io)?;
-    restrict(&path);
-    Ok(())
-}
-
-/// Owner-only. Best effort: a filesystem without permissions is not a reason to
-/// refuse to store the token, but it is a reason not to pretend it is
-/// protected.
-fn restrict(path: &Path) {
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600));
-    }
-    #[cfg(not(unix))]
-    let _ = path;
-}
-
-pub fn disconnect(app_dir: &Path) -> Result<(), CoreError> {
-    match std::fs::remove_file(token_path(app_dir)) {
-        Ok(()) => Ok(()),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(e) => Err(io(e)),
     }
 }
 
@@ -191,19 +123,15 @@ pub fn complete(
     .map_err(|e| CoreError::Io {
         detail: format!("could not complete sign-in: {e}"),
     })?;
-    store_tokens(app_dir, &tokens)
+    super::tokens::store(app_dir, &tokens)
 }
 
 /// A fresh access token, refreshing if we have to.
 pub fn access(client: &DriveClient, app_dir: &Path) -> Result<Tokens, CoreError> {
-    let stored = stored_tokens(app_dir).ok_or(CoreError::DriveNotConnected)?;
-    let refresh = stored
-        .refresh_token
-        .clone()
-        .ok_or(CoreError::DriveNotConnected)?;
+    let refresh = tokens::refresh_token(app_dir).ok_or(CoreError::DriveNotConnected)?;
 
     let mut http = UreqTransport::new();
-    let mut fresh = oauth::refresh(&mut http, &client.config(), &refresh).map_err(|e| {
+    let mut fresh = oauth::refresh(&mut http, &client.config(), refresh.as_str()).map_err(|e| {
         // A revoked or expired grant is not a transport failure, and telling
         // the user to check their connection would send them somewhere
         // useless. Reconnecting is the only fix.
@@ -215,9 +143,9 @@ pub fn access(client: &DriveClient, app_dir: &Path) -> Result<Tokens, CoreError>
     // Google omits the refresh token on a refresh; keep the one we have or the
     // next launch has to ask again.
     if fresh.refresh_token.is_none() {
-        fresh.refresh_token = Some(refresh);
+        fresh.refresh_token = Some(refresh.to_string());
     }
-    store_tokens(app_dir, &fresh)?;
+    tokens::store(app_dir, &fresh)?;
     Ok(fresh)
 }
 
@@ -351,76 +279,6 @@ fn io(e: std::io::Error) -> CoreError {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn a_missing_token_file_reads_as_not_connected() {
-        let dir = std::env::temp_dir().join("vardo-drive-auth-absent");
-        let _ = std::fs::remove_dir_all(&dir);
-        assert!(!is_connected(&dir));
-        assert!(stored_tokens(&dir).is_none());
-    }
-
-    #[test]
-    fn a_token_without_a_refresh_half_is_not_a_connection() {
-        // An access token alone expires within the hour, so treating it as a
-        // connection would show "connected" and then fail on the next sync.
-        let dir = std::env::temp_dir().join("vardo-drive-auth-partial");
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(token_path(&dir), "access-only\n").unwrap();
-        assert!(!is_connected(&dir));
-    }
-
-    #[test]
-    fn tokens_round_trip_and_are_owner_only() {
-        let dir = std::env::temp_dir().join("vardo-drive-auth-rt");
-        let _ = std::fs::remove_dir_all(&dir);
-        let tokens = Tokens {
-            access_token: "at".into(),
-            refresh_token: Some("rt".into()),
-            expires_in: None,
-        };
-        store_tokens(&dir, &tokens).unwrap();
-
-        let loaded = stored_tokens(&dir).expect("stored");
-        assert_eq!(loaded.access_token, "at");
-        assert_eq!(loaded.refresh_token.as_deref(), Some("rt"));
-
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let mode = std::fs::metadata(token_path(&dir))
-                .unwrap()
-                .permissions()
-                .mode();
-            assert_eq!(
-                mode & 0o777,
-                0o600,
-                "the refresh token must not be world-readable"
-            );
-        }
-    }
-
-    #[test]
-    fn disconnecting_removes_the_token_and_is_idempotent() {
-        let dir = std::env::temp_dir().join("vardo-drive-auth-disc");
-        let _ = std::fs::remove_dir_all(&dir);
-        store_tokens(
-            &dir,
-            &Tokens {
-                access_token: "at".into(),
-                refresh_token: Some("rt".into()),
-                expires_in: None,
-            },
-        )
-        .unwrap();
-        assert!(is_connected(&dir));
-
-        disconnect(&dir).unwrap();
-        assert!(!is_connected(&dir));
-        // Disconnecting twice must not error; the user pressed the button.
-        disconnect(&dir).unwrap();
-    }
 
     #[test]
     fn the_authorisation_url_carries_pkce_and_the_narrow_scope() {

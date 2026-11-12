@@ -17,10 +17,6 @@ These come first because every later change gets cheaper and safer once they lan
 
 In rough priority order. Each needs its own design pass before code.
 
-### plan:os-keyring
-
-- Store the Drive refresh token in the macOS Keychain, Secret Service or DPAPI instead of a mode 600 file.
-
 ### plan:instance-lock
 
 - A lock file so a second Vardo window on the same vault learns at once. Today the second window's save refuses later (`inv:atomic-verified-save`).

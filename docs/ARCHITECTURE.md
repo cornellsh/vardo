@@ -140,7 +140,7 @@ Each flow names the layers it crosses, top to bottom.
 | State | Location |
 | --- | --- |
 | Recents, Drive tokens, sync points | `app.vardo.desktop` in the OS config dir: `~/.config` on Linux, `~/Library/Application Support` on macOS, `%APPDATA%` on Windows |
-| Drive refresh token | A mode 600 file in that dir, not the OS keychain yet (`plan:os-keyring`) |
+| Drive refresh token | The OS credential store (Keychain, Windows Credential Manager, Secret Service), keyed by that dir. A mode 600 file there only when no store answers. `crates/vardo-core/src/drive/tokens.rs` |
 | Browser socket | `$XDG_RUNTIME_DIR/vardo/browser.sock`, else `$TMPDIR/vardo-$USER/browser.sock`. Dir 700, socket 600. Unix only |
 | Native host manifests | `NativeMessagingHosts/app.vardo.browser.json` in each Chromium-family browser's config dir |
 | Extension id | `fkemoafedkbgljikdhjbglhlhfplamll`, fixed by the `key` in `extension/manifest.json` |

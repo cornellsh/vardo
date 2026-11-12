@@ -293,7 +293,7 @@ pub fn drive_status(app: tauri::AppHandle) -> CmdResult<vardo_core::model::Drive
     let dir = app_dir(&app)?;
     Ok(vardo_core::model::DriveStatus {
         configured: DriveClient::built_in().is_some(),
-        connected: vardo_core::drive::auth::is_connected(&dir),
+        connected: vardo_core::drive::tokens::is_connected(&dir),
     })
 }
 
@@ -331,7 +331,7 @@ pub async fn drive_connect(app: tauri::AppHandle) -> CmdResult<()> {
 
 #[tauri::command]
 pub fn drive_disconnect(app: tauri::AppHandle) -> CmdResult<()> {
-    vardo_core::drive::auth::disconnect(&app_dir(&app)?)
+    vardo_core::drive::tokens::disconnect(&app_dir(&app)?)
 }
 
 fn open_in_browser(url: &str) -> std::io::Result<()> {
