@@ -222,25 +222,16 @@ common way this software eats people's passwords.
 
 ---
 
-## Consequences for you specifically
+## Consequences for people who already sync through a mount
 
-**Your rclone mount stops being the sync mechanism** and becomes a plain backup
-location. The app takes over the Drive relationship directly.
+**An rclone or similar mount stops being the sync mechanism** and becomes a
+plain backup location. The app takes over the Drive relationship directly.
 
-Note the interaction: if you keep editing `~/GoogleDrive/passwords.kdbx` with
-KeePassXC *while* the app syncs natively, KeePassXC's safe-save will rename the
-file, **Drive will assign it a new `fileId`**, and our `drive.file` grant —
-which is per-file — dies with the old ID. You'd have to re-pick the file.
-The app must detect a dead `fileId` and offer re-selection, and once we're live
-you should pick one editor, not both.
-
-This does **not** remove the rclone action item from `CRITIQUE.md` §2.1 — your
-`[gdrive]` remote is still on rclone's shared client_id, which Google is
-retiring in 2026. That breaks independently of anything we build.
-
-**Silver lining on sequencing:** the OAuth client you create to fix rclone and
-the one this app needs are the same kind of object (Desktop app, your own Cloud
-project). Do that once and it serves both.
+Note the interaction: if someone keeps editing the same vault through a mount
+with KeePassXC *while* the app syncs natively, KeePassXC's safe-save will
+rename the file, **Drive will assign it a new `fileId`**, and our `drive.file`
+grant — which is per-file — dies with the old ID. They would have to re-pick
+the file. The app must detect a dead `fileId` and offer re-selection.
 
 ---
 
@@ -349,11 +340,9 @@ account.
 
 ---
 
-## Open questions still needing you
+## Left open at the time
 
-1. **Name** — now blocking the Cloud project and crate names, not just cosmetics.
-2. **Is `~/Downloads/passwords.kdbx` (18 KB, KDBX 4.0) disposable?** I'd like it
-   as a real-world fixture. Never send me your main vault's password.
-3. **Key file / YubiKey, or password-only?**
-4. **Phase 4 only, not now:** a throwaway Google account for contract tests,
-   created by you. See the test strategy section above.
+1. **Name.** Blocked the Cloud project and crate names. Settled on Vardo.
+2. **Key file or hardware key.** Settled on password only for now.
+3. **A throwaway Google account for contract tests.** Used in Phase 4; the
+   live runs create and delete their own vaults and can reach nothing else.

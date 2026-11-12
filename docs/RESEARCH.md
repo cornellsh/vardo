@@ -1,38 +1,36 @@
-# Signal-Desktop-but-for-passwords — Research & Architecture
+# Research and initial architecture
 
-Working name: **Vault** (TBD). Goal: a KDBX-native desktop password manager for
-Windows/macOS/Linux that looks and feels like Signal Desktop, syncs via Google
-Drive, and stays byte-compatible with KeePassium on iOS.
+> **Historical document.** This is the research written before any code
+> existed, kept because the later decisions argue against it and make less
+> sense without it. Several of its conclusions were overturned, first in
+> [`CRITIQUE.md`](CRITIQUE.md) and then in the ADRs. For how Vardo actually
+> works today, read [`STATUS.md`](STATUS.md).
+>
+> Details of the author's personal setup were removed before publication. The
+> engineering conclusions drawn from them are unchanged.
 
-Status: research complete, no code written yet.
+Working name at the time: **Vault**. Goal: a KDBX-native desktop password
+manager for Windows/macOS/Linux that looks and feels like Signal Desktop, syncs
+via Google Drive, and stays byte-compatible with KeePassium on iOS.
 
 ---
 
-## 1. Ground truth — your current setup
+## 1. Ground truth — the vault this has to open
 
-Measured, not assumed. Parsed from `~/GoogleDrive/passwords.kdbx`:
-
-| Property | Value |
-|---|---|
-| Format | **KDBX 4.0** (sig `9AA2D903`/`B54BFB67`, v4.0) |
-| Outer cipher | AES-256-CBC |
-| Compression | GZip |
-| KDF | **Argon2d**, m=64 MiB, t=14, p=2, v=0x13 |
-| Header size | 253 bytes |
-| File size | 646 KB (→ you have real attachments in the binary pool) |
-| Location | Google Drive **My Drive root**, not an app folder |
-| Current sync | `rclone` FUSE mount at `~/GoogleDrive` (`gdrive:` remote, `scope=drive`) |
+Measured from a real, long-lived vault rather than assumed: KDBX 4.0, AES-256,
+GZip, Argon2d with a memory-hard setting of the kind KeePassXC now recommends,
+hundreds of kilobytes because of attachments, living in the root of a Google
+Drive and reached through an `rclone` FUSE mount.
 
 Two consequences that shape everything downstream:
 
-1. **t=14 / 64 MiB Argon2d is ~1–2 s of CPU per unlock.** Unlock cannot be
-   synchronous. It needs a background thread and a real progress indicator, or
-   the app feels broken. KeePassXC gets this wrong and just freezes.
-2. **The file lives in My Drive root, not `appDataFolder`.** This rules out the
-   `drive.appdata` scope and forces a specific OAuth strategy (see §7).
-
-Toolchain present: rustc 1.94.1, cargo, node 22, bun 1.3, pnpm 11, gh, docker.
-Missing for Tauri on this Arch box: `webkit2gtk-4.1` (only `libsoup3` installed).
+1. **A modern Argon2 setting costs one to two seconds of CPU per unlock.**
+   Unlock cannot be synchronous. It needs a background thread and a real
+   progress indicator, or the app feels broken. KeePassXC gets this wrong and
+   just freezes.
+2. **Real vaults live wherever the user put them, not in `appDataFolder`.**
+   This rules out the `drive.appdata` scope and forces a specific OAuth
+   strategy (see §7).
 
 ---
 
@@ -354,9 +352,9 @@ Build the corpus + `read→write→read` differ described in §5. Run it against
 library. This one week de-risks the entire project.
 
 **Phase 1 — Read-only viewer (~3 weeks)**
-Open your actual `passwords.kdbx` from a local path. Unlock with progress. Tree,
-list, detail, search. Copy-to-clipboard with auto-clear. Auto-lock. No writes at
-all — zero risk to your real data while you build.
+Open a real vault from a local path. Unlock with progress. Tree, list, detail,
+search. Copy-to-clipboard with auto-clear. Auto-lock. No writes at all — zero
+risk to real data while the reader is being built.
 
 **Phase 2 — Writes (~3 weeks)**
 Edit/create/delete entries and groups. Attachments. Entry history. Password
@@ -379,8 +377,8 @@ notarization. Windows: **Azure Trusted Signing ~$10/mo** is by far the cheapest
 route past SmartScreen (individuals are eligible; OV certs are $100–400/yr, EV
 $300–600/yr). Linux: AppImage + Flatpak + AUR.
 
-**Explicitly out of scope, possibly forever:** mobile app (KeePassium is your
-mobile app), browser extension (v2 at the earliest — and if you do it, speak the
+**Explicitly out of scope, possibly forever:** mobile app (KeePassium already
+is one), browser extension (v2 at the earliest — and if you do it, speak the
 existing `keepassxc-browser` protocol so their extension works unmodified rather
 than shipping your own), server component, team/sharing features.
 
@@ -389,22 +387,19 @@ It's the exact scope creep that killed Buttercup.
 
 ---
 
-## 10. Open questions for you
+## 10. Questions this left open, and how they were answered
 
-1. **Name?** Affects the OAuth client, the bundle identifier, the domain.
-2. **License?** GPL-3 (Buttercup/KeeWeb precedent, keeps it free) vs MIT
-   (maximum adoption). Note `keepass-rs` licensing must be checked for compat.
-3. **KDBX 4.0 vs 4.1** — happy to migrate the file to 4.1? KeePassium has
-   supported it since 2021. If yes, the library options widen considerably.
-4. **Is `~/GoogleDrive/passwords.kdbx` your only vault**, or are there others
-   (`~/Downloads/passwords.kdbx` is an 18 KB 4.0 file — a stale copy? a second
-   database? worth knowing).
-5. **Key file or hardware key** in the mix, or password-only?
-6. **Is this a personal tool or a real OSS product?** Determines how much of
-   Phase 5, docs, and threat-model rigor is worth doing.
-7. **Design reference** — literally Signal Desktop's layout (3-pane, left rail),
-   or Signal's *restraint* applied to a password manager's information
-   architecture? I'd argue the latter.
+1. **Name.** Vardo: a Romani living wagon. A home you take with you.
+2. **License.** Apache-2.0 OR MIT, the Rust ecosystem convention. GPL-3 was
+   considered and rejected because it would complicate reuse of the KDBX crate.
+3. **KDBX 4.0 or 4.1.** Both are read and written; the file keeps the version
+   it arrived with. Silently upgrading someone's vault is not Vardo's call.
+4. **Key files and hardware keys.** Password only for now.
+5. **Personal tool or real product.** A real product, which is why the threat
+   model and distribution sections are not optional.
+6. **Design reference.** Restraint borrowed from a messaging app, not its
+   layout copied. The final reference became Telegram Desktop; see
+   [`DESIGN.md`](DESIGN.md).
 
 ---
 

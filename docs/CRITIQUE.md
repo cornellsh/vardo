@@ -1,5 +1,11 @@
 # Red team of RESEARCH.md
 
+> **Historical document,** written before any code existed. Parts of it were
+> later overturned in turn: §3.1 by [`ADR-001`](ADR-001-sync.md), and §3.5,
+> which ruled out ever shipping a browser extension, by
+> [`ADR-006`](ADR-006-browser-extension.md). Details of the author's personal
+> setup were removed before publication.
+
 I wrote `RESEARCH.md` from search snippets. Then I verified the load-bearing
 claims by reading source, hitting APIs, and measuring. Three were wrong, one was
 wrong in a way that would have cost weeks, and I found one thing that changes
@@ -97,7 +103,7 @@ mandatory, not a nicety.
 
 ## Part 2 — New findings that change decisions
 
-### 2.1 Google is putting the Drive API behind a paywall — and your current sync will break
+### 2.1 Google is putting the Drive API behind a paywall — and rclone's default setup will break
 
 This is the biggest thing I missed.
 
@@ -110,12 +116,10 @@ This is the biggest thing I missed.
   notice: Google will start charging on it, and rclone is "many hundreds of
   times over the free quota" — they estimate **millions of dollars per year**.
 
-**→ Immediate action item for you, unrelated to this project:** your
-`~/.config/rclone/rclone.conf` `[gdrive]` remote has **no `client_id`/`client_secret`**
-— it's on the shared credential. Your Google Drive mount will stop working
-in 2026. You need to create your own OAuth client and
-`rclone config reconnect gdrive:`. This is going to break for you whether or not
-we build anything.
+**→ Worth knowing for anyone who mounts Drive with rclone:** a remote configured
+without its own `client_id`/`client_secret` is on the shared credential, and
+will stop working when it is retired. The fix is to create your own OAuth client
+and run `rclone config reconnect <remote>:`. This is independent of Vardo.
 
 **Does it kill native Drive sync for us?** No. I did the math:
 
@@ -215,11 +219,11 @@ Meanwhile they're still shipping real features (passkeys, TOTP autotype,
 Bitwarden import). So: **KeePassXC is healthy engineering with a frozen 2019
 interface and no plan to change that.** The gap is real and will stay open.
 
-### 2.5 Phase 0 needs no access to your vault (good), but the corpus is harder than I thought
+### 2.5 Phase 0 needs no access to a real vault (good), but the corpus is harder than I thought
 
 I verified `keepassxc-cli` 2.7.12 is installed and can create databases and add
 entries non-interactively. So the conformance corpus is fully buildable **without
-your master password ever entering this project.** I will never ask for it.
+anyone's real master password ever entering this project.**
 
 Caveat found by testing: `keepassxc-cli db-create` writes **KDBX 3.1** and
 exposes no format/KDF flag (only `--decryption-time`). A 4.x corpus needs the
@@ -246,8 +250,8 @@ challenge-response, deliberately-corrupted files). Take them.
 3. OAuth consent screens, app verification, and branding review are a permanent
    treadmill with a vendor who does not care about you.
 4. An extracted client_id is a quota-abuse vector against *your* Cloud bill.
-5. **The alternative is nearly free.** You already have `rclone` mounting Drive
-   at `~/GoogleDrive`. A local-file backend that is genuinely excellent gets you
+5. **The alternative is nearly free.** Anyone can mount Drive with `rclone`
+   today. A local-file backend that is genuinely excellent gets you
    Drive, Dropbox, OneDrive, iCloud Drive, Nextcloud, Syncthing, SMB, and a USB
    stick — **for zero API keys, zero OAuth, zero verification, zero cost, zero
    vendor risk.**
@@ -425,24 +429,18 @@ Answering my own open questions. Push back on any of these.
 | 7 | Design | **Signal's restraint, not Signal's layout** | A vault's information architecture is a tree + list + detail, not a conversation list. Copying the layout literally would be cargo-culting |
 | — | Frontend | **Svelte 5** | Smaller runtime = less to audit; no virtual DOM retaining stale copies of decrypted strings |
 | — | KDBX library | **Write it, DOM-first. `keepass` as differential oracle** — pending Phase 0 falsification | §3.2 |
-| — | Sync v1 | **Local file (works with your rclone today).** Native Drive is v2 | §3.1 |
+| — | Sync v1 | **Local file (works with an rclone mount today).** Native Drive is v2 | §3.1 |
 | — | Autofill | **Speak `keepassxc-browser`'s protocol.** Never ship an extension | §3.5 |
 
-### Still genuinely need you
+### Left open at the time
 
-1. **Name.** Blocks the OAuth client, bundle identifier, crate names, domain.
-   Throwing out: *Keyhole, Strongroom, Tumbler, Anchor, Kestrel, Ferrous, Vaultless.*
-   Prefer something that isn't "Pass*" or "*Vault" — that namespace is a swamp.
-2. **`~/Downloads/passwords.kdbx`** — 18 KB, KDBX 4.0, dated Aug 4. Stale export,
-   or a second vault? If it's a throwaway I'd like to use it as a real-world
-   fixture. **Do not send me the password for your main vault under any
-   circumstances**; I don't need it and won't ask.
-3. **Key file / YubiKey** in your setup, or password-only? Changes the
-   `CompositeKey` work and the unlock UI.
-4. **Am I right in §3.1?** Local-file-first is my strongest recommendation and
-   it partially defers the Google Drive integration you explicitly asked for.
-   If you want native Drive in v1, say so and I'll re-sequence — but I think
-   that's the wrong call and I've argued why.
+1. **Name.** Blocked the OAuth client, bundle identifier and crate names.
+   Anything but "Pass*" or "*Vault", which is a swamp. Settled on Vardo.
+2. **Key files and hardware keys.** Changes the `CompositeKey` work and the
+   unlock UI. Settled on password only for now.
+3. **Whether §3.1 was right.** Local-file-first was the strongest
+   recommendation here, and it was wrong: [`ADR-001`](ADR-001-sync.md)
+   explains the evidence that reversed it.
 
 ---
 
@@ -451,7 +449,7 @@ Answering my own open questions. Push back on any of these.
 **Phase 0 — Conformance harness + library decision (1 week)**
 Build corpus with `keepassxc-cli` + KeePassXC GUI + KeePass 2.x/wine + the 30
 MIT fixtures from `keepass`. Differential `read→write→read` against `keepass`.
-Falsify §3.2. *No access to your real vault at any point.*
+Falsify §3.2. *No access to a real vault at any point.*
 
 **Phase 1 — `vault-kdbx`, DOM-first (4 weeks)**
 Container + XML layer. `cargo-fuzz` from day one. Differential tests in CI.
@@ -459,7 +457,7 @@ Ship `vault-cli` alongside — it's the test driver and the field-debugging tool
 
 **Phase 2 — Read-only viewer (3 weeks)**
 Tauri shell, async unlock with progress, tree/list/detail, search,
-clipboard-with-auto-clear, auto-lock. Zero write paths — your real vault is at
+clipboard-with-auto-clear, auto-lock. Zero write paths — a real vault is at
 zero risk while the UI is built.
 
 **Phase 3 — Writes (3 weeks)**
@@ -495,5 +493,5 @@ Flatpak + AUR.
 | Fork `keepass`, add DOM preservation | Its closed typed model makes that a rewrite. Write it instead. |
 | Port KeePassXC's `Merger` | It's GPL-2+; that sets our license. Clean-room from published prose instead. |
 | Argon2 "~1–2 s" | Measured 0.871 s here; ~3 s on older hardware. |
-| Google Drive API is free | Being re-priced in 2026. ~174k DAU headroom for us — but **your rclone mount breaks this year.** |
+| Google Drive API is free | Being re-priced in 2026. ~174k DAU headroom for us — but **rclone's shared credential breaks this year.** |
 | KeePassXC is ugly | Confirmed, and structurally so: redesign EPIC closed 2019, Qt6 port stalled 18 months, 2.8.0 notes are a placeholder. |
