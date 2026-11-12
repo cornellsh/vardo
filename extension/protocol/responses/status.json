@@ -1,0 +1,9 @@
+{
+  "v": 1,
+  "id": 1,
+  "type": "status",
+  "state": {
+    "kind": "unlocked",
+    "vault": "Personal"
+  }
+}

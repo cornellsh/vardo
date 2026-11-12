@@ -1,0 +1,29 @@
+{
+  "copy-field": [
+    "username",
+    "password",
+    "totp"
+  ],
+  "error-code": [
+    "not-running",
+    "locked",
+    "not-a-match",
+    "not-found",
+    "version",
+    "bad-request",
+    "internal"
+  ],
+  "match": [
+    "exact",
+    "subdomain"
+  ],
+  "state": [
+    {
+      "kind": "locked"
+    },
+    {
+      "kind": "unlocked",
+      "vault": "Personal"
+    }
+  ]
+}
