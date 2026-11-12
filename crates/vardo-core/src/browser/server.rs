@@ -94,7 +94,7 @@ fn answer(line: &str, session: &Mutex<Option<Session>>, perform: &Perform) -> St
     // The lock is held only to decide. Copying and showing the window happen
     // after it is released, so a slow clipboard cannot block a save.
     let outcome = match session.lock() {
-        Ok(guard) => handle(line, guard.as_ref()),
+        Ok(mut guard) => handle(line, guard.as_mut()),
         Err(_) => return internal_error(line, "Vardo hit an internal error. Restart it."),
     };
     let reply = outcome.json();

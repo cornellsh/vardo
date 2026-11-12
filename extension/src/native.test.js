@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import {
 	COPY_FIELDS,
+	SAVE_OUTCOMES,
 	ERROR_CODES,
 	REPLIES,
 	REQUESTS,
@@ -51,10 +52,11 @@ describe("the protocol as Rust writes it", () => {
 		}
 	});
 
-	it("uses the error codes, copy fields and states the extension knows", () => {
+	it("uses the error codes, copy fields, states and save outcomes the extension knows", () => {
 		expect(enums["error-code"]).toEqual(ERROR_CODES);
 		expect(enums["copy-field"]).toEqual(COPY_FIELDS);
 		expect(enums.state.map((s) => s.kind)).toEqual(STATE_KINDS);
+		expect(enums["save-outcome"]).toEqual(SAVE_OUTCOMES);
 	});
 
 	it("does not understand a reply type Rust never sends", () => {

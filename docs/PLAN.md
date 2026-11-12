@@ -17,11 +17,6 @@ These come first because every later change gets cheaper and safer once they lan
 
 In rough priority order. Each needs its own design pass before code.
 
-### plan:save-login
-
-- Offer to save a login after sign-up or a password change.
-- Open question: the extension has no page access until the user acts (`inv:extension-sees-nothing-until-asked`). The design must keep that.
-
 ### plan:os-keyring
 
 - Store the Drive refresh token in the macOS Keychain, Secret Service or DPAPI instead of a mode 600 file.

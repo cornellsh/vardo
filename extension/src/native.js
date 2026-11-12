@@ -9,6 +9,7 @@
  * closed or the service worker sleeps.
  */
 
+import { capturePage } from "./capture.js";
 import { fillPage } from "./fill.js";
 
 /** The name the host was registered under by `vardo-browser-host --install`. */
@@ -31,6 +32,7 @@ export const REQUESTS = {
 	copy: ["uuid", "field"],
 	show: [],
 	launch: [],
+	save: ["url", "username", "password", "replace"],
 };
 
 /** @type {Record<string, readonly string[]>} */
@@ -41,6 +43,7 @@ export const REPLIES = {
 	copied: ["clear_after_seconds"],
 	shown: [],
 	launched: [],
+	saved: ["uuid", "outcome"],
 	error: ["code", "message"],
 };
 
@@ -56,6 +59,8 @@ export const ERROR_CODES = [
 ];
 export const COPY_FIELDS = ["username", "password", "totp"];
 export const STATE_KINDS = ["locked", "unlocked"];
+/** What saving a login did. `differs` changed nothing and needs the person. */
+export const SAVE_OUTCOMES = ["created", "updated", "unchanged", "differs"];
 
 /**
  * Whether a reply is one this extension knows, with every field it expects.
@@ -129,6 +134,32 @@ export async function fillInto(tab, uuid) {
 		});
 		const outcome = result?.result ?? { filled: [], reason: "no-result" };
 		return { type: "filled", ...outcome };
+	} catch (error) {
+		return failure("page", String(/** @type {Error} */ (error)?.message ?? error));
+	}
+}
+
+/**
+ * Reads the login typed into the active tab's top frame.
+ *
+ * Called only from the popup's "Save this login" button, which is the gesture
+ * that lets the extension see the page at all.
+ *
+ * @param {chrome.tabs.Tab} tab
+ * @returns {Promise<{ type: "captured", url: string, username: string, password: string } | Failure>}
+ */
+export async function captureLogin(tab) {
+	if (tab.id === undefined || !tab.url || !/^https?:/.test(tab.url)) {
+		return failure("page", "Only logins on web pages can be saved");
+	}
+	try {
+		const [result] = await chrome.scripting.executeScript({
+			target: { tabId: tab.id, frameIds: [0] },
+			func: capturePage,
+		});
+		const found = result?.result;
+		if (!found || "reason" in found) return failure("page", "Type the password into the page first");
+		return { type: "captured", ...found };
 	} catch (error) {
 		return failure("page", String(/** @type {Error} */ (error)?.message ?? error));
 	}

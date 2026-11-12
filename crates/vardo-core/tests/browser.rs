@@ -103,7 +103,7 @@ fn vault(tag: &str) -> Vault {
     }
 }
 
-fn ask(session: Option<&Session>, request: Value) -> (Value, Effect) {
+fn ask(session: Option<&mut Session>, request: Value) -> (Value, Effect) {
     let mut message = json!({ "v": 1, "id": 42 });
     message
         .as_object_mut()
@@ -152,9 +152,9 @@ fn show_works_while_locked_because_that_is_how_you_unlock() {
 
 #[test]
 fn the_logins_for_a_page_are_listed_without_their_passwords() {
-    let v = vault("list");
+    let mut v = vault("list");
     let (reply, _) = ask(
-        Some(&v.session),
+        Some(&mut v.session),
         json!({ "type": "logins", "url": "https://github.com/session" }),
     );
     assert_eq!(titles(&reply), ["GitHub"]);
@@ -171,21 +171,21 @@ fn the_logins_for_a_page_are_listed_without_their_passwords() {
 fn a_deleted_login_is_never_offered() {
     // It is still in the file, in the recycle bin. Someone who deleted it
     // because it leaked must not see it filled into GitHub tomorrow.
-    let v = vault("deleted");
+    let mut v = vault("deleted");
     let (reply, _) = ask(
-        Some(&v.session),
+        Some(&mut v.session),
         json!({ "type": "logins", "url": "https://github.com/" }),
     );
     assert!(!titles(&reply).contains(&"Old GitHub".to_string()));
 
     let (search, _) = ask(
-        Some(&v.session),
+        Some(&mut v.session),
         json!({ "type": "search", "query": "github" }),
     );
     assert!(!titles(&search).contains(&"Old GitHub".to_string()));
 
     let (fill, _) = ask(
-        Some(&v.session),
+        Some(&mut v.session),
         json!({ "type": "fill", "uuid": v.deleted, "url": "https://github.com/" }),
     );
     assert_eq!(fill["code"], "not-found");
@@ -194,9 +194,9 @@ fn a_deleted_login_is_never_offered() {
 
 #[test]
 fn a_subdomain_is_offered_but_marked() {
-    let v = vault("subdomain");
+    let mut v = vault("subdomain");
     let (reply, _) = ask(
-        Some(&v.session),
+        Some(&mut v.session),
         json!({ "type": "logins", "url": "https://accounts.google.com/signin" }),
     );
     assert_eq!(titles(&reply), ["Google"]);
@@ -208,15 +208,15 @@ fn a_subdomain_is_offered_but_marked() {
 
 #[test]
 fn extra_addresses_from_other_keepass_apps_count() {
-    let v = vault("extra");
+    let mut v = vault("extra");
     let (reply, _) = ask(
-        Some(&v.session),
+        Some(&mut v.session),
         json!({ "type": "logins", "url": "https://intranet.example.com/" }),
     );
     assert_eq!(titles(&reply), ["Work SSO"]);
 
     let (fill, _) = ask(
-        Some(&v.session),
+        Some(&mut v.session),
         json!({ "type": "fill", "uuid": v.extra_url, "url": "https://intranet.example.com/" }),
     );
     assert_eq!(fill["password"], "sso-password");
@@ -224,9 +224,9 @@ fn extra_addresses_from_other_keepass_apps_count() {
 
 #[test]
 fn a_page_with_no_logins_gets_an_empty_list_not_an_error() {
-    let v = vault("none");
+    let mut v = vault("none");
     let (reply, _) = ask(
-        Some(&v.session),
+        Some(&mut v.session),
         json!({ "type": "logins", "url": "https://nowhere.example/" }),
     );
     assert_eq!(reply["type"], "logins");
@@ -238,9 +238,9 @@ fn a_page_with_no_logins_gets_an_empty_list_not_an_error() {
 
 #[test]
 fn filling_a_matching_login_returns_what_the_page_needs() {
-    let v = vault("fill");
+    let mut v = vault("fill");
     let (reply, effect) = ask(
-        Some(&v.session),
+        Some(&mut v.session),
         json!({ "type": "fill", "uuid": v.github, "url": "https://github.com/login" }),
     );
     assert_eq!(reply["type"], "fill");
@@ -258,7 +258,7 @@ fn filling_a_matching_login_returns_what_the_page_needs() {
 fn a_login_is_never_filled_into_a_site_it_does_not_belong_to() {
     // The extension asking does not make it a match. This is the request a
     // compromised extension would send.
-    let v = vault("wrongsite");
+    let mut v = vault("wrongsite");
     for url in [
         "https://evil.example/",
         "https://github.com.evil.example/",
@@ -266,7 +266,7 @@ fn a_login_is_never_filled_into_a_site_it_does_not_belong_to() {
         "http://github.com/login",
     ] {
         let (reply, _) = ask(
-            Some(&v.session),
+            Some(&mut v.session),
             json!({ "type": "fill", "uuid": v.github, "url": url }),
         );
         assert_eq!(reply["code"], "not-a-match", "{url}");
@@ -277,9 +277,9 @@ fn a_login_is_never_filled_into_a_site_it_does_not_belong_to() {
 #[test]
 fn a_chosen_subdomain_login_can_be_filled() {
     // Listed as a subdomain match, the user picked it in the popup.
-    let v = vault("subfill");
+    let mut v = vault("subfill");
     let (reply, _) = ask(
-        Some(&v.session),
+        Some(&mut v.session),
         json!({ "type": "fill", "uuid": v.google, "url": "https://accounts.google.com/" }),
     );
     assert_eq!(reply["password"], "google-password");
@@ -289,9 +289,9 @@ fn a_chosen_subdomain_login_can_be_filled() {
 
 #[test]
 fn copying_hands_the_password_to_vardo_not_the_browser() {
-    let v = vault("copy");
+    let mut v = vault("copy");
     let (reply, effect) = ask(
-        Some(&v.session),
+        Some(&mut v.session),
         json!({ "type": "copy", "uuid": v.github, "field": "password" }),
     );
     assert_eq!(reply["type"], "copied");
@@ -355,7 +355,7 @@ fn a_huge_vault_does_not_produce_a_reply_chrome_would_refuse() {
             .unwrap();
     }
     let (reply, _) = ask(
-        Some(&session),
+        Some(&mut session),
         json!({ "type": "logins", "url": "https://mirror.example/" }),
     );
     assert_eq!(titles(&reply).len(), vardo_browser::protocol::MAX_LOGINS);
@@ -363,4 +363,152 @@ fn a_huge_vault_does_not_produce_a_reply_chrome_would_refuse() {
         reply["truncated"], true,
         "the popup must be able to say some were left out"
     );
+}
+
+// --- saving ----------------------------------------------------------------------
+
+fn save(
+    v: &mut Vault,
+    url: &str,
+    username: &str,
+    password: &str,
+    replace: bool,
+) -> (Value, Effect) {
+    ask(
+        Some(&mut v.session),
+        json!({ "type": "save", "url": url, "username": username, "password": password, "replace": replace }),
+    )
+}
+
+#[test]
+fn a_new_login_becomes_an_entry_for_its_site() {
+    let mut v = vault("save-new");
+    let (reply, effect) = save(
+        &mut v,
+        "https://news.example.com/signup?x=1",
+        "alex",
+        "fresh-pw",
+        false,
+    );
+    assert_eq!(reply["type"], "saved");
+    assert_eq!(reply["outcome"], "created");
+    assert!(
+        matches!(effect, Effect::Changed),
+        "the app must refresh and save"
+    );
+    let uuid = reply["uuid"].as_str().unwrap();
+    assert_eq!(
+        *v.session.field_value(uuid, "Password").unwrap(),
+        "fresh-pw"
+    );
+    assert_eq!(
+        *v.session.field_value(uuid, "URL").unwrap(),
+        "https://news.example.com"
+    );
+    assert!(v.session.is_dirty());
+
+    let (logins, _) = ask(
+        Some(&mut v.session),
+        json!({ "type": "logins", "url": "https://news.example.com/login" }),
+    );
+    assert_eq!(titles(&logins), ["news.example.com"]);
+}
+
+#[test]
+fn saving_the_login_already_saved_changes_nothing() {
+    let mut v = vault("save-same");
+    let (reply, effect) = save(&mut v, "https://github.com/session", "alex", SECRET, false);
+    assert_eq!(reply["outcome"], "unchanged");
+    assert_eq!(reply["uuid"], v.github);
+    assert!(matches!(effect, Effect::None));
+}
+
+#[test]
+fn a_different_saved_password_is_replaced_only_when_the_person_confirms() {
+    let mut v = vault("save-replace");
+    let (reply, effect) = save(
+        &mut v,
+        "https://github.com/session",
+        "alex",
+        "rotated",
+        false,
+    );
+    assert_eq!(reply["outcome"], "differs");
+    assert!(matches!(effect, Effect::None));
+    assert_eq!(
+        *v.session.field_value(&v.github, "Password").unwrap(),
+        SECRET
+    );
+
+    let (reply, effect) = save(
+        &mut v,
+        "https://github.com/session",
+        "alex",
+        "rotated",
+        true,
+    );
+    assert_eq!(reply["outcome"], "updated");
+    assert_eq!(reply["uuid"], v.github);
+    assert!(matches!(effect, Effect::Changed));
+    assert_eq!(
+        *v.session.field_value(&v.github, "Password").unwrap(),
+        "rotated"
+    );
+    let versions = v.session.history(&v.github).unwrap().len();
+    let kept = (0..versions).any(|i| {
+        v.session
+            .history_password(&v.github, i)
+            .is_ok_and(|p| *p == SECRET)
+    });
+    assert!(kept, "the replaced password stays in the entry's history");
+}
+
+#[test]
+fn a_login_saved_for_a_parent_site_is_never_overwritten() {
+    // google.com covers accounts.google.com for filling, but the account there
+    // may be another one. A new entry is safe; an overwrite is not.
+    let mut v = vault("save-parent");
+    let (reply, _) = save(
+        &mut v,
+        "https://accounts.google.com/",
+        "alex@gmail.com",
+        "other",
+        true,
+    );
+    assert_eq!(reply["outcome"], "created");
+    assert_ne!(reply["uuid"], v.google);
+    assert_eq!(
+        *v.session.field_value(&v.google, "Password").unwrap(),
+        "google-password"
+    );
+}
+
+#[test]
+fn a_login_in_the_recycle_bin_is_not_updated() {
+    let mut v = vault("save-deleted");
+    let (reply, _) = save(&mut v, "https://github.com/", "alex-old", "new-one", true);
+    assert_eq!(reply["outcome"], "created");
+    assert_ne!(reply["uuid"], v.deleted);
+}
+
+#[test]
+fn saving_is_refused_when_locked_empty_or_not_a_web_page() {
+    let (reply, _) = ask(
+        None,
+        json!({ "type": "save", "url": "https://github.com", "username": "a", "password": "b" }),
+    );
+    assert_eq!(reply["code"], "locked");
+
+    let mut v = vault("save-bad");
+    let before = v.session.info().entry_count;
+    for (url, password) in [
+        ("https://github.com", ""),
+        ("chrome://settings", "pw"),
+        ("file:///x", "pw"),
+    ] {
+        let (reply, effect) = save(&mut v, url, "alex", password, true);
+        assert_eq!(reply["code"], "bad-request", "{url} {password:?}");
+        assert!(matches!(effect, Effect::None));
+    }
+    assert_eq!(v.session.info().entry_count, before, "nothing was added");
 }

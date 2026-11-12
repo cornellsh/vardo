@@ -21,6 +21,7 @@
 //!   the browser, even though they are still in the file. Someone who deletes a
 //!   login because it leaked must not find it filled into a page the next day.
 
+mod save_login;
 #[cfg(unix)]
 pub mod server;
 
@@ -44,6 +45,8 @@ pub enum Effect {
     Copy(Zeroizing<String>),
     /// Bring the window forward.
     Show,
+    /// The vault changed. The app refreshes what it shows and saves.
+    Changed,
 }
 
 pub struct Outcome {
@@ -65,7 +68,7 @@ impl Outcome {
 }
 
 /// Answers one line from the socket. `session` is `None` when Vardo is locked.
-pub fn handle(raw: &str, session: Option<&Session>) -> Outcome {
+pub fn handle(raw: &str, session: Option<&mut Session>) -> Outcome {
     let request: Envelope<Request> = match serde_json::from_str(raw) {
         Ok(r) => r,
         Err(_) => {
@@ -97,7 +100,7 @@ pub fn handle(raw: &str, session: Option<&Session>) -> Outcome {
     answer(request.body, session, id)
 }
 
-fn answer(request: Request, session: Option<&Session>, id: u64) -> Outcome {
+fn answer(request: Request, session: Option<&mut Session>, id: u64) -> Outcome {
     // The two requests that make sense while locked.
     match &request {
         Request::Show => {
@@ -128,6 +131,24 @@ fn answer(request: Request, session: Option<&Session>, id: u64) -> Outcome {
         Request::Fill { uuid, url } => reply(id, fill(session, &uuid, &url)),
         Request::Copy { uuid, field } => copy(session, &uuid, field, id),
         Request::Launch => reply(id, error(ErrorCode::BadRequest, "Vardo is already running")),
+        Request::Save {
+            url,
+            username,
+            password,
+            replace,
+        } => {
+            let password = Zeroizing::new(password);
+            let (response, changed) =
+                save_login::save_login(session, &url, &username, &password, replace);
+            Outcome {
+                reply: envelope(id, response),
+                effect: if changed {
+                    Effect::Changed
+                } else {
+                    Effect::None
+                },
+            }
+        }
         Request::Show | Request::Status => unreachable!("answered above"),
     }
 }

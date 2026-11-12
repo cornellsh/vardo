@@ -5,8 +5,9 @@
 //! newer Vardo is told so rather than misunderstood.
 //!
 //! The shape is the security policy written down. Only [`Response::Fill`]
-//! carries a password, and only after Vardo has confirmed the login matches the
-//! page it is being filled into. Listing and searching return titles and
+//! carries a password out, and only after Vardo has confirmed the login matches
+//! the page it is being filled into. [`Request::Save`] carries one in, when the
+//! person asks to keep what they typed. Listing and searching return titles and
 //! usernames. Copying is done by Vardo itself, so the password never reaches
 //! the browser at all.
 
@@ -53,6 +54,19 @@ pub enum Request {
     /// Start Vardo. Answered by the native host when Vardo is not running, and
     /// never forwarded to Vardo itself.
     Launch,
+    /// Keep a login the person typed into the page.
+    ///
+    /// Sent only when they click "Save this login" in the popup. The extension
+    /// read the page at that moment and not before
+    /// (`inv:extension-sees-nothing-until-asked`). `replace` is set only after
+    /// they confirm replacing a different saved password.
+    Save {
+        url: String,
+        username: String,
+        password: String,
+        #[serde(default)]
+        replace: bool,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -86,10 +100,30 @@ pub enum Response {
     },
     Shown,
     Launched,
+    Saved {
+        uuid: String,
+        outcome: SaveOutcome,
+    },
     Error {
         code: ErrorCode,
         message: String,
     },
+}
+
+/// What a [`Request::Save`] did.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum SaveOutcome {
+    /// A new entry holds the login.
+    Created,
+    /// The saved login for this site and username has the new password. The
+    /// old one stays in the entry's history.
+    Updated,
+    /// The same login is already saved. Nothing changed.
+    Unchanged,
+    /// A different password is saved for this site and username. Nothing
+    /// changed: ask the person, then send again with `replace`.
+    Differs,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

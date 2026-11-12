@@ -1,0 +1,9 @@
+{
+  "v": 1,
+  "id": 8,
+  "type": "save",
+  "url": "https://example.com/signup",
+  "username": "alex@example.com",
+  "password": "correct-horse",
+  "replace": false
+}

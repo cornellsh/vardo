@@ -121,6 +121,8 @@ Each flow names the layers it crosses, top to bottom.
 
 **Fill a login.** The user clicks the toolbar button or presses Alt+Shift+L. The extension gets the tab URL from Chrome and sends it over native messaging. Chrome starts `vardo-browser-host`, which relays to the app's socket. Core matches the URL against saved logins. The popup shows titles, usernames and match kind. On fill, core checks the match again and returns username, password and TOTP. The fill script types them into the top frame and never submits.
 
+**Save a login.** The user types a login into a page, opens the popup and clicks "Save the login typed on this page". Only then does the extension read the top frame (`extension/src/capture.js`). Core saves it under the page origin, or replaces the password of the login saved for exactly that site and username once the user confirms (`inv:save-asks-before-replacing`). The shell tells the window, which refreshes and saves like any other edit.
+
 **Lock.** The tray, Ctrl+L, or five idle minutes. Unsaved changes are saved first. If that save fails, the vault stays unlocked and says so. Locking drops the `Vault` and every derived secret.
 
 ## Trust boundaries

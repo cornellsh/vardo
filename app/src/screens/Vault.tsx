@@ -180,6 +180,19 @@ export function Vault({ info, onLock }: Props) {
 		})();
 	}, []);
 
+	// A login saved from the browser extension is written like any other edit.
+	// A refused save opens the merge screen through `save` itself.
+	useEffect(() => {
+		let dispose: (() => void) | undefined;
+		void (async () => {
+			dispose = await (await ipc()).onVaultChanged?.(() => {
+				refresh();
+				void save().catch(() => {});
+			});
+		})();
+		return () => dispose?.();
+	}, [refresh, save]);
+
 	const groupAction = useCallback(
 		(action: "create" | "rename" | "delete", group: GroupNode) => {
 			void (async () => {
