@@ -141,13 +141,28 @@ fn classify(response: crate::http::Response) -> SyncResult<crate::http::Response
 
     Err(match response.status {
         401 => SyncError::Unauthorized(detail),
-        // 403 is overloaded: quota exhaustion and permission denial share it,
-        // and only the message distinguishes them. Treating a permanent
-        // permission error as retryable would spin forever.
-        403 if detail.contains("ate limit") || detail.contains("uota") => SyncError::RateLimited {
-            retry_after_secs: response.retry_after(),
+        // 403 is overloaded: rate limits, a full Drive and permission denial
+        // all share it. Google's `reason` code tells them apart; the message
+        // is prose that changes ("User Rate Limit Exceeded" is capitalised).
+        403 => match oauth::json_string(&body, "reason").as_deref() {
+            Some(
+                "userRateLimitExceeded"
+                | "rateLimitExceeded"
+                | "dailyLimitExceeded"
+                | "sharingRateLimitExceeded",
+            ) => SyncError::RateLimited {
+                retry_after_secs: response.retry_after(),
+            },
+            // Retrying cannot help until someone frees space.
+            Some("storageQuotaExceeded") => SyncError::Other(format!(
+                "Google Drive is full. Free some space there, then sync again. ({detail})"
+            )),
+            Some(_) => SyncError::Unauthorized(detail),
+            None if detail.to_lowercase().contains("rate limit") => SyncError::RateLimited {
+                retry_after_secs: response.retry_after(),
+            },
+            None => SyncError::Unauthorized(detail),
         },
-        403 => SyncError::Unauthorized(detail),
         404 => SyncError::NotFound,
         429 => SyncError::RateLimited {
             retry_after_secs: response.retry_after(),

@@ -224,21 +224,56 @@ fn without_a_refresh_token_a_401_is_terminal() {
 
 #[test]
 fn rate_limits_and_permission_errors_share_403_and_must_be_told_apart() {
-    // Retrying a permanent permission failure spins forever; treating a quota
-    // error as permanent gives up on something that would have worked.
+    // Retrying a permanent failure spins forever; treating a rate limit as
+    // permanent gives up on something that would have worked. The bodies are
+    // Google's documented examples (developers.google.com/workspace/drive/api/guides/handle-errors).
+    fn body(reason: &str, message: &str) -> String {
+        format!(
+            r#"{{"error":{{"errors":[{{"domain":"usageLimits","reason":"{reason}","message":"{message}"}}],"code":403,"message":"{message}"}}}}"#
+        )
+    }
+    /// A reason, its message, and the predicate its classification must satisfy.
+    type Case = (&'static str, &'static str, fn(&SyncError) -> bool);
+    let cases: &[Case] = &[
+        ("userRateLimitExceeded", "User Rate Limit Exceeded", |e| {
+            matches!(e, SyncError::RateLimited { .. })
+        }),
+        ("rateLimitExceeded", "Rate Limit Exceeded", |e| {
+            matches!(e, SyncError::RateLimited { .. })
+        }),
+        ("dailyLimitExceeded", "Daily Limit Exceeded", |e| {
+            matches!(e, SyncError::RateLimited { .. })
+        }),
+        (
+            "storageQuotaExceeded",
+            "The user's Drive storage quota has been exceeded.",
+            |e| matches!(e, SyncError::Other(m) if m.contains("Drive is full")),
+        ),
+        (
+            "insufficientFilePermissions",
+            "The user does not have sufficient permissions for file {fileId}.",
+            |e| matches!(e, SyncError::Unauthorized(_)),
+        ),
+        (
+            "appNotAuthorizedToFile",
+            "The user has not granted the app {appId} {verb} access to the file {fileId}.",
+            |e| matches!(e, SyncError::Unauthorized(_)),
+        ),
+    ];
+    for (reason, message, check) in cases {
+        let mut http = MockHttp::new(vec![err(403, &body(reason, message))]);
+        let mut backend = DriveBackend::new(&mut http, config(), tokens(), "FILE");
+        let e = backend.stat().unwrap_err();
+        assert!(check(&e), "{reason} classified as {e:?}");
+    }
+
+    // A body without a reason falls back to the message, in any case.
     let mut http = MockHttp::new(vec![err(
         403,
-        r#"{"error":{"message":"User rate limit exceeded"}}"#,
+        r#"{"error":{"message":"User Rate Limit Exceeded"}}"#,
     )]);
     let mut backend = DriveBackend::new(&mut http, config(), tokens(), "FILE");
     assert!(matches!(backend.stat(), Err(SyncError::RateLimited { .. })));
-
-    let mut http = MockHttp::new(vec![err(
-        403,
-        r#"{"error":{"message":"The user does not have sufficient permissions"}}"#,
-    )]);
-    let mut backend = DriveBackend::new(&mut http, config(), tokens(), "FILE");
-    assert!(matches!(backend.stat(), Err(SyncError::Unauthorized(_))));
 }
 
 #[test]

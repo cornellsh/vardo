@@ -19,7 +19,7 @@ In rough priority order. Each needs its own design pass before code.
 
 ### plan:drive-contract-rest
 
-- Verify `fact:drive-quota-403` and `fact:drive-file-scope-no-verification` live.
+- Verify `fact:drive-file-scope-no-verification` live. Needs the project owner to publish the OAuth client in the Google Cloud console and record whether Google asks for verification.
 
 ### plan:polish
 

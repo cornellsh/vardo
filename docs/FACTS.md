@@ -53,8 +53,9 @@ Live checks ran on 2026-08-27 with `crates/vardo-drive/examples/contract.rs` aga
 
 ### fact:drive-quota-403
 
-- **Unverified:** a quota 403 carries "rate limit" or "quota" in its message. Code tells retryable quota errors from permission errors by that text, which is fragile.
-- Proof of the current parsing: `crates/vardo-drive/tests/backend.rs::rate_limits_and_permission_errors_share_403_and_must_be_told_apart`.
+- Rate limits, a full Drive and permission denial all answer 403. Google's error body names which in `error.errors[].reason`: `userRateLimitExceeded`, `rateLimitExceeded`, `dailyLimitExceeded`, `sharingRateLimitExceeded`, `storageQuotaExceeded`, `insufficientFilePermissions`, `appNotAuthorizedToFile` and others (developers.google.com/workspace/drive/api/guides/handle-errors, read 2026-11-13).
+- The messages are capitalised prose ("User Rate Limit Exceeded"). The old lowercase text match read a real rate limit as a permission error, and a full Drive ("storage quota") as retryable. Vardo now classifies by `reason` and falls back to the message only when the body has none.
+- Proof: `crates/vardo-drive/tests/backend.rs::rate_limits_and_permission_errors_share_403_and_must_be_told_apart` uses Google's documented bodies. A live quota 403 has not been provoked.
 
 ### fact:drive-file-scope-no-verification
 
