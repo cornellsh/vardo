@@ -61,12 +61,6 @@ Google Drive sync needs your own Google sign-in key ([how](docs/RUNBOOKS.md#crea
 
 </details>
 
-## Contributing
-
-Open an issue for bugs or ideas. To work on the code, start with [AGENTS.md](AGENTS.md).
-
-Security problems: report privately through GitHub, or email kornelshakh@proton.me.
-
 ## License
 
 [Apache 2.0](LICENSE-APACHE) or [MIT](LICENSE-MIT), your choice.
