@@ -7,7 +7,8 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p .",
-    "e2e": "node e2e/run.mjs"
+    "e2e": "node e2e/run.mjs",
+    "build:firefox": "node scripts/firefox.mjs"
   },
   "devDependencies": {
     "@types/chrome": "^0.3.7",

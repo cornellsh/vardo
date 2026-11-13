@@ -160,6 +160,10 @@ Live checks ran on 2026-08-27 with `crates/vardo-drive/examples/contract.rs` aga
 
 ## Tooling
 
+### fact:firefox-build-lints-clean
+
+- `web-ext lint` 8 reports no errors, warnings or notices for `extension/dist/firefox`. The add-on has not been loaded in a real Firefox, and no e2e runs there. Observed 2026-11-13.
+
 ### fact:clippy-moves
 
 - CI lints with the latest stable Rust. Clippy 1.99 added `useless_borrows_in_formatting`, which failed `main` on 2026-11-12 with no code change.

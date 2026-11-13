@@ -178,6 +178,14 @@ The long-form records these came from (ADR-001 to ADR-006, CRITIQUE, RESEARCH, P
 - **Reopen if:** Same-user processes become part of the threat model (`dec:threat-model`).
 - **Date:** 2026-11-13.
 
+### dec:firefox-from-one-source
+
+- **Chose:** One extension source. `extension/scripts/firefox.mjs` writes the Firefox manifest from the Chrome one: background code as an event page, the add-on ID `browser@vardo.app`, no Chrome key, and no data collected. The host registers Firefox with `allowed_extensions` in Mozilla's own paths.
+- **Because:** Firefox reads the same `chrome.*` calls. Only the manifest and the host registration differ, so a second copy of the code would only drift.
+- **Rejected:** One manifest carrying both browsers' keys, which raises Chrome's minimum to 121 and shows warnings in both.
+- **Reopen if:** The code needs Firefox-only branches beyond the shortcut link.
+- **Date:** 2026-11-13.
+
 ## Process
 
 ### dec:agent-first-docs

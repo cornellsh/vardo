@@ -80,6 +80,7 @@ mod tests {
         std::fs::create_dir_all(&chrome).unwrap();
         let browsers = vec![registration::Browser {
             name: "Chrome",
+            kind: registration::Kind::Chromium,
             manifest: chrome
                 .join("NativeMessagingHosts")
                 .join("app.vardo.browser.json"),
