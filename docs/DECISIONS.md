@@ -162,6 +162,14 @@ The long-form records these came from (ADR-001 to ADR-006, CRITIQUE, RESEARCH, P
 - **Reopen if:** People lose work to a merge they did not expect despite the notice.
 - **Date:** 2026-11-13.
 
+### dec:quick-access-window
+
+- **Chose:** A global shortcut, Cmd+Shift+Space or Ctrl+Shift+Space, opens a small always-on-top window built on first use. Enter copies the password, Shift+Enter the username. Esc or a click elsewhere hides it.
+- **Because:** Opening the full window and finding an entry takes several steps. A launcher-style window takes one, and building it lazily costs nothing for people who never use it.
+- **Rejected:** Revealing the main window with search focused, which drags a large window over whatever the person was doing. Filling into other apps, which needs Accessibility permission and types secrets into windows Vardo cannot verify.
+- **Reopen if:** The shortcut collides with a common app, or people want to choose their own.
+- **Date:** 2026-11-13.
+
 ## Process
 
 ### dec:agent-first-docs

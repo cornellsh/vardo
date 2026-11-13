@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Minimum the WebView needs. Deliberately not `core:default`: this is a password manager, and every permission here is one the UI provably uses.",
-  "windows": ["main"],
+  "windows": ["main", "quick"],
   "permissions": [
     "core:event:allow-listen",
     "core:event:allow-unlisten",

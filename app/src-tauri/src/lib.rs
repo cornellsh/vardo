@@ -26,6 +26,7 @@ use vardo_core::Session;
 mod browser;
 mod clipboard;
 mod commands;
+mod quick;
 mod tray;
 
 /// The unlocked session, or nothing.
@@ -43,12 +44,14 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(quick::plugin())
         .setup(|app| {
             // One state, shared by the window's commands and the browser
             // extension, so both always agree on whether the vault is open.
             let state = AppState::default();
             app.manage(state.clone());
             tray::build(app.handle())?;
+            quick::register(app.handle());
             browser::start(app.handle().clone(), state);
             Ok(())
         })
@@ -106,6 +109,7 @@ pub fn run() {
             commands::drive_upload_vault,
             commands::forget_vault,
             commands::set_tray_unlocked,
+            quick::quick_done,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Vardo");
