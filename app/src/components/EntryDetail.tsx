@@ -228,7 +228,7 @@ export function EntryDetailPane({
 							aria-hidden
 							className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full font-semibold"
 							style={{
-								background: tintFor(
+								background: entry.iconPng ? "#ffffff" : tintFor(
 									identityOf({
 										title: entry.title,
 										url:
@@ -243,7 +243,7 @@ export function EntryDetailPane({
 								<img
 									src={entry.iconPng}
 									alt=""
-									style={{ width: "76%", height: "76%", objectFit: "contain" }}
+									style={{ width: "100%", height: "100%", objectFit: "cover" }}
 								/>
 							) : (
 								initialOf(entry.title || "?")

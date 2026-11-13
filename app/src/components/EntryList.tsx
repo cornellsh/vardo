@@ -360,21 +360,25 @@ function Row({
 						// Tinted by what the entry is *for*, not by its UUID. Keying on
 						// the UUID gave eight Airbnb rows eight different colours,
 						// which made the list read as confetti instead of as a list.
-						background: active
-							? "rgba(255,255,255,0.22)"
-							: tintFor(identityOf({ title: row.title, url: row.urlHost })),
+						// White behind a real icon: a transparent logo stays readable in
+						// dark mode, and an opaque one covers it anyway.
+						background: row.iconPng
+							? "#ffffff"
+							: active
+								? "rgba(255,255,255,0.22)"
+								: tintFor(identityOf({ title: row.title, url: row.urlHost })),
 						color: "#ffffff",
 						fontSize: "17px",
 					}}
 				>
 					{row.iconPng ? (
-						// The vault's own icon, which for a KeePassXC user is often a
-						// real site favicon it downloaded. Shown at 76% so a square
-						// logo does not touch the edge of the circle.
+						// The vault's own icon, usually a site's touch icon: a full square
+						// with its own background, so it fills the circle. Inset, it left
+						// a ring of the letter tint around every logo.
 						<img
 							src={row.iconPng}
 							alt=""
-							style={{ width: "76%", height: "76%", objectFit: "contain" }}
+							style={{ width: "100%", height: "100%", objectFit: "cover" }}
 						/>
 					) : (
 						initialOf(row.title)
