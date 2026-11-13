@@ -107,10 +107,30 @@ export async function ask(body) {
 }
 
 /**
- * Fills one login into the active tab's top frame.
+ * Which frame holds the form: the top frame when it has any login field,
+ * otherwise the first frame offering a password field. Each probe is
+ * `fillPage`'s dry run in that frame, so a hidden frame offers nothing.
  *
- * The URL sent to Vardo is the tab's, as Chrome reports it. Vardo checks the
- * login belongs to it before returning anything.
+ * @param {{ frameId: number, url: string, filled: string[] }[]} probes
+ * @returns {{ frameId: number, url: string } | null}
+ */
+export function chooseFrame(probes) {
+	const web = probes.filter((p) => /^https?:/.test(p.url));
+	const top = web.find((p) => p.frameId === 0);
+	if (top && top.filled.length > 0) return top;
+	const framed = web
+		.filter((p) => p.frameId !== 0 && p.filled.includes("password"))
+		.sort((a, b) => a.frameId - b.frameId)[0];
+	return framed ?? null;
+}
+
+/**
+ * Fills one login into the frame of the active tab that holds the form.
+ *
+ * The extension can only reach frames on the tab's own site (`activeTab`).
+ * The URL sent to Vardo is the chosen frame's, so Vardo checks the login
+ * belongs to that frame before returning anything, and the fill script checks
+ * the frame's origin again before typing.
  *
  * @param {chrome.tabs.Tab} tab
  * @param {string} uuid
@@ -118,17 +138,35 @@ export async function ask(body) {
  */
 export async function fillInto(tab, uuid) {
 	if (tab.id === undefined || !tab.url) return failure("internal", "No page to fill");
-	const reply = await ask({ type: "fill", uuid, url: tab.url });
+	let target = { frameId: 0, url: tab.url };
+	try {
+		const all = { tabId: tab.id, allFrames: true };
+		const [urls, probes] = await Promise.all([
+			chrome.scripting.executeScript({ target: all, func: () => location.href }),
+			chrome.scripting.executeScript({ target: all, func: fillPage, args: [null, null] }),
+		]);
+		const urlOf = new Map(urls.map((u) => [u.frameId, String(u.result ?? "")]));
+		target =
+			chooseFrame(
+				probes.map((p) => ({
+					frameId: p.frameId,
+					url: urlOf.get(p.frameId) ?? "",
+					filled: p.result?.filled ?? [],
+				})),
+			) ?? target;
+	} catch {
+		// Probing failed, for example on a page that forbids scripts. The top
+		// frame is still worth trying, and the fill reports what happened.
+	}
+	const reply = await ask({ type: "fill", uuid, url: target.url });
 	if (reply.type !== "fill") return reply;
 
 	try {
 		const [result] = await chrome.scripting.executeScript({
-			// The top frame only. Logins inside cross-origin iframes are a
-			// classic way to attack autofill, and get their own design later.
-			target: { tabId: tab.id, frameIds: [0] },
+			target: { tabId: tab.id, frameIds: [target.frameId] },
 			func: fillPage,
 			args: [
-				new URL(tab.url).origin,
+				new URL(target.url).origin,
 				{ username: reply.username, password: reply.password, totp: reply.totp ?? null },
 			],
 		});

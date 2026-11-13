@@ -274,6 +274,21 @@ console.log("copying");
 	check("Vardo did the copying, not the browser", serverLog.includes("effect: copy (16 characters)"), serverLog);
 }
 
+console.log("frames");
+{
+	const { session, page } = await openPopup("/frame.html");
+	await sleep(500);
+	await evaluate(session, "document.querySelector('.row.fills').click()");
+	await sleep(1200);
+	const frames = await evaluate(
+		page,
+		`Object.fromEntries([...document.querySelectorAll("iframe")].map((f) => [f.id, { email: f.contentDocument.querySelector("#email").value, password: f.contentDocument.querySelector("#password").value }]))`,
+	);
+	const shown = JSON.stringify(frames);
+	check("a login form inside a frame is filled", frames?.real?.email === "e2e-user@example.com" && frames?.real?.password === "e2e-password-123", shown);
+	check("a frame made invisible is left empty", frames?.trap?.email === "" && frames?.trap?.password === "", shown);
+}
+
 console.log("two-factor");
 {
 	const { session, page } = await openPopup("/totp.html");

@@ -204,6 +204,12 @@ Cite a rule in code as `inv:<name>`. The `doc-links` gate of `cargo xtask check`
 - **Why:** A secret that enters the browser for any other reason has nowhere safe to go.
 - **Proof:** `crates/vardo-core/tests/browser.rs::the_logins_for_a_page_are_listed_without_their_passwords`, `crates/vardo-core/tests/browser.rs::copying_hands_the_password_to_vardo_not_the_browser`, `crates/vardo-core/tests/browser.rs::a_locked_vault_says_so_and_gives_nothing_away`.
 
+### inv:fill-only-what-is-seen
+
+- **Rule:** The fill script types only into fields a person can see. Inside an iframe, every frame up to the top must also be visible in its parent, and a parent on another site is refused. Vardo approves the login for the URL of the frame being filled.
+- **Why:** The 2025 clickjacking attacks collected logins through forms made nearly transparent. A check inside a frame cannot see that its own iframe is hidden.
+- **Proof:** `extension/src/fill.test.js`, and the "frames" checks in `extension/e2e/run.mjs`, which fail when the frame check is removed.
+
 ### inv:never-submit
 
 - **Rule:** Filling never submits a form, fills only the top frame, skips invisible or disabled fields, and does nothing if the tab has moved on from the page Vardo approved.
