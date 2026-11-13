@@ -6,6 +6,11 @@
 
 <p align="center">Your passwords on every device, always in sync.</p>
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/vardo-dark.png">
+  <img src="docs/images/vardo-light.png" alt="Vardo showing a list of logins, each with its site's icon, and the details of one login">
+</picture>
+
 ---
 
 ## Works everywhere
