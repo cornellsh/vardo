@@ -17,10 +17,6 @@ These come first because every later change gets cheaper and safer once they lan
 
 In rough priority order. Each needs its own design pass before code.
 
-### plan:attachment-size
-
-- Measure saves and syncs with large attachments before recommending attachments (`fact:kdbx-no-delta`).
-
 ### plan:drive-contract-rest
 
 - Verify `fact:drive-quota-403` and `fact:drive-file-scope-no-verification` live.
