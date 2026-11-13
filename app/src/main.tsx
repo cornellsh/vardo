@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import { App } from "./App";
+import { Quick } from "./screens/Quick";
 import "./styles/global.css";
 
 // Follow the system by default (dec:telegram-port). Telegram ships both themes and
@@ -17,6 +18,7 @@ if (!root) throw new Error("#root missing");
 
 createRoot(root).render(
 	<StrictMode>
-		<App />
+		{/* The quick-access window loads the same bundle at #quick. */}
+		{window.location.hash === "#quick" ? <Quick /> : <App />}
 	</StrictMode>,
 );

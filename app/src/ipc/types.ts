@@ -334,6 +334,12 @@ export interface Ipc {
 	 */
 	onVaultChanged?(handler: () => void): Promise<() => void>;
 
+	/** The quick-access shortcut opened the quick window again. */
+	onQuickOpen?(handler: () => void): Promise<() => void>;
+
+	/** Hides the quick window, and shows the main one when `revealMain`. */
+	quickDone?(revealMain: boolean): Promise<void>;
+
 	/** Copies an old password, cleared on the same schedule as any other. */
 	copyHistoryPassword(
 		uuid: Uuid,

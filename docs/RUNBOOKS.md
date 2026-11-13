@@ -65,7 +65,8 @@ Use after changing `app/src-tauri`, and on each platform before a release. No au
 3. The tray menu offers Show, Lock now and Quit, and each works.
 4. Closing the window keeps Vardo running. Clicking the tray icon, or the Dock icon on macOS, brings it back.
 5. Unlock with `demopass`, copy a password, and confirm the clipboard clears after 15 seconds.
-6. Record the result, dated, in the platform's entry under "Platforms" in `docs/FACTS.md`.
+6. From another app, press Cmd+Shift+Space (Ctrl+Shift+Space elsewhere). The quick window opens over it. Type a title, press Enter, and confirm the password is on the clipboard and the window is gone. Esc and clicking elsewhere close it. While locked, Enter brings up the main window.
+7. Record the result, dated, in the platform's entry under "Platforms" in `docs/FACTS.md`.
 
 An agent can do this only with Screen Recording and Accessibility permission for its terminal (`fact:platform-macos`). Otherwise ask the user.
 

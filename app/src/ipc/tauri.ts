@@ -256,6 +256,14 @@ export class TauriIpc implements Ipc {
 		return listen("vault://changed", () => handler());
 	}
 
+	async onQuickOpen(handler: () => void): Promise<() => void> {
+		return listen("vault://quick-open", () => handler());
+	}
+
+	quickDone(revealMain: boolean): Promise<void> {
+		return invoke("quick_done", { revealMain });
+	}
+
 	copyHistoryPassword(
 		uuid: Uuid,
 		index: number,

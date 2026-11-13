@@ -17,10 +17,6 @@ These come first because every later change gets cheaper and safer once they lan
 
 In rough priority order. Each needs its own design pass before code.
 
-### plan:quick-access
-
-- A global hotkey overlay: type to search, Enter to copy.
-
 ### plan:command-palette
 
 - A command palette over every action.
