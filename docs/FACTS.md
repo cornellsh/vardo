@@ -105,7 +105,13 @@ Live checks ran on 2026-08-27 with `crates/vardo-drive/examples/contract.rs` aga
 
 ### fact:kdbx-no-delta
 
-- KDBX has no delta format, so every save uploads the whole file. At 646 KB that is irrelevant. With large attachments it bounds every backend (`plan:attachment-size`).
+- KDBX has no delta format, so every save uploads the whole file. At 646 KB that is irrelevant. With large attachments it bounds every backend (`fact:kdbx-attachment-cost`).
+
+### fact:kdbx-attachment-cost
+
+- Measured 2026-11-13 on an Apple M1 Max with `crates/vardo-core/examples/attachment_size.rs` (release build, random bytes, so nothing compresses). Cost grows linearly with attachment size: about 63 ms per MB to save, which includes the verifying re-open, and about 14 ms per MB to unlock, both on top of the KDF. At the 8 MB attachment cap that is 0.5 s per save and 0.1 s per unlock.
+- On a remote vault the upload dominates: every save sends the whole file, so an 8 MB attachment costs about 6.5 s per save on a 10 Mbit/s uplink, every time anything in the vault changes.
+- So attachments suit what they are for in a password manager: recovery codes, keys, a scanned document. The 8 MB cap in `crates/vardo-core/src/session/edit.rs` stays.
 
 ### fact:fuzz-findings
 
