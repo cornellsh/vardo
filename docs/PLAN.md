@@ -17,10 +17,6 @@ These come first because every later change gets cheaper and safer once they lan
 
 In rough priority order. Each needs its own design pass before code.
 
-### plan:command-palette
-
-- A command palette over every action.
-
 ### plan:host-install-from-app
 
 - Install and remove the browser host from the app instead of a terminal.

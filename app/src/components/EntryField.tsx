@@ -40,6 +40,9 @@ export function EmptyState() {
 					<span>
 						<Kbd>Ctrl</Kbd> <Kbd>L</Kbd> to lock
 					</span>
+					<span>
+						<Kbd>Ctrl</Kbd> <Kbd>K</Kbd> for everything else
+					</span>
 				</span>
 			</p>
 		</div>
