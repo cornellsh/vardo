@@ -17,10 +17,6 @@ These come first because every later change gets cheaper and safer once they lan
 
 In rough priority order. Each needs its own design pass before code.
 
-### plan:webdav
-
-- The WebDAV backend, with the `mod_deflate` ETag case as a test (`dec:webdav-second`).
-
 ### plan:attachment-size
 
 - Measure saves and syncs with large attachments before recommending attachments (`fact:kdbx-no-delta`).

@@ -211,7 +211,34 @@ pub fn recent_vaults(app: tauri::AppHandle) -> Vec<VaultSource> {
 /// ever fail must be removable.
 #[tauri::command]
 pub fn forget_vault(app: tauri::AppHandle, source: VaultSource) -> CmdResult<()> {
-    vardo_core::recents::forget(&app_dir(&app)?, &source)
+    let dir = app_dir(&app)?;
+    // Forgetting a WebDAV vault also forgets its server password.
+    if let VaultSource::WebDav { url, username } = &source {
+        vardo_core::webdav::forget(&dir, url, username);
+    }
+    vardo_core::recents::forget(&dir, &source)
+}
+
+/// Checks a WebDAV vault's address and credentials, and remembers both.
+#[tauri::command]
+pub async fn webdav_connect(
+    app: tauri::AppHandle,
+    url: String,
+    username: String,
+    password: String,
+) -> CmdResult<VaultSource> {
+    let dir = app_dir(&app)?;
+    // Blocking: one HTTP round trip, which must not stall the async runtime.
+    let source = tauri::async_runtime::spawn_blocking({
+        let dir = dir.clone();
+        move || vardo_core::webdav::connect(&dir, &url, &username, &password)
+    })
+    .await
+    .map_err(|e| CoreError::Io {
+        detail: format!("WebDAV task failed: {e}"),
+    })??;
+    let _ = vardo_core::recents::remember(&dir, &source);
+    Ok(source)
 }
 
 // --- sync -------------------------------------------------------------------

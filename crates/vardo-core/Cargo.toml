@@ -16,6 +16,7 @@ vardo-browser = { path = "../vardo-browser" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 vardo-drive = { path = "../vardo-drive", features = ["network"] }
+vardo-webdav = { path = "../vardo-webdav", features = ["network"] }
 hmac.workspace = true
 sha2.workspace = true
 sha1 = "0.10"

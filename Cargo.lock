@@ -5175,6 +5175,7 @@ dependencies = [
  "vardo-merge",
  "vardo-sync",
  "vardo-vault",
+ "vardo-webdav",
  "windows-native-keyring-store",
  "zbus-secret-service-keyring-store",
  "zeroize",
@@ -5232,6 +5233,15 @@ version = "0.0.1"
 dependencies = [
  "getrandom 0.3.4",
  "vardo-kdbx",
+ "zeroize",
+]
+
+[[package]]
+name = "vardo-webdav"
+version = "0.0.1"
+dependencies = [
+ "ureq",
+ "vardo-sync",
  "zeroize",
 ]
 

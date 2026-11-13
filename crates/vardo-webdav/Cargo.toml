@@ -1,0 +1,24 @@
+[package]
+name = "vardo-webdav"
+description = "WebDAV storage backend with real conditional writes"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+# The real HTTP client. Off by default so the logic is tested against a fake
+# server without TLS or a network stack, like vardo-drive.
+default = []
+network = ["dep:ureq"]
+
+# Against a real server; see docs/RUNBOOKS.md.
+[[example]]
+name = "live"
+required-features = ["network"]
+
+[dependencies]
+vardo-sync = { path = "../vardo-sync" }
+zeroize.workspace = true
+ureq = { version = "3", optional = true }

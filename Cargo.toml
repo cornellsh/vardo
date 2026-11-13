@@ -9,6 +9,7 @@ members = [
   "crates/vardo-merge",
   "crates/vardo-sync",
   "crates/vardo-drive",
+  "crates/vardo-webdav",
   "crates/vardo-conformance",
   "crates/vardo-core",
   "crates/vardo-browser",

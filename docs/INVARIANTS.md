@@ -108,7 +108,7 @@ Cite a rule in code as `inv:<name>`. The `doc-links` gate of `cargo xtask check`
 
 - **Rule:** A backend that can refuse a stale write overrides `write_if_unchanged` and refuses. Only backends that cannot refuse use the write-then-detect default.
 - **Why:** A refused write loses nothing. A detected one still had to be repaired (`dec:conditional-write-trait`).
-- **Proof:** `crates/vardo-sync/tests/conditional_write.rs::a_local_file_refuses_rather_than_burying`.
+- **Proof:** `crates/vardo-sync/tests/conditional_write.rs::a_local_file_refuses_rather_than_burying`, `crates/vardo-webdav/tests/backend.rs::a_write_landing_between_our_read_and_our_write_is_handed_back`, `crates/vardo-webdav/tests/backend.rs::mod_deflate_does_not_break_conditional_writes`.
 
 ### inv:fake-drive-is-faithful
 

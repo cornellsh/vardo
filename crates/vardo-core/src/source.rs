@@ -41,8 +41,19 @@ use crate::CoreError;
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum VaultSource {
-    File { path: PathBuf },
-    GoogleDrive { file_id: String, name: String },
+    File {
+        path: PathBuf,
+    },
+    GoogleDrive {
+        file_id: String,
+        name: String,
+    },
+    /// One file on a WebDAV server. The password is in the OS credential
+    /// store, never here (`crate::webdav`).
+    WebDav {
+        url: String,
+        username: String,
+    },
 }
 
 impl VaultSource {
@@ -61,6 +72,10 @@ impl VaultSource {
             Self::GoogleDrive { name, .. } => {
                 name.strip_suffix(".kdbx").unwrap_or(name).to_string()
             }
+            Self::WebDav { url, .. } => {
+                let name = url.rsplit('/').next().unwrap_or(url);
+                name.strip_suffix(".kdbx").unwrap_or(name).to_string()
+            }
         }
     }
 
@@ -72,6 +87,7 @@ impl VaultSource {
                 .map(|p| p.display().to_string())
                 .unwrap_or_else(|| "this computer".into()),
             Self::GoogleDrive { .. } => "Google Drive".into(),
+            Self::WebDav { url, .. } => web_host(url).to_string(),
         }
     }
 
@@ -86,7 +102,7 @@ impl VaultSource {
     pub fn as_path(&self) -> Option<&Path> {
         match self {
             Self::File { path } => Some(path),
-            Self::GoogleDrive { .. } => None,
+            Self::GoogleDrive { .. } | Self::WebDav { .. } => None,
         }
     }
 
@@ -99,6 +115,7 @@ impl VaultSource {
         match self {
             Self::File { path } => format!("file:{}", path.display()),
             Self::GoogleDrive { file_id, .. } => format!("gdrive:{file_id}"),
+            Self::WebDav { url, username } => format!("webdav:{username}@{url}"),
         }
     }
 
@@ -145,6 +162,19 @@ impl VaultSource {
                 }
 
                 out
+            }
+            Self::WebDav { url, username } => {
+                // Set by connecting. Gone means the keychain lost it or the
+                // vault was opened from a copied recents list.
+                let password = crate::webdav::password(&ctx.app_dir, url, username).ok_or_else(|| {
+                    CoreError::Unsupported {
+                        detail: "Vardo no longer has the password for this WebDAV server. Connect it again.".into(),
+                    }
+                })?;
+                let mut http = vardo_webdav::ureq_transport::UreqTransport::new();
+                let mut backend =
+                    vardo_webdav::WebDavBackend::new(&mut http, url, username, &password);
+                f(&mut backend)
             }
         }
     }
@@ -211,6 +241,7 @@ impl VaultSource {
         match self {
             Self::File { path } => path.display().to_string(),
             Self::GoogleDrive { name, .. } => format!("{name} in Google Drive"),
+            Self::WebDav { url, .. } => format!("{} on {}", self.short_name(), web_host(url)),
         }
     }
 
@@ -219,8 +250,15 @@ impl VaultSource {
         match self {
             Self::File { path } => path.display().to_string(),
             Self::GoogleDrive { name, .. } => format!("{name} in Google Drive"),
+            Self::WebDav { url, .. } => format!("{} on {}", self.short_name(), web_host(url)),
         }
     }
+}
+
+/// The host part of a URL, for showing where a vault lives.
+fn web_host(url: &str) -> &str {
+    let rest = url.split_once("://").map_or(url, |(_, r)| r);
+    rest.split(['/', '?', '#']).next().unwrap_or(rest)
 }
 
 /// What the process needs on hand to reach any source.

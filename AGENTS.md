@@ -74,6 +74,7 @@ Setup facts that cost failed runs:
 | Merge rules | `crates/vardo-merge` | `crates/vardo-merge/tests/scenarios.rs` |
 | Sync protocol, storage backends | `crates/vardo-sync` | `crates/vardo-sync/tests/races.rs`, `crates/vardo-sync/tests/chaos.rs` |
 | Google Drive and sign-in | `crates/vardo-drive` | `crates/vardo-drive/tests/backend.rs` offline. Live runs are in RUNBOOKS |
+| WebDAV | `crates/vardo-webdav` | `crates/vardo-webdav/tests/backend.rs` offline. The live run against Apache is in RUNBOOKS |
 | Any user-level operation | `crates/vardo-core`, starting at `Session` | `crates/vardo-core/tests/` |
 | Extension messages, URL matching, the host binary | `crates/vardo-browser` | `crates/vardo-browser/src/matching.rs`, `crates/vardo-core/tests/browser.rs` |
 | Window, tray, clipboard, command wrappers | `app/src-tauri` | A release build, then RUNBOOKS by hand |

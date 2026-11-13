@@ -139,6 +139,11 @@ Live checks ran on 2026-08-27 with `crates/vardo-drive/examples/contract.rs` aga
 
 - Apache `mod_deflate` at its default `DeflateAlterETag AddSuffix` serves ETags with `-gzip` appended but evaluates `If-Match` against the bare tag. Every conditional write then fails with 412, and retry logic treats that as ordinary concurrency, so sync goes one-way silently. Nextcloud's official Docker image enables `mod_deflate`.
 - Sending a derived bare tag is unsafe alone, because `If-Match` takes a list and succeeds if any member matches.
+- Reproduced 2026-11-13 on Apache 2.4.66 with `mod_dav` and `mod_deflate` at its defaults: with gzip accepted the ETag reads `"4e20-…-gzip"` and `If-Match` with it gets 412, while with `Accept-Encoding: identity` the tag is bare and the conditional `PUT` succeeds.
+
+### fact:apache-weak-etag-fresh-files
+
+- Apache marks the ETag of a file modified within the last second as weak (`W/"…"`), and `If-Match` never matches a weak tag. A conditional write straight after another write fails unless the client waits about a second. The same file's tag turns strong as it ages, so comparing versions must ignore the `W/` marker. Observed 2026-11-13 on Apache 2.4.66.
 
 ## Platforms
 

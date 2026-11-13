@@ -64,7 +64,7 @@ pub fn save_to(
 
     match source {
         VaultSource::File { path } => save_file(&encoded, path),
-        VaultSource::GoogleDrive { .. } => {
+        VaultSource::GoogleDrive { .. } | VaultSource::WebDav { .. } => {
             let where_it_is = source.describe_for_error();
             let bytes_written = encoded.len();
 

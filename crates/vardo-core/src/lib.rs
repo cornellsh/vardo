@@ -39,10 +39,12 @@ pub mod generate;
 pub mod health;
 pub mod model;
 pub mod recents;
+mod secrets;
 pub mod session;
 pub mod source;
 pub mod sync;
 pub mod totp;
+pub mod webdav;
 
 pub use error::CoreError;
 pub use session::Session;

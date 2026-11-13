@@ -3,8 +3,10 @@ import { useCallback, useEffect, useState } from "react";
 import { DriveLogo } from "./DriveLogo";
 import { Notice, splitTechnical } from "./Notice";
 import { Presence } from "./Presence";
+import { WebDavForm } from "./WebDavForm";
 import { errorText } from "../ipc/error";
 import { ipc } from "../ipc";
+import { sourceKey, sourceName, webHost } from "../lib/source";
 import type { DriveVault, VaultSource } from "../ipc";
 
 /**
@@ -20,17 +22,9 @@ import type { DriveVault, VaultSource } from "../ipc";
  * way rather than bolting a "Google Drive" button onto the side.
  */
 
-export function sourceKey(s: VaultSource): string {
-	return s.kind === "file" ? `file:${s.path}` : `gdrive:${s.file_id}`;
-}
-
-export function sourceName(s: VaultSource): string {
-	const raw = s.kind === "file" ? (s.path.split("/").pop() ?? s.path) : s.name;
-	return raw.replace(/\.kdbx$/i, "");
-}
-
 function sourceWhere(s: VaultSource): string {
 	if (s.kind === "googleDrive") return "Google Drive";
+	if (s.kind === "webDav") return webHost(s.url);
 	const parts = s.path.split("/");
 	parts.pop();
 	return parts.join("/") || "/";
@@ -45,6 +39,7 @@ interface Props {
 export function VaultPicker({ selected, onSelect, disabled }: Props) {
 	const [recents, setRecents] = useState<VaultSource[]>([]);
 	const [driveOpen, setDriveOpen] = useState(false);
+	const [davOpen, setDavOpen] = useState(false);
 
 	useEffect(() => {
 		void (async () => {
@@ -74,6 +69,7 @@ export function VaultPicker({ selected, onSelect, disabled }: Props) {
 	function choose(source: VaultSource) {
 		onSelect(source);
 		setDriveOpen(false);
+		setDavOpen(false);
 	}
 
 	async function browse() {
@@ -166,7 +162,10 @@ export function VaultPicker({ selected, onSelect, disabled }: Props) {
 				<button
 					type="button"
 					disabled={disabled}
-					onClick={() => setDriveOpen((o) => !o)}
+					onClick={() => {
+						setDavOpen(false);
+						setDriveOpen((o) => !o);
+					}}
 					aria-expanded={driveOpen}
 					className="btn btn-quiet flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-[6px] py-2 font-semibold transition-colors"
 					style={{
@@ -178,6 +177,23 @@ export function VaultPicker({ selected, onSelect, disabled }: Props) {
 					<DriveLogo size={16} />
 					Google Drive
 				</button>
+				<button
+					type="button"
+					disabled={disabled}
+					onClick={() => {
+						setDriveOpen(false);
+						setDavOpen((o) => !o);
+					}}
+					aria-expanded={davOpen}
+					className="btn btn-quiet flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-[6px] py-2 font-semibold transition-colors"
+					style={{
+						background: "var(--window-bg-over)",
+						color: "var(--window-active-text-fg)",
+						transitionDuration: "var(--duration-universal)",
+					}}
+				>
+					WebDAV
+				</button>
 			</div>
 
 			{/* Kept mounted while it closes. Collapsing it out matches the way it
@@ -185,6 +201,14 @@ export function VaultPicker({ selected, onSelect, disabled }: Props) {
 			    the entrance look like an accident. */}
 			<Presence show={driveOpen}>
 				<DriveList onPick={choose} />
+			</Presence>
+			<Presence show={davOpen}>
+				<WebDavForm
+					onConnected={(source) => {
+						setRecents((r) => [source, ...r.filter((s) => sourceKey(s) !== sourceKey(source))]);
+						choose(source);
+					}}
+				/>
 			</Presence>
 		</div>
 	);
@@ -198,6 +222,16 @@ function SourceIcon({
 	active: boolean;
 }) {
 	if (source.kind === "googleDrive") return <DriveLogo size={20} />;
+	const stroke = active ? "var(--window-fg-active)" : "var(--window-sub-text-fg)";
+	if (source.kind === "webDav") {
+		// A globe: a vault on someone's server rather than this computer.
+		return (
+			<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="1.8" aria-hidden>
+				<circle cx="12" cy="12" r="9" />
+				<path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" />
+			</svg>
+		);
+	}
 	return (
 		<svg
 			width="20"

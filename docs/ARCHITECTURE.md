@@ -18,7 +18,7 @@ shells       app/src-tauri                   vardo-browser-host (bin of vardo-br
                  |                                | unix socket
 application  vardo-core <-------------------------+
                  |
-storage      vardo-sync  <--  vardo-drive (one StorageBackend)
+storage      vardo-sync  <--  vardo-drive, vardo-webdav (StorageBackends)
 reconcile    vardo-merge
 model        vardo-vault
 format       vardo-kdbx
@@ -69,13 +69,14 @@ Each block says what the layer owns, its entry points, what it must never do, an
 - Never: mutates during `plan`, merges fields across versions, deletes without a base, breaks a same-second tie by guessing.
 - Proof: `crates/vardo-merge/tests/`.
 
-### Storage: `vardo-sync` and `vardo-drive`
+### Storage: `vardo-sync`, `vardo-drive` and `vardo-webdav`
 
 - `vardo-sync` owns the `StorageBackend` trait, the sync protocol, `LocalFile`, `FakeDrive` and cloud-mount detection.
 - Entry points: `StorageBackend::write_if_unchanged`, `sync`, `SyncPoint`, `SyncReport`, `StorageRisk`.
 - `vardo-drive` owns `DriveBackend`, OAuth with PKCE over a loopback redirect, and the `HttpTransport` seam. Its `network` feature adds the real HTTP client.
 - Never: trusts Drive to refuse a write (`fact:drive-no-cas`), replaces a remote file instead of updating it in place.
-- Proof: `crates/vardo-sync/tests/`, `crates/vardo-drive/tests/backend.rs` offline, live contract runs by hand.
+- `vardo-webdav` owns `WebDavBackend`: conditional `PUT` with `If-Match`, `Accept-Encoding: identity` against `mod_deflate`, and refusal of ETags that cannot support it. Core keeps the server password in the OS keychain (`crates/vardo-core/src/webdav.rs`).
+- Proof: `crates/vardo-sync/tests/`, `crates/vardo-drive/tests/backend.rs` and `crates/vardo-webdav/tests/backend.rs` offline, live runs by hand.
 
 ### Contract: `vardo-browser`
 
