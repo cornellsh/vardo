@@ -17,10 +17,6 @@ These come first because every later change gets cheaper and safer once they lan
 
 In rough priority order. Each needs its own design pass before code.
 
-### plan:windows-pipe
-
-- Windows support for the extension, with a named pipe in place of the unix socket.
-
 ### plan:firefox
 
 - A Firefox build of the extension. Native messaging works the same with a different manifest.

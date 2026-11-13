@@ -212,9 +212,9 @@ Cite a rule in code as `inv:<name>`. The `doc-links` gate of `cargo xtask check`
 
 ### inv:host-is-a-relay
 
-- **Rule:** `vardo-browser-host` holds no vault and no key. The socket dir is mode 700 and the socket mode 600. The app refuses to start a second server over a live socket.
-- **Why:** The vault must stay in one process.
-- **Proof:** `crates/vardo-core/tests/browser_socket.rs`, and the e2e in `extension/e2e/run.mjs`.
+- **Rule:** `vardo-browser-host` holds no vault and no key. The socket dir is mode 700 and the socket mode 600. On Windows the named pipe has a random name, refuses remote clients, and is published only in a file under the user's own profile. The app refuses to start a second server over a live socket or pipe.
+- **Why:** The vault must stay in one process, and no other account may stand in for Vardo. A fixed pipe name could be created first by any local user.
+- **Proof:** `crates/vardo-core/tests/browser_socket.rs`, `crates/vardo-core/tests/browser_pipe.rs` on the Windows CI job, and the e2e in `extension/e2e/run.mjs`.
 
 ### inv:reply-fits-native-messaging
 

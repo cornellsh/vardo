@@ -28,6 +28,7 @@ keyring-core = "1"
 apple-native-keyring-store = { version = "1", features = ["keychain"] }
 
 [target.'cfg(windows)'.dependencies]
+interprocess = "2"
 windows-native-keyring-store = { version = "1", default-features = false }
 
 [target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
