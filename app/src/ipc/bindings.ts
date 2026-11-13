@@ -90,6 +90,28 @@ export type UnlockPhase = { phase: Phase, progress: number | null, };
 export type Phase = "reading" | "deriving" | "decrypting" | "parsing";
 
 /**
+ * One browser the extension can be connected to.
+ */
+export type BrowserHost = { name: string, 
+/**
+ * The browser has run on this machine.
+ */
+installed: boolean, 
+/**
+ * It will start this copy of Vardo's helper when the extension asks.
+ */
+connected: boolean, };
+
+/**
+ * Where connecting the browser extension stands.
+ */
+export type BrowserHosts = { 
+/**
+ * `vardo-browser-host` sits beside the app, so browsers can be connected.
+ */
+helperFound: boolean, browsers: Array<BrowserHost>, };
+
+/**
  * One field change in an [`crate::Session::update_entry`] call.
  *
  * `value: None` means remove the field. That is distinct from `Some("")`,

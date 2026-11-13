@@ -36,6 +36,8 @@ fn render() -> String {
         decl::<CopyResult>(&cfg),
         decl::<UnlockPhase>(&cfg),
         decl::<crate::session::Phase>(&cfg),
+        decl::<BrowserHost>(&cfg),
+        decl::<BrowserHosts>(&cfg),
         decl::<FieldEdit>(&cfg),
         decl::<GeneratorOptions>(&cfg),
         decl::<SaveResult>(&cfg),

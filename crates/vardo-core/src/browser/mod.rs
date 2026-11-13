@@ -21,6 +21,7 @@
 //!   the browser, even though they are still in the file. Someone who deletes a
 //!   login because it leaked must not find it filled into a page the next day.
 
+pub mod host;
 mod save_login;
 #[cfg(unix)]
 pub mod server;

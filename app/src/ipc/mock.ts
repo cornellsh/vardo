@@ -8,6 +8,7 @@
  */
 
 import type {
+	BrowserHosts,
 	DriveVault,
 	VaultSource,
 	EntryDetail,
@@ -406,6 +407,37 @@ export class MockIpc implements Ipc {
 	async driveDisconnect(): Promise<void> {
 		await delay(200);
 		this.driveConnected = false;
+	}
+
+	// --- browser extension ---
+
+	private browsersConnected = false;
+
+	private browserReport(): BrowserHosts {
+		return {
+			helperFound: true,
+			browsers: [
+				{ name: "Google Chrome", installed: true, connected: this.browsersConnected },
+				{ name: "Chromium", installed: false, connected: false },
+				{ name: "Brave", installed: true, connected: this.browsersConnected },
+			],
+		};
+	}
+
+	async browserHosts(): Promise<BrowserHosts> {
+		return this.browserReport();
+	}
+
+	async browserConnect(): Promise<BrowserHosts> {
+		await delay(200);
+		this.browsersConnected = true;
+		return this.browserReport();
+	}
+
+	async browserDisconnect(): Promise<BrowserHosts> {
+		await delay(200);
+		this.browsersConnected = false;
+		return this.browserReport();
 	}
 
 	// --- sync ---
