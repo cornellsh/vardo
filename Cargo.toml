@@ -1,5 +1,8 @@
 [workspace]
-resolver = "2"
+# "3" picks dependency versions that support `rust-version`, so `cargo add`
+# cannot quietly pull in a release that needs a newer compiler. It did once:
+# the global-shortcut plugin dragged Tauri to a version needing Rust 1.90.
+resolver = "3"
 members = [
   "crates/vardo-kdbx",
   "crates/vardo-vault",
