@@ -174,7 +174,7 @@ Live checks ran on 2026-08-27 with `crates/vardo-drive/examples/contract.rs` aga
 
 ### fact:firefox-build-lints-clean
 
-- `web-ext lint` 8 reports no errors, warnings or notices for `extension/dist/firefox`. The add-on has not been loaded in a real Firefox, and no e2e runs there. Observed 2026-11-13.
+- `web-ext lint` 8 reports no errors, warnings or notices for the Firefox build (`dist/firefox` inside the extension folder). The add-on has not been loaded in a real Firefox, and no e2e runs there. Observed 2026-11-13.
 
 ### fact:clippy-moves
 

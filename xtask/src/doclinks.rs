@@ -60,7 +60,9 @@ pub fn check(root: &Path, files: &[String]) -> io::Result<Vec<String>> {
             None => (r.as_str(), None),
         };
         let full = root.join(path);
-        if !full.exists() {
+        // Only paths a clean checkout has: ignored build output exists here but not in CI.
+        let dir = format!("{}/", path.trim_end_matches('/'));
+        if !files.iter().any(|f| f == path || f.starts_with(&dir)) {
             broken.push(format!("missing path: {path}"));
         } else if let Some(func) = func {
             let text = fs::read_to_string(&full).unwrap_or_default();
@@ -191,22 +193,31 @@ mod tests {
         )
         .unwrap();
         fs::write(root.join("docs/x.rs"), "fn real_test() {}\n").unwrap();
+        // On disk but ignored by git, like build output: a clean checkout lacks it.
+        fs::write(root.join("docs/ignored.md"), "").unwrap();
         fs::write(
             root.join("docs/note.md"),
             format!(
-                "{} {} `docs/x.rs::real_test` `docs/x.rs::gone` `docs/none.md`\n",
+                "{} {} `docs/x.rs::real_test` `docs/x.rs::gone` `docs/none.md` `docs/ignored.md` `docs/sub`\n",
                 tag("inv", "known"),
                 tag("inv", "unknown")
             ),
         )
         .unwrap();
-        let files = ["docs/INVARIANTS.md", "docs/x.rs", "docs/note.md"].map(String::from);
+        let files = [
+            "docs/INVARIANTS.md",
+            "docs/x.rs",
+            "docs/note.md",
+            "docs/sub/y.md",
+        ]
+        .map(String::from);
         let broken = check(&root, &files).unwrap();
         fs::remove_dir_all(&root).unwrap();
         assert_eq!(
             broken,
             [
                 format!("undefined tag: {}", tag("inv", "unknown")),
+                "missing path: docs/ignored.md".to_string(),
                 "missing path: docs/none.md".to_string(),
                 "missing test: docs/x.rs::gone".to_string(),
             ]

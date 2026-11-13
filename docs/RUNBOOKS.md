@@ -46,7 +46,7 @@ The desktop client secret is not secret, per Google, since anything built into a
 3. In Vardo's settings, Browser extension, press Connect. It registers the host beside the app with every Chromium-family browser whose config dir exists. Disconnect removes it. `vardo-browser-host --install` and `--uninstall` do the same from a terminal, through the same code (`crates/vardo-browser/src/registration.rs`).
 4. In `chrome://extensions`, enable Developer mode, choose Load unpacked, and pick `extension/`. The id is always `fkemoafedkbgljikdhjbglhlhfplamll`.
 5. On a sign-in page, press Alt+Shift+L.
-6. Firefox: `cd extension && npm run build:firefox`, then in `about:debugging`, This Firefox, Load Temporary Add-on, pick `extension/dist/firefox/manifest.json`. Connect registers Firefox too. Its popup link for setting a shortcut opens a Chrome page, so set the key in `about:addons` instead.
+6. Firefox: `cd extension && npm run build:firefox`, then in `about:debugging`, This Firefox, Load Temporary Add-on, pick `dist/firefox/manifest.json` inside the extension folder. Connect registers Firefox too. Its popup link for setting a shortcut opens a Chrome page, so set the key in `about:addons` instead.
 
 ## Add Vardo to the Linux application menu
 
