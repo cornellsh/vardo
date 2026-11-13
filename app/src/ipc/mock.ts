@@ -413,6 +413,13 @@ export class MockIpc implements Ipc {
 		this.driveConnected = false;
 	}
 
+	async restoreVersion(uuid: Uuid, _index: number): Promise<void> {
+		this.assertUnlocked();
+		await delay(120);
+		if (!ENTRIES.some((e) => e.summary.uuid === uuid)) throw { kind: "not-found", path: uuid };
+		this.dirty = true;
+	}
+
 	// --- WebDAV ---
 
 	async webdavConnect(url: string, username: string, password: string): Promise<VaultSource> {
@@ -590,6 +597,19 @@ export class MockIpc implements Ipc {
 		GROUPS.push({ uuid, name, parent });
 		this.dirty = true;
 		return uuid;
+	}
+
+	async moveGroup(uuid: Uuid, parent: Uuid): Promise<void> {
+		this.assertUnlocked();
+		const g = GROUPS.find((x) => x.uuid === uuid);
+		if (!g) throw new Error(`no such group: ${uuid}`);
+		// Walk up from the target, as the core refuses a group inside itself.
+		for (let at: string | undefined = parent; at; ) {
+			if (at === uuid) throw new Error("a group cannot contain itself");
+			at = GROUPS.find((x) => x.uuid === at)?.parent;
+		}
+		g.parent = parent;
+		this.dirty = true;
 	}
 
 	async renameGroup(uuid: Uuid, name: string): Promise<void> {

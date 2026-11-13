@@ -697,3 +697,66 @@ fn detaching_one_does_not_repoint_another() {
         .unwrap();
     assert!(gone.attachment_bytes("first.txt").is_none());
 }
+
+#[test]
+fn a_group_moves_with_everything_inside_it() {
+    let mut vault = writable();
+    let root = vault.root().unwrap().uuid().unwrap();
+    let a = vault.create_group(root, "A").unwrap();
+    let b = vault.create_group(root, "B").unwrap();
+    let inner = vault.create_group(b, "Inner").unwrap();
+    let entry = vault.create_entry(inner).unwrap();
+
+    vault.move_group(b, a).expect("move");
+    let a_group = vault
+        .root()
+        .unwrap()
+        .groups()
+        .find(|g| g.uuid() == Some(a))
+        .unwrap();
+    let moved = a_group
+        .groups()
+        .find(|g| g.uuid() == Some(b))
+        .expect("B is now inside A");
+    let kept = moved
+        .groups()
+        .find(|g| g.uuid() == Some(inner))
+        .expect("its subgroup came along");
+    assert!(
+        kept.entries().any(|e| e.uuid() == Some(entry)),
+        "and so did the entry"
+    );
+    assert!(
+        !vault.root().unwrap().groups().any(|g| g.uuid() == Some(b)),
+        "B is no longer under root"
+    );
+}
+
+#[test]
+fn a_group_cannot_move_into_itself_its_subtree_or_away_from_the_root() {
+    let mut vault = writable();
+    let root = vault.root().unwrap().uuid().unwrap();
+    let a = vault.create_group(root, "A").unwrap();
+    let child = vault.create_group(a, "Child").unwrap();
+    let grandchild = vault.create_group(child, "Grandchild").unwrap();
+
+    for target in [a, child, grandchild] {
+        assert!(
+            matches!(vault.move_group(a, target), Err(EditError::WouldCycle)),
+            "moving A under {target:?} must be refused"
+        );
+    }
+    assert!(matches!(
+        vault.move_group(root, a),
+        Err(EditError::WouldCycle)
+    ));
+    let nowhere = Uuid::from_bytes([9; 16]);
+    assert!(matches!(
+        vault.move_group(a, nowhere),
+        Err(EditError::NoSuchGroup(_))
+    ));
+    assert!(
+        vault.root().unwrap().groups().any(|g| g.uuid() == Some(a)),
+        "a refused move changes nothing"
+    );
+}

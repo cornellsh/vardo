@@ -219,6 +219,15 @@ pub fn forget_vault(app: tauri::AppHandle, source: VaultSource) -> CmdResult<()>
     vardo_core::recents::forget(&dir, &source)
 }
 
+#[tauri::command]
+pub fn restore_version(
+    state: tauri::State<'_, AppState>,
+    uuid: String,
+    index: usize,
+) -> CmdResult<()> {
+    with_session_mut(&state, |s| s.restore_version(&uuid, index))
+}
+
 /// Checks a WebDAV vault's address and credentials, and remembers both.
 #[tauri::command]
 pub async fn webdav_connect(
@@ -588,6 +597,15 @@ pub fn create_group(
     name: String,
 ) -> CmdResult<String> {
     with_session_mut(&state, |s| s.create_group(&parent, &name))
+}
+
+#[tauri::command]
+pub fn move_group(
+    state: tauri::State<'_, AppState>,
+    uuid: String,
+    parent: String,
+) -> CmdResult<()> {
+    with_session_mut(&state, |s| s.move_group(&uuid, &parent))
 }
 
 #[tauri::command]

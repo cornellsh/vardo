@@ -6,7 +6,16 @@ import type { HistoryVersion, Uuid } from "../ipc";
 import { Presence } from "./Presence";
 import { FieldLabel } from "./EntryField";
 
-export function EntryHistory({ uuid, count }: { uuid: Uuid; count: number }) {
+export function EntryHistory({
+	uuid,
+	count,
+	onRestore,
+}: {
+	uuid: Uuid;
+	count: number;
+	/** Makes a version current again. Absent when the vault is read-only. */
+	onRestore?: (index: number) => Promise<void>;
+}) {
 	const [open, setOpen] = useState(false);
 	const [versions, setVersions] = useState<HistoryVersion[] | null>(null);
 	const [copiedFor, setCopiedFor] = useState<number | null>(null);
@@ -68,6 +77,20 @@ export function EntryHistory({ uuid, count }: { uuid: Uuid; count: number }) {
 									</span>
 									<FieldLabel>{humanDate(v.modified)}</FieldLabel>
 								</span>
+								{onRestore && (
+									<button
+										type="button"
+										onClick={async () => {
+											await onRestore(v.index);
+											setVersions(null);
+										}}
+										className="on-hover shrink-0 cursor-pointer rounded-[6px] px-2 py-0.5"
+										style={{ color: "var(--window-active-text-fg)" }}
+										title="Make this version current. The current one is kept in history."
+									>
+										Restore
+									</button>
+								)}
 								{v.hasPassword ? (
 									<button
 										type="button"

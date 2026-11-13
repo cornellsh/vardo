@@ -149,6 +149,33 @@ impl Variant {
         list.children.push(Node::Element(object));
     }
 
+    /// Sets a time on the named group, as `set_time` does for an entry.
+    pub fn set_group_time(&mut self, name: &str, which: &str, unix_seconds: i64) {
+        let group = find_group_mut(self.root_group(), name).expect("group not found");
+        let text = Timestamp::from_unix(unix_seconds, Encoding::Base64Seconds).to_text();
+        group
+            .child_mut("Times")
+            .expect("Times")
+            .child_mut(which)
+            .unwrap_or_else(|| panic!("no <{which}>"))
+            .set_text(&text);
+    }
+
+    /// Moves a group, with everything in it, into another group.
+    pub fn move_group(&mut self, name: &str, to_group: &str, moved_at_unix: i64) {
+        self.set_group_time(name, "LocationChanged", moved_at_unix);
+        let root = self.root_group();
+        let path = find_path(root, &|e: &Element| {
+            e.name == "Group" && e.child("Name").map(|n| n.text()).as_deref() == Some(name)
+        })
+        .expect("group not found");
+        let (last, parents) = path.split_last().expect("path is never empty");
+        let node = nav_mut(root, parents).children.remove(*last);
+        let target = find_group_mut(root, to_group).expect("target not found");
+        target.self_closing = false;
+        target.children.push(node);
+    }
+
     /// Moves an entry into the named sibling group, updating LocationChanged.
     pub fn move_entry(&mut self, title: &str, to_group: &str, moved_at_unix: i64) {
         self.set_time(title, "LocationChanged", moved_at_unix);

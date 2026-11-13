@@ -54,9 +54,9 @@ Cite a rule in code as `inv:<name>`. The `doc-links` gate of `cargo xtask check`
 
 ### inv:edits-keep-history
 
-- **Rule:** An edit pushes exactly one history record. A deletion goes to the recycle bin, or leaves one tombstone with its time.
+- **Rule:** An edit pushes exactly one history record. Restoring an old version is an edit too, so it can be undone. A deletion goes to the recycle bin, or leaves one tombstone with its time.
 - **Why:** History is where merge keeps the losing version, and tombstones are how other devices learn of a deletion.
-- **Proof:** `crates/vardo-vault/tests/edit.rs::editing_pushes_exactly_one_history_record`, `crates/vardo-vault/tests/edit.rs::deleting_without_a_recycle_bin_leaves_a_tombstone`, `crates/vardo-vault/tests/edit.rs::deleting_twice_does_not_duplicate_the_tombstone`.
+- **Proof:** `crates/vardo-vault/tests/edit.rs::editing_pushes_exactly_one_history_record`, `crates/vardo-vault/tests/edit.rs::deleting_without_a_recycle_bin_leaves_a_tombstone`, `crates/vardo-vault/tests/edit.rs::deleting_twice_does_not_duplicate_the_tombstone`, `crates/vardo-core/tests/session.rs::an_old_version_can_be_restored_and_the_restore_undone`.
 
 ## Merge
 
@@ -65,6 +65,12 @@ Cite a rule in code as `inv:<name>`. The `doc-links` gate of `cargo xtask check`
 - **Rule:** The newer entry wins whole. The losing version goes into history. Fields from different versions are never combined.
 - **Why:** A username from one device and a password from another can form a login that never existed.
 - **Proof:** `crates/vardo-merge/tests/apply.rs::a_remote_edit_is_taken_and_the_local_version_is_kept_in_history`, `crates/vardo-merge/tests/apply.rs::both_devices_reach_the_same_content`.
+
+### inv:groups-never-loop
+
+- **Rule:** A group never ends up inside itself. A move into itself or its own subtree is refused here. A remote move that would close a loop with a local one is skipped and reported, and the local tree stands. A remote group move with a later `LocationChanged` is taken, and a tie is a conflict.
+- **Why:** A loop cuts the groups and every entry in them loose from the tree. Two devices each dragging one group under the other is all it takes.
+- **Proof:** `crates/vardo-vault/tests/edit.rs::a_group_cannot_move_into_itself_its_subtree_or_away_from_the_root`, `crates/vardo-merge/tests/apply.rs::two_groups_moved_into_each_other_do_not_close_a_loop`, `crates/vardo-merge/tests/apply.rs::a_remote_group_move_carries_the_group_and_its_contents`, `crates/vardo-merge/tests/apply.rs::group_moves_in_the_same_second_are_a_conflict_the_person_settles`.
 
 ### inv:merge-settles
 

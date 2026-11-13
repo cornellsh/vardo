@@ -101,6 +101,13 @@ fn change(change: &Change) -> ChangeView {
             side: Some(side_name(*winner).into()),
         },
 
+        Change::GroupMoved { to_path, by, .. } => ChangeView {
+            kind: "group-moved".into(),
+            title: to_path.clone(),
+            detail: format!("Group moved by {}", side_prose(*by)),
+            side: Some(side_name(*by).into()),
+        },
+
         Change::GroupDeleted { path, by, .. } => ChangeView {
             kind: "group-deleted".into(),
             title: path.clone(),

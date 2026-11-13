@@ -38,13 +38,20 @@ interface Props {
 	 * parent, which owns the vault and already knows how to save it.
 	 */
 	onGroupAction?:
-		| ((action: "create" | "rename" | "delete", group: GroupNode) => void)
+		| ((action: GroupAction, group: GroupNode) => void)
 		| undefined;
+	/** Drops a dragged group into another. Absent on a read-only database. */
+	onMoveGroup?: ((uuid: Uuid, parent: Uuid) => void) | undefined;
 	/** Opens the password health review. */
 	onHealth: () => void;
 	/** How many problems were found, or null before it has been checked. */
 	healthCount?: number | undefined;
 }
+
+export type GroupAction = "create" | "rename" | "move" | "delete";
+
+/** The drag payload's type, so a dragged link or file is never taken for a group. */
+const DRAG_TYPE = "application/x-vardo-group";
 
 /**
  * Telegram's folders side bar. `sideBarBg` is darker than the list background —
@@ -61,6 +68,7 @@ export function GroupRail({
 	onSync,
 	onSettings,
 	onGroupAction,
+	onMoveGroup,
 	onHealth,
 	healthCount,
 	location,
@@ -224,6 +232,7 @@ export function GroupRail({
 					count={totalEntries}
 					active={selected === undefined}
 					onClick={() => onSelect(undefined)}
+					{...(root ? { uuid: root.uuid, onMove: onMoveGroup, dragless: true } : {})}
 				/>
 				{/* Health sits with the groups because it is another way of asking
 				    which entries you want, not a mode you enter. Putting it behind
@@ -274,6 +283,7 @@ export function GroupRail({
 						expanded={expanded}
 						onToggle={toggle}
 						onMenu={menu.open}
+						onMove={onMoveGroup}
 					/>
 				))}
 			</ul>
@@ -293,6 +303,11 @@ export function GroupRail({
 							label: "Rename\u2026",
 							onSelect: () =>
 								onGroupAction("rename", menu.state?.target as GroupNode),
+						},
+						{
+							label: "Move to\u2026",
+							onSelect: () =>
+								onGroupAction("move", menu.state?.target as GroupNode),
 						},
 						{
 							label: "Delete\u2026",
@@ -322,6 +337,7 @@ function GroupBranch({
 	expanded,
 	onToggle,
 	onMenu,
+	onMove,
 }: {
 	group: GroupNode;
 	depth: number;
@@ -330,6 +346,7 @@ function GroupBranch({
 	expanded: Set<string>;
 	onToggle: (uuid: string) => void;
 	onMenu: (e: React.MouseEvent, group: GroupNode) => void;
+	onMove?: ((uuid: Uuid, parent: Uuid) => void) | undefined;
 }) {
 	const hasChildren = group.children.length > 0;
 	const isOpen = expanded.has(group.uuid);
@@ -342,6 +359,8 @@ function GroupBranch({
 				active={selected === group.uuid}
 				onClick={() => onSelect(group.uuid)}
 				onMenu={(e) => onMenu(e, group)}
+				uuid={group.uuid}
+				onMove={onMove}
 				depth={depth}
 				{...(hasChildren
 					? { open: isOpen, onToggle: () => onToggle(group.uuid) }
@@ -358,6 +377,7 @@ function GroupBranch({
 						expanded={expanded}
 						onToggle={onToggle}
 						onMenu={onMenu}
+						onMove={onMove}
 					/>
 				))}
 		</>
@@ -373,6 +393,9 @@ function GroupItem({
 	depth = 0,
 	open,
 	onToggle,
+	uuid,
+	onMove,
+	dragless = false,
 }: {
 	name: string;
 	count: number;
@@ -382,8 +405,41 @@ function GroupItem({
 	depth?: number;
 	open?: boolean;
 	onToggle?: () => void;
+	/** The group this row stands for, as a drop target and, unless `dragless`, a drag source. */
+	uuid?: Uuid | undefined;
+	onMove?: ((uuid: Uuid, parent: Uuid) => void) | undefined;
+	dragless?: boolean;
 }) {
 	const ripple = useRipple();
+	const [over, setOver] = useState(false);
+	const drag =
+		uuid && onMove
+			? {
+					...(dragless
+						? {}
+						: {
+								draggable: true,
+								onDragStart: (e: React.DragEvent) => {
+									e.dataTransfer.setData(DRAG_TYPE, uuid);
+									e.dataTransfer.effectAllowed = "move";
+								},
+							}),
+					onDragOver: (e: React.DragEvent) => {
+						if (!e.dataTransfer.types.includes(DRAG_TYPE)) return;
+						e.preventDefault();
+						e.dataTransfer.dropEffect = "move";
+						setOver(true);
+					},
+					onDragLeave: () => setOver(false),
+					onDrop: (e: React.DragEvent) => {
+						setOver(false);
+						const dragged = e.dataTransfer.getData(DRAG_TYPE);
+						if (!dragged || dragged === uuid) return;
+						e.preventDefault();
+						onMove(dragged, uuid);
+					},
+				}
+			: {};
 	return (
 		<li>
 			<button
@@ -392,6 +448,7 @@ function GroupItem({
 				{...(onMenu ? { onContextMenu: onMenu } : {})}
 				aria-current={active ? "true" : undefined}
 				{...ripple.handlers}
+				{...drag}
 				// A row, like the entry list: somewhere you are rather than a
 				// control you press, so the selected group does not repaint under
 				// the pointer.
@@ -402,6 +459,7 @@ function GroupItem({
 					// running a deep tree off the edge of a narrow rail.
 					paddingLeft: `${12 + depth * 14}px`,
 					background: active ? "var(--dialogs-bg-active)" : "transparent",
+					boxShadow: over ? "inset 0 0 0 2px var(--window-fg-active)" : "none",
 					color: active ? "var(--window-fg-active)" : "var(--window-bold-fg)",
 					transition: "background-color var(--duration-universal) linear",
 				}}

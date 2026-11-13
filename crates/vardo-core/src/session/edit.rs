@@ -72,6 +72,19 @@ impl Session {
         Ok(entries::uuid_text(made))
     }
 
+    /// Moves a group, with everything in it, under `parent`.
+    pub fn move_group(&mut self, uuid: &str, parent: &str) -> Result<(), CoreError> {
+        let id = entries::parse_uuid(uuid).ok_or(CoreError::NotFound {
+            path: uuid.to_string(),
+        })?;
+        let to = entries::parse_uuid(parent).ok_or(CoreError::NotFound {
+            path: parent.to_string(),
+        })?;
+        self.vault.move_group(id, to)?;
+        self.dirty = true;
+        Ok(())
+    }
+
     pub fn rename_group(&mut self, uuid: &str, name: &str) -> Result<(), CoreError> {
         let id = entries::parse_uuid(uuid).ok_or(CoreError::NotFound {
             path: uuid.to_string(),
@@ -123,6 +136,39 @@ impl Session {
         })?;
         self.vault.update_entry(id, |e| e.set_tags(tags))?;
         self.dirty = true;
+        Ok(())
+    }
+
+    /// Makes an earlier version current again: its fields come back, and
+    /// fields it did not have go. An ordinary edit, so the version being
+    /// replaced goes into history and the restore can itself be undone.
+    ///
+    /// `index` counts as [`entries::history`] does.
+    pub fn restore_version(&mut self, uuid: &str, index: usize) -> Result<(), CoreError> {
+        let missing = || CoreError::NotFound {
+            path: uuid.to_string(),
+        };
+        let entry = entries::find(&self.vault, uuid).ok_or_else(missing)?;
+        let old = entry.history().into_iter().nth(index).ok_or_else(missing)?;
+        let restored = old.fields();
+        let mut edits: Vec<FieldEdit> = restored
+            .iter()
+            .map(|(key, field)| FieldEdit {
+                key: key.clone(),
+                value: Some(field.expose().to_string()),
+                protected: field.is_protected(),
+            })
+            .collect();
+        for (key, _) in entry.fields() {
+            if !restored.iter().any(|(k, _)| *k == key) {
+                edits.push(FieldEdit {
+                    key,
+                    value: None,
+                    protected: false,
+                });
+            }
+        }
+        self.update_entry(uuid, &edits)?;
         Ok(())
     }
 }

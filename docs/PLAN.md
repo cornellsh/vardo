@@ -23,7 +23,7 @@ In rough priority order. Each needs its own design pass before code.
 
 ### plan:polish
 
-- HIBP lookups by k-anonymity, restoring a whole old entry version, dragging groups to move them.
+- HIBP lookups by k-anonymity. Waits on a decision: it sends a hash prefix of each password to a third party, which `dec:no-server-no-telemetry` rules out as written.
 
 ### plan:distribution
 

@@ -117,6 +117,11 @@ pub enum Change {
         path: String,
         by: Side,
     },
+    GroupMoved {
+        uuid: Uuid,
+        to_path: String,
+        by: Side,
+    },
 }
 
 /// Something the merge cannot decide, and will not guess about.
@@ -178,7 +183,7 @@ impl MergePlan {
             count(|c| matches!(c, Change::EntryUpdated { .. } | Change::GroupUpdated { .. }));
         let deleted =
             count(|c| matches!(c, Change::EntryDeleted { .. } | Change::GroupDeleted { .. }));
-        let moved = count(|c| matches!(c, Change::EntryMoved { .. }));
+        let moved = count(|c| matches!(c, Change::EntryMoved { .. } | Change::GroupMoved { .. }));
         let resurrected = count(|c| matches!(c, Change::EntryResurrected { .. }));
 
         for (n, label) in [
@@ -495,6 +500,7 @@ fn plan_groups(
     for uuid in uuids {
         match (local.groups.get(&uuid), remote.groups.get(&uuid)) {
             (Some(l), Some(r)) => {
+                resolve_group_move(plan, uuid, l, r);
                 if l.item.name() != r.item.name() || l.item.notes() != r.item.notes() {
                     let lt = l.item.times().last_modified;
                     let rt = r.item.times().last_modified;
@@ -549,6 +555,37 @@ fn plan_groups(
             }
             (None, None) => unreachable!("uuid came from one of the two maps"),
         }
+    }
+}
+
+/// Like `resolve_move`, for a group: the later `LocationChanged` wins, and a
+/// tie is a conflict rather than a guess.
+fn resolve_group_move(
+    plan: &mut MergePlan,
+    uuid: Uuid,
+    l: &index::Located<vardo_vault::Group<'_>>,
+    r: &index::Located<vardo_vault::Group<'_>>,
+) {
+    if l.parent == r.parent {
+        return;
+    }
+    let lt = l.item.times().location_changed;
+    let rt = r.item.times().location_changed;
+    match (lt, rt) {
+        (Some(lt), Some(rt)) if lt.cmp_time(rt) == std::cmp::Ordering::Greater => {}
+        (Some(lt), Some(rt)) if lt.cmp_time(rt) == std::cmp::Ordering::Less => {
+            plan.changes.push(Change::GroupMoved {
+                uuid,
+                to_path: r.path.clone(),
+                by: Side::Remote,
+            })
+        }
+        _ => plan.conflicts.push(Conflict::ConcurrentMove {
+            uuid,
+            title: l.item.name(),
+            local_path: l.path.clone(),
+            remote_path: r.path.clone(),
+        }),
     }
 }
 

@@ -235,6 +235,9 @@ export interface Ipc {
 
 	driveDisconnect(): Promise<void>;
 
+	/** Makes an earlier version of an entry current, keeping the current one in history. */
+	restoreVersion(uuid: Uuid, index: number): Promise<void>;
+
 	/** Checks a WebDAV vault's address and server credentials, and remembers both. */
 	webdavConnect(url: string, username: string, password: string): Promise<VaultSource>;
 
@@ -292,6 +295,8 @@ export interface Ipc {
 	// --- groups ---
 
 	createGroup(parent: Uuid, name: string): Promise<Uuid>;
+	/** Moves a group, with everything in it, under `parent`. */
+	moveGroup(uuid: Uuid, parent: Uuid): Promise<void>;
 	renameGroup(uuid: Uuid, name: string): Promise<void>;
 	/** Removes a group and everything in it. Returns how many entries went. */
 	deleteGroup(uuid: Uuid): Promise<number>;

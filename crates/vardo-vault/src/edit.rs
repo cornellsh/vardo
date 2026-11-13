@@ -326,6 +326,47 @@ impl Vault {
         Ok(())
     }
 
+    /// Moves a group, with everything in it, under `to_parent`.
+    ///
+    /// Refuses to move the root, or a group into itself or anything inside
+    /// it, which would cut the subtree loose from the tree. Records the time in
+    /// `LocationChanged`, so a merge can order this move against another
+    /// device's.
+    pub fn move_group(&mut self, uuid: Uuid, to_parent: Uuid) -> Result<()> {
+        self.require_writable()?;
+        let encoding = self.timestamp_encoding();
+        let now = Timestamp::from_unix(now_unix(), encoding);
+
+        let root = self.root_element_mut()?;
+        let is_root = root
+            .child("UUID")
+            .and_then(|u| Uuid::parse(&u.text()))
+            .is_some_and(|u| u == uuid);
+        if is_root {
+            return Err(EditError::WouldCycle);
+        }
+        let moving = find_group_mut(root, uuid).ok_or(EditError::NoSuchGroup(uuid))?;
+        let into_itself = moving
+            .child("UUID")
+            .and_then(|u| Uuid::parse(&u.text()))
+            .is_some_and(|u| u == to_parent)
+            || find_group_mut(moving, to_parent).is_some();
+        if into_itself {
+            return Err(EditError::WouldCycle);
+        }
+        let mut element = moving.clone();
+        if find_group_mut(root, to_parent).is_none() {
+            return Err(EditError::NoSuchGroup(to_parent));
+        }
+
+        let times = child_or_create(&mut element, "Times");
+        set_child_text(times, "LocationChanged", &now.to_text());
+        remove_group(root, uuid);
+        let parent = find_group_mut(root, to_parent).ok_or(EditError::NoSuchGroup(to_parent))?;
+        append_child(parent, element);
+        Ok(())
+    }
+
     /// Creates an empty entry in `group` and returns its UUID.
     pub fn create_entry(&mut self, group: Uuid) -> Result<Uuid> {
         self.require_writable()?;

@@ -395,3 +395,42 @@ fn a_second_window_on_the_same_vault_is_told_at_unlock() {
         "closing the first window frees the vault"
     );
 }
+
+#[test]
+fn an_old_version_can_be_restored_and_the_restore_undone() {
+    let path = scratch("test_db_kdbx4_with_password_argon2id.kdbx", "restore");
+    let mut s = open(&path);
+    let uuid = s.list_entries(None, None)[0].uuid.clone();
+    let original = s.field_value(&uuid, "Password").unwrap().to_string();
+    let edit = |key: &str, value: Option<&str>| vardo_core::model::FieldEdit {
+        key: key.into(),
+        value: value.map(String::from),
+        protected: key == "Password",
+    };
+    s.update_entry(&uuid, &[edit("Password", Some("changed-once"))])
+        .unwrap();
+    s.update_entry(&uuid, &[edit("Extra", Some("added later"))])
+        .unwrap();
+
+    let versions = s.history(&uuid).unwrap().len();
+    let first = (0..versions)
+        .find(|&i| s.history_password(&uuid, i).is_ok_and(|p| *p == original))
+        .expect("the original password is in history");
+    s.restore_version(&uuid, first).unwrap();
+    assert_eq!(*s.field_value(&uuid, "Password").unwrap(), original);
+    assert!(
+        s.field_value(&uuid, "Extra").is_err(),
+        "a field the old version lacked is gone"
+    );
+    assert_eq!(
+        s.history(&uuid).unwrap().len(),
+        versions + 1,
+        "the replaced version is kept"
+    );
+
+    // Undo: the version just replaced is the newest in history.
+    let latest = s.history(&uuid).unwrap()[0].index;
+    s.restore_version(&uuid, latest).unwrap();
+    assert_eq!(*s.field_value(&uuid, "Password").unwrap(), "changed-once");
+    assert_eq!(*s.field_value(&uuid, "Extra").unwrap(), "added later");
+}

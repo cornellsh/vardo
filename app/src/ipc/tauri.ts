@@ -176,6 +176,10 @@ export class TauriIpc implements Ipc {
 		return invoke("drive_disconnect");
 	}
 
+	restoreVersion(uuid: Uuid, index: number): Promise<void> {
+		return invoke("restore_version", { uuid, index });
+	}
+
 	webdavConnect(url: string, username: string, password: string): Promise<VaultSource> {
 		return invoke("webdav_connect", { url, username, password });
 	}
@@ -226,6 +230,10 @@ export class TauriIpc implements Ipc {
 
 	createGroup(parent: Uuid, name: string): Promise<Uuid> {
 		return invoke("create_group", { parent, name });
+	}
+
+	moveGroup(uuid: Uuid, parent: Uuid): Promise<void> {
+		return invoke("move_group", { uuid, parent });
 	}
 
 	renameGroup(uuid: Uuid, name: string): Promise<void> {

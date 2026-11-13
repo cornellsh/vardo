@@ -517,3 +517,86 @@ fn a_merged_vault_still_opens_in_keepassxc() {
         String::from_utf8_lossy(&out.stderr)
     );
 }
+
+// ---------------------------------------------------------------------------
+// Group moves
+// ---------------------------------------------------------------------------
+
+const TAGS: &str = "Group with tags";
+const MOVED: &str = "Group that was moved";
+
+/// The names of the groups directly under `parent` (the root if `None`).
+fn subgroups(v: &Vault, parent: Option<&str>) -> Vec<String> {
+    fn find<'a>(g: vardo_vault::Group<'a>, name: &str) -> Option<vardo_vault::Group<'a>> {
+        if g.name() == name {
+            return Some(g);
+        }
+        g.groups().find_map(|c| find(c, name))
+    }
+    let root = v.root().unwrap();
+    let group = match parent {
+        Some(name) => find(root, name).expect("parent group"),
+        None => root,
+    };
+    group.groups().map(|g| g.name()).collect()
+}
+
+#[test]
+fn a_remote_group_move_carries_the_group_and_its_contents() {
+    let (base, local, remote) = scenario(|_| {}, |v| v.move_group(MOVED, TAGS, NOW + 8));
+    let before = titles(&local.vault()).len();
+    let (merged, applied) = merge(&base, &local, &remote, ConflictPolicy::Duplicate);
+    assert!(applied.skipped.is_empty(), "{:?}", applied.skipped);
+
+    let v = merged.vault();
+    assert_eq!(subgroups(&v, None), vec![TAGS.to_string()]);
+    assert_eq!(subgroups(&v, Some(TAGS)), vec![MOVED.to_string()]);
+    assert_eq!(titles(&v).len(), before, "no entry is lost on the way");
+}
+
+#[test]
+fn two_groups_moved_into_each_other_do_not_close_a_loop() {
+    // Here: MOVED went into TAGS. There, later: TAGS went into MOVED.
+    let (base, local, remote) = scenario(
+        |v| v.move_group(MOVED, TAGS, NOW + 8),
+        |v| v.move_group(TAGS, MOVED, NOW + 9),
+    );
+    let before = titles(&local.vault()).len();
+    let (merged, applied) = merge(&base, &local, &remote, ConflictPolicy::Duplicate);
+    assert_eq!(applied.skipped.len(), 1, "the loop is refused, and said so");
+
+    let v = merged.vault();
+    assert_eq!(
+        subgroups(&v, None),
+        vec![TAGS.to_string()],
+        "the local tree stands"
+    );
+    assert_eq!(subgroups(&v, Some(TAGS)), vec![MOVED.to_string()]);
+    assert_eq!(titles(&v).len(), before);
+}
+
+#[test]
+fn group_moves_in_the_same_second_are_a_conflict_the_person_settles() {
+    let (base, local, remote) = scenario(
+        |v| v.move_group(MOVED, TAGS, NOW + 8),
+        |v| v.set_group_time(MOVED, "LocationChanged", NOW + 8),
+    );
+    let p = plan(Some(&base.vault()), &local.vault(), &remote.vault()).unwrap();
+    assert_eq!(p.conflicts.len(), 1, "{:?}", p.conflicts);
+
+    let (kept, _) = merge(&base, &local, &remote, ConflictPolicy::KeepLocal);
+    assert_eq!(
+        subgroups(&kept.vault(), Some(TAGS)),
+        vec![MOVED.to_string()]
+    );
+
+    let (taken, applied) = merge(&base, &local, &remote, ConflictPolicy::KeepRemote);
+    assert!(applied.skipped.is_empty(), "{:?}", applied.skipped);
+    let mut top = subgroups(&taken.vault(), None);
+    top.sort();
+    assert_eq!(
+        top,
+        vec![MOVED.to_string(), TAGS.to_string()],
+        "back at the root"
+    );
+}

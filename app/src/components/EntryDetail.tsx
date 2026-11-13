@@ -121,6 +121,22 @@ export function EntryDetailPane({
 		}
 	}
 
+	/** An ordinary edit: the version replaced goes into history. */
+	async function restore(index: number) {
+		if (!uuid) return;
+		setActionError(null);
+		try {
+			await (await ipc()).restoreVersion(uuid, index);
+			await onSaveVault();
+			setReload((n) => n + 1);
+			onChanged();
+		} catch (err) {
+			const text = errorText(err);
+			setLastActionError(text);
+			setActionError(text);
+		}
+	}
+
 	async function remove() {
 		if (!uuid) return;
 		setActionError(null);
@@ -374,7 +390,11 @@ export function EntryDetailPane({
 								    password, the site did not take it, and the old one is
 								    now the only way back in. */}
 								{entry.historyCount > 0 && (
-									<EntryHistory uuid={entry.uuid} count={entry.historyCount} />
+									<EntryHistory
+										uuid={entry.uuid}
+										count={entry.historyCount}
+										{...(writable ? { onRestore: restore } : {})}
+									/>
 								)}
 							</div>
 

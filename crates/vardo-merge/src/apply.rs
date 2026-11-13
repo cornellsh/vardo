@@ -158,6 +158,12 @@ pub fn apply(
                 }
             }
 
+            Change::GroupMoved { uuid, to_path, .. } => {
+                if !move_group(local, &remote_root, *uuid) {
+                    applied.skipped.push(format!("move group to {to_path}"));
+                }
+            }
+
             Change::GroupDeleted { uuid, path, .. } => {
                 let root = local.document_mut().root.child_mut("Root");
                 let removed = root
@@ -217,7 +223,9 @@ fn resolve_conflict(
                     restored
                 }
                 // Both moved in the same second: the remote copy's group wins.
-                Conflict::ConcurrentMove { .. } => move_entry(local, remote_root, uuid),
+                Conflict::ConcurrentMove { .. } => {
+                    move_entry(local, remote_root, uuid) || move_group(local, remote_root, uuid)
+                }
                 _ => replace_entry(local, remote_root, uuid, false),
             };
             if !ok {
@@ -416,6 +424,37 @@ fn move_entry(local: &mut Vault, remote_root: &Element, uuid: Uuid) -> bool {
     }
     // `insert_into_group` falls back to the root group, so a missing target
     // relocates the entry rather than losing it.
+    insert_into_group(local, Some(target_parent), element)
+}
+
+/// Moves a group, with its local contents, to where the remote put it.
+///
+/// Refuses when the target sits inside the group locally: two devices that
+/// each moved one group under the other would otherwise close a loop and cut
+/// both loose from the tree. The local placement stays, and the merge says so.
+fn move_group(local: &mut Vault, remote_root: &Element, uuid: Uuid) -> bool {
+    let Some(target_parent) = dom::parent_of(remote_root, uuid) else {
+        return false;
+    };
+    let Some(root) = local_root_mut(local) else {
+        return false;
+    };
+    if dom::uuid_of(root) == Some(uuid) {
+        return false;
+    }
+    match dom::find_group(root, uuid) {
+        Some(group) if dom::find_group(group, target_parent).is_none() => {}
+        _ => return false,
+    }
+    if dom::find_group(root, target_parent).is_none() {
+        return false;
+    }
+    let Some(Node::Element(mut element)) = dom::take_group(root, uuid) else {
+        return false;
+    };
+    if let Some(source) = dom::find_group(remote_root, uuid) {
+        copy_location_changed(source, &mut element);
+    }
     insert_into_group(local, Some(target_parent), element)
 }
 

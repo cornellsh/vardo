@@ -6,12 +6,14 @@ import { CommandPalette } from "../components/CommandPalette";
 import type { Command } from "../components/CommandPalette";
 import { EntryList } from "../components/EntryList";
 import { GroupRail } from "../components/GroupRail";
+import type { GroupAction } from "../components/GroupRail";
 import { useAutoLock } from "../hooks/useAutoLock";
 import { DriveConnect } from "../components/DriveConnect";
 import { BrowserConnect } from "../components/BrowserConnect";
 import { MergeReview } from "./MergeReview";
 import { errorText } from "../ipc/error";
 import { saveThenLock } from "../lib/saveThenLock";
+import { findGroup, groupByName } from "../lib/groupByName";
 import { useLayoutMode } from "../lib/useLayoutMode";
 import { Health } from "./Health";
 import { usePresence } from "../lib/usePresence";
@@ -200,7 +202,7 @@ export function Vault({ info, onLock }: Props) {
 	}, [refresh, save]);
 
 	const groupAction = useCallback(
-		(action: "create" | "rename" | "delete", group: GroupNode) => {
+		(action: GroupAction, group: GroupNode) => {
 			void (async () => {
 				const api = await ipc();
 				try {
@@ -208,6 +210,18 @@ export function Vault({ info, onLock }: Props) {
 						const name = window.prompt(`New group inside ${group.name}`);
 						if (!name?.trim()) return;
 						await api.createGroup(group.uuid, name.trim());
+					} else if (action === "move") {
+						// The keyboard's way to do what dragging does.
+						const name = window.prompt(
+							`Move ${group.name} into which group? Leave empty for the top level.`,
+						);
+						if (name === null || !groups) return;
+						const target = groupByName(groups, name);
+						if (typeof target === "string") {
+							setError(target);
+							return;
+						}
+						await api.moveGroup(group.uuid, target.uuid);
 					} else if (action === "rename") {
 						const name = window.prompt("Rename group", group.name);
 						if (!name?.trim() || name === group.name) return;
@@ -231,6 +245,21 @@ export function Vault({ info, onLock }: Props) {
 						setGroup(undefined);
 						setSelected(null);
 					}
+					await save();
+					refresh();
+				} catch (err) {
+					setError(errorText(err));
+				}
+			})();
+		},
+		[save, refresh, groups],
+	);
+
+	const moveGroup = useCallback(
+		(uuid: Uuid, parent: Uuid) => {
+			void (async () => {
+				try {
+					await (await ipc()).moveGroup(uuid, parent);
 					await save();
 					refresh();
 				} catch (err) {
@@ -364,9 +393,23 @@ export function Vault({ info, onLock }: Props) {
 		});
 		list.push({ id: "settings", label: "Settings", run: () => setSettings(true) });
 		if (mode !== "three") list.push({ id: "groups", label: "Show groups", run: () => setRailOpen(true) });
+		// The selected group's actions, so they are not right-click only: macOS
+		// has no key that opens a context menu.
+		const node = info.writable && groups && group ? findGroup(groups, group) : undefined;
+		if (node) {
+			const actions: [GroupAction, string][] = [
+				["create", `New group inside ${node.name}`],
+				["rename", `Rename group ${node.name}…`],
+				["move", `Move group ${node.name}…`],
+				["delete", `Delete group ${node.name}…`],
+			];
+			for (const [action, label] of actions) {
+				list.push({ id: `group-${action}`, label, run: () => groupAction(action, node) });
+			}
+		}
 		list.push({ id: "lock", label: "Lock now", shortcut: "Ctrl+L", run: () => void lockNow() });
 		return list;
-	}, [info.writable, live.source.kind, mode, addEntry, lockNow]);
+	}, [info.writable, live.source.kind, mode, addEntry, lockNow, groups, group, groupAction]);
 
 	return (
 		<div className="flex h-full flex-col">
@@ -473,7 +516,7 @@ export function Vault({ info, onLock }: Props) {
 									}
 								: {})}
 							onSettings={() => setSettings((s) => !s)}
-							{...(info.writable ? { onGroupAction: groupAction } : {})}
+							{...(info.writable ? { onGroupAction: groupAction, onMoveGroup: moveGroup } : {})}
 							onHealth={() => {
 								setSettings(false);
 								setReviewing(false);
