@@ -8,6 +8,7 @@ import { EntryList } from "../components/EntryList";
 import { GroupRail } from "../components/GroupRail";
 import { useAutoLock } from "../hooks/useAutoLock";
 import { DriveConnect } from "../components/DriveConnect";
+import { BrowserConnect } from "../components/BrowserConnect";
 import { MergeReview } from "./MergeReview";
 import { errorText } from "../ipc/error";
 import { saveThenLock } from "../lib/saveThenLock";
@@ -571,6 +572,9 @@ export function Vault({ info, onLock }: Props) {
 							}}
 						>
 							<DriveConnect />
+							<div className="mt-4">
+								<BrowserConnect />
+							</div>
 							{live.storageWarning && (
 								<div className="mt-4">
 									<StorageNote warning={live.storageWarning} />

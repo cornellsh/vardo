@@ -334,6 +334,21 @@ pub fn drive_disconnect(app: tauri::AppHandle) -> CmdResult<()> {
     vardo_core::drive::tokens::disconnect(&app_dir(&app)?)
 }
 
+#[tauri::command]
+pub fn browser_hosts() -> CmdResult<vardo_core::model::BrowserHosts> {
+    vardo_core::browser::host::status()
+}
+
+#[tauri::command]
+pub fn browser_connect() -> CmdResult<vardo_core::model::BrowserHosts> {
+    vardo_core::browser::host::connect()
+}
+
+#[tauri::command]
+pub fn browser_disconnect() -> CmdResult<vardo_core::model::BrowserHosts> {
+    vardo_core::browser::host::disconnect()
+}
+
 fn open_in_browser(url: &str) -> std::io::Result<()> {
     #[cfg(target_os = "linux")]
     let program = "xdg-open";

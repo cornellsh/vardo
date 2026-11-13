@@ -12,6 +12,7 @@ import { listen } from "@tauri-apps/api/event";
 import { open, save } from "@tauri-apps/plugin-dialog";
 
 import type {
+	BrowserHosts,
 	EntryDetail,
 	EntrySummary,
 	FieldEdit,
@@ -173,6 +174,18 @@ export class TauriIpc implements Ipc {
 
 	driveDisconnect(): Promise<void> {
 		return invoke("drive_disconnect");
+	}
+
+	browserHosts(): Promise<BrowserHosts> {
+		return invoke("browser_hosts");
+	}
+
+	browserConnect(): Promise<BrowserHosts> {
+		return invoke("browser_connect");
+	}
+
+	browserDisconnect(): Promise<BrowserHosts> {
+		return invoke("browser_disconnect");
 	}
 
 	driveListVaults(): Promise<DriveVault[]> {

@@ -27,6 +27,8 @@ export type Millis = number;
 // (`inv:ipc-types-are-generated`). Edit the Rust type, then regenerate.
 import type {
 	Attachment,
+	BrowserHost,
+	BrowserHosts,
 	ChangeView,
 	ConflictPolicy,
 	ConflictView,
@@ -62,6 +64,8 @@ import type {
 
 export type {
 	Attachment,
+	BrowserHost,
+	BrowserHosts,
 	ChangeView,
 	ConflictPolicy,
 	ConflictView,
@@ -230,6 +234,12 @@ export interface Ipc {
 	driveConnect(): Promise<void>;
 
 	driveDisconnect(): Promise<void>;
+
+	/** Which browsers the extension can reach Vardo from. */
+	browserHosts(): Promise<BrowserHosts>;
+	/** Registers Vardo's helper with every browser that has run. */
+	browserConnect(): Promise<BrowserHosts>;
+	browserDisconnect(): Promise<BrowserHosts>;
 
 	/**
 	 * Vaults in Drive that Vardo may see. Empty is a normal answer, not a

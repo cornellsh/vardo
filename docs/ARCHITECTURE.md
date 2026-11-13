@@ -119,6 +119,8 @@ Each flow names the layers it crosses, top to bottom.
 
 **Sync.** Core reads the remote state, then `vardo-merge` plans against the last `SyncPoint`. The user sees the plan in MergeReview. Apply merges, and the backend writes with `write_if_unchanged`. On Drive that means write, then check that the revision beneath ours was head when we wrote. If not, fold the buried write in and retry, with a bound.
 
+**Connect the extension.** Settings, Browser extension, Connect writes one `app.vardo.browser.json` per browser that has run, naming the `vardo-browser-host` beside the app and allowing only Vardo's extension id (`crates/vardo-browser/src/registration.rs`). Core reports which browsers are connected to this copy (`crates/vardo-core/src/browser/host.rs`).
+
 **Fill a login.** The user clicks the toolbar button or presses Alt+Shift+L. The extension gets the tab URL from Chrome and sends it over native messaging. Chrome starts `vardo-browser-host`, which relays to the app's socket. Core matches the URL against saved logins. The popup shows titles, usernames and match kind. On fill, core checks the match again and returns username, password and TOTP. The fill script types them into the top frame and never submits.
 
 **Quick access.** The user presses Cmd+Shift+Space (Ctrl+Shift+Space elsewhere) from any app. The shell builds the quick window on first use and shows it over everything (`app/src-tauri/src/quick.rs`). It searches with the same commands as the main window. Enter copies through Rust, so the window never holds a password, then hides.

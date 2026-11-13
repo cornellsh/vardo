@@ -43,7 +43,7 @@ The desktop client secret is not secret, per Google, since anything built into a
 
 1. `cargo build --release -p vardo-browser`.
 2. Put `vardo-browser-host` next to `vardo-app`. The host starts the app from its own directory when the user asks.
-3. `vardo-browser-host --install` registers with every Chromium-family browser whose config dir exists, and names them. `--uninstall` removes the registration.
+3. In Vardo's settings, Browser extension, press Connect. It registers the host beside the app with every Chromium-family browser whose config dir exists. Disconnect removes it. `vardo-browser-host --install` and `--uninstall` do the same from a terminal, through the same code (`crates/vardo-browser/src/registration.rs`).
 4. In `chrome://extensions`, enable Developer mode, choose Load unpacked, and pick `extension/`. The id is always `fkemoafedkbgljikdhjbglhlhfplamll`.
 5. On a sign-in page, press Alt+Shift+L.
 

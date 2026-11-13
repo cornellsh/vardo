@@ -16,4 +16,5 @@
 pub mod framing;
 pub mod matching;
 pub mod protocol;
+pub mod registration;
 pub mod socket;

@@ -23,13 +23,7 @@ use std::path::{Path, PathBuf};
 use serde_json::{json, Value};
 use vardo_browser::framing;
 use vardo_browser::protocol::{ErrorCode, VERSION};
-
-/// The extension's ID, fixed by the public key in its manifest. Chrome only
-/// starts this host for the IDs listed when it was installed.
-const EXTENSION_ID: &str = "fkemoafedkbgljikdhjbglhlhfplamll";
-
-/// The name the extension asks Chrome for.
-const HOST_NAME: &str = "app.vardo.browser";
+use vardo_browser::registration;
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -209,77 +203,15 @@ fn app_beside_us() -> Option<PathBuf> {
 
 // --- registering with browsers ----------------------------------------------
 
-/// Each Chromium browser looks for hosts in its own directory, and only these
-/// four were checked to work. Others are added once someone confirms them.
-fn browser_dirs() -> Vec<(&'static str, PathBuf)> {
-    let Some(home) = std::env::var_os("HOME").map(PathBuf::from) else {
-        return Vec::new();
-    };
-    let base = if cfg!(target_os = "macos") {
-        home.join("Library/Application Support")
-    } else {
-        std::env::var_os("XDG_CONFIG_HOME")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| home.join(".config"))
-    };
-    let mac = cfg!(target_os = "macos");
-    vec![
-        (
-            "Google Chrome",
-            base.join(if mac {
-                "Google/Chrome"
-            } else {
-                "google-chrome"
-            }),
-        ),
-        (
-            "Chromium",
-            base.join(if mac { "Chromium" } else { "chromium" }),
-        ),
-        ("Brave", base.join("BraveSoftware/Brave-Browser")),
-        (
-            "Microsoft Edge",
-            base.join(if mac {
-                "Microsoft Edge"
-            } else {
-                "microsoft-edge"
-            }),
-        ),
-        (
-            "Vivaldi",
-            base.join(if mac { "Vivaldi" } else { "vivaldi" }),
-        ),
-    ]
+fn browsers() -> Result<Vec<registration::Browser>, String> {
+    let home = std::env::var_os("HOME").ok_or("HOME is not set")?;
+    Ok(registration::browsers(Path::new(&home)))
 }
 
 fn install() -> Result<(), String> {
     let exe = std::env::current_exe().map_err(|e| format!("Cannot find this program: {e}"))?;
-    let manifest = json!({
-        "name": HOST_NAME,
-        "description": "Vardo password manager",
-        "path": exe,
-        "type": "stdio",
-        "allowed_origins": [format!("chrome-extension://{EXTENSION_ID}/")],
-    });
-    let body = serde_json::to_vec_pretty(&manifest).map_err(|e| e.to_string())?;
-
-    let mut installed = 0;
-    for (name, dir) in browser_dirs() {
-        // Only browsers that have run at least once. Creating a profile
-        // directory for a browser that is not installed would be litter.
-        if !dir.is_dir() {
-            continue;
-        }
-        let hosts = dir.join("NativeMessagingHosts");
-        let file = hosts.join(format!("{HOST_NAME}.json"));
-        std::fs::create_dir_all(&hosts)
-            .and_then(|()| std::fs::write(&file, &body))
-            .map_err(|e| format!("{name}: could not write {}: {e}", file.display()))?;
+    for name in registration::install(&browsers()?, &exe)? {
         eprintln!("Registered with {name}");
-        installed += 1;
-    }
-    if installed == 0 {
-        return Err("No supported browser found. Start Chrome, Chromium, Brave, Edge or Vivaldi once, then try again.".into());
     }
     if app_beside_us().is_none() {
         eprintln!(
@@ -290,21 +222,8 @@ fn install() -> Result<(), String> {
 }
 
 fn uninstall() -> Result<(), String> {
-    for (name, dir) in browser_dirs() {
-        let file = dir
-            .join("NativeMessagingHosts")
-            .join(format!("{HOST_NAME}.json"));
-        if remove_if_present(&file)? {
-            eprintln!("Removed from {name}");
-        }
+    for name in registration::uninstall(&browsers()?)? {
+        eprintln!("Removed from {name}");
     }
     Ok(())
-}
-
-fn remove_if_present(file: &Path) -> Result<bool, String> {
-    match std::fs::remove_file(file) {
-        Ok(()) => Ok(true),
-        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(false),
-        Err(e) => Err(format!("could not remove {}: {e}", file.display())),
-    }
 }

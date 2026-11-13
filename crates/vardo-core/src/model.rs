@@ -365,3 +365,25 @@ pub struct HistoryVersion {
     /// Whether revealing would show anything.
     pub has_password: bool,
 }
+
+/// One browser the extension can be connected to.
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+pub struct BrowserHost {
+    pub name: String,
+    /// The browser has run on this machine.
+    pub installed: bool,
+    /// It will start this copy of Vardo's helper when the extension asks.
+    pub connected: bool,
+}
+
+/// Where connecting the browser extension stands.
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+pub struct BrowserHosts {
+    /// `vardo-browser-host` sits beside the app, so browsers can be connected.
+    pub helper_found: bool,
+    pub browsers: Vec<BrowserHost>,
+}
