@@ -18,6 +18,7 @@ This file loads into every agent session in the repo. It is the map. Everything 
 | Facts about the outside world, and how each was verified | `docs/FACTS.md` | `fact:` |
 | What to do next, in order, and when it counts as done | `docs/PLAN.md` | `plan:` |
 | Steps that need a person, a live account, or a real screen | `docs/RUNBOOKS.md` | none |
+| What a person on GitHub reads first | `README.md`. Update it when a user-visible feature changes | none |
 
 Tags are the links between docs, code and tests.
 `git grep -n inv:secrets-stay-in-rust` finds the rule and every comment that cites it. The rule's entry names its tests as `path::function`.

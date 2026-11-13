@@ -34,7 +34,7 @@ pub fn check(root: &Path, files: &[String]) -> io::Result<Vec<String>> {
             continue;
         };
         tags.extend(tags_in(&text));
-        if file == "AGENTS.md" || file.starts_with("docs/") {
+        if file == "AGENTS.md" || file == "README.md" || file.starts_with("docs/") {
             refs.extend(refs_in(&text));
         }
     }

@@ -125,7 +125,7 @@ The long-form records these came from (ADR-001 to ADR-006, CRITIQUE, RESEARCH, P
 - **Chose:** Vardo ships its own Chromium extension built on one rule: it sees nothing until the user asks it to fill.
 - **Because:** Autofill is what makes a password manager usable daily. Without it people reuse passwords.
 - **Rejected:** Speaking KeePassXC-Browser's protocol. It runs in every frame of every page with broad permissions, injects clickable UI that pages can attack, registers its host under KeePassXC's name, and adds its own crypto layer (`fact:keepassxc-browser-permissions`, `fact:clickjacking-defcon33`).
-- **Accepted costs:** No badge count before a click, no fill on page load, no icon inside fields, no iframe filling yet.
+- **Accepted costs:** No badge count before a click, no fill on page load, no icon inside fields, no filling in frames from another site.
 
 ### dec:native-messaging-relay
 
@@ -200,7 +200,8 @@ The long-form records these came from (ADR-001 to ADR-006, CRITIQUE, RESEARCH, P
 
 - **Chose:** Docs form a small tagged map for agents. `AGENTS.md` routes. Each kind of knowledge has one file: architecture, invariants, decisions, facts, plan, runbooks. Code and tests cite tags. The `doc-links` gate verifies every tag and every named file and test.
 - **Because:** Prose status files went stale and contradicted the code. They claimed 14 e2e checks when there were 13, a `storage` permission the manifest lacks, and a lint gate that never ran.
-- **Rejected:** Keeping the ADRs, README, STATUS and ROADMAP. They mixed decisions, history and status, so nothing in them could be checked.
+- **Rejected:** Keeping the ADRs, STATUS and ROADMAP. They mixed decisions, history and status, so nothing in them could be checked.
+- **Except:** `README.md` returned on 2026-11-14 as the front page for people on GitHub. It describes what Vardo does and how to build it, states no counts or pass rates, and links here for everything else. The `doc-links` gate checks the paths it names.
 - **Date:** 2026-11-12.
 
 ### dec:ts-rs-bindings
