@@ -21,7 +21,8 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-clipboard-manager = "2"
-tauri-plugin-global-shortcut = "2"
+# 2.4 needs Tauri 2.12, which needs Rust 1.90.
+tauri-plugin-global-shortcut = "~2.3"
 
 # A shell talks to core only, plus the browser contract it shares with the
 # native host. `cargo xtask check` enforces this (xtask/src/layers.rs).
