@@ -1,77 +1,57 @@
-# Vardo
+<p align="center">
+  <img src="app/src-tauri/icons/icon.svg" width="112" alt="The Vardo logo, a small wagon seen from behind">
+</p>
 
-Vardo is a desktop password manager for KeePass files.
-It syncs one vault across your computers without losing an edit.
+<h1 align="center">Vardo</h1>
 
-Your passwords stay in an ordinary `.kdbx` file. KeePassXC and KeePassium open it unchanged.
-Vardo adds sync through Google Drive or WebDAV, a merge you can review, and browser filling that waits until you ask.
+<p align="center">
+  A free password manager for Windows, macOS and Linux.<br>
+  Your passwords, on all your computers, in a file that belongs to you.
+</p>
 
-> **Early software.** Version 0.0.1 has no released builds, so you build it from source.
-> Linux is the daily-use platform. macOS builds and runs. On Windows only the core tests run, and the app itself is untested.
+---
 
-## Why Vardo
+Vardo remembers your passwords so you don't have to. You pick one master password, and Vardo keeps everything else locked behind it.
 
-- **Your file, your provider.** Vardo has no account, no server and no telemetry. If Vardo disappeared tomorrow, your file would work exactly as before.
-- **Edits on two computers both survive.** Each computer edits its own copy. Vardo merges them against the last state both agreed on, shows you the result, and asks you when it cannot tell which change wins.
-- **The browser sees only what it fills.** The extension reads nothing until you click it or press its shortcut. It never submits a form for you.
+All your passwords live in a single encrypted file. Keep it in your Google Drive or on your own server, and every computer you use sees the same list. Change a password on your laptop, and it's waiting on your desktop.
 
-## Features
+Vardo is free and open source. You don't sign up for anything, there's no subscription, and nothing about you gets sent anywhere. There isn't even a Vardo server: your file goes straight to the storage you chose, and only you can open it.
 
-### The vault
+## What it does
 
-- Opens KDBX 3.1, 4.0 and 4.1, and saves 4.x in the version it read.
-- Keeps every part of the file it does not understand, byte for byte.
-- Saves through a temporary file, checks it, then replaces the original and keeps five backups.
-- Refuses to save over a file that another program changed since Vardo opened it.
-- Keeps a history of every edit, and restores an old version in one click. A restore is itself undoable.
-- Moves groups by drag and drop, or from the keyboard with "Move to…".
-- Shows TOTP codes, generates passwords, reports reused, weak and expired passwords, and stores attachments up to 8 MB.
-- Fetches a site's icon only when you ask, from the site itself, never from a third-party icon service.
+- Keeps your passwords, notes, two-factor codes and attached files behind one master password.
+- Syncs between your computers through Google Drive or your own WebDAV server.
+- Fills passwords in Chrome, Edge, Brave and other Chromium browsers, when you ask it to.
+- Makes strong new passwords for you, and points out the ones you've reused or that are too weak.
+- Finds any password from anywhere. Press Ctrl+Shift+Space (Cmd+Shift+Space on a Mac), type a few letters and press Enter.
+- Locks itself when you walk away, and clears a copied password from the clipboard after 15 seconds.
 
-### Sync
+If you change the same login on two computers before they sync, Vardo doesn't quietly throw one away. It shows you both versions and lets you choose.
 
-- **Google Drive.** Vardo asks only for access to the one file you pick, not your whole Drive.
-- **WebDAV.** Vardo writes only if the file is unchanged on the server, and refuses servers that cannot promise that. It is tested against Apache's `mod_dav`.
-- Before anything is written, a review screen lists every change. Conflicts wait for your decision.
-- Server passwords and Drive sign-ins live in your system keychain when one is available.
+## On your phone
 
-### In the browser
+Vardo is made for computers. On your phone, use [KeePassium](https://keepassium.com) on iPhone and iPad, or [KeePassDX](https://www.keepassdx.com) on Android, and open the same file from your Google Drive.
 
-- The extension works in Chrome and other Chromium browsers. A Firefox build exists but is experimental.
-- Press Alt+Shift+L on a sign-in page, or click the toolbar button, to see matching logins and fill one.
-- It fills frames from the page's own site and skips hidden ones, so a page cannot trick it into typing into an invisible box.
-- It saves a login you typed on a page, and asks before it replaces an existing password.
-- It makes a new password for a sign-up form, and saves that password before it types it.
+That works because Vardo saves your passwords in the KeePass format, which is used by many apps. If you already use KeePass or KeePassXC, Vardo opens your existing file as it is. You can use both side by side, and you can stop using Vardo whenever you like without exporting anything.
 
-### Every day
+## Is it safe?
 
-- Press Cmd+Shift+Space on macOS, or Ctrl+Shift+Space elsewhere, from any app. Search, then press Enter to copy the password or Shift+Enter to copy the username.
-- Press Cmd+K or Ctrl+K for a command palette inside the app.
-- Copied passwords clear from the clipboard after 15 seconds.
-- The vault locks after five idle minutes, on Ctrl+L, or from the tray. It saves your changes first.
-- Vardo warns you when the same vault is already open in another window.
-- The interface follows Telegram Desktop's design, and every action works from the keyboard.
+Your file is encrypted on your computer before it goes anywhere. Google, or whoever stores it, only ever holds a scrambled file that is useless without your master password.
 
-## Security model
+The browser extension can't look through your passwords. It gets one login only when you choose to fill it, and it never fills anything by itself. A page can't trick it into typing your password into a hidden box.
 
-Vardo protects you against a lost laptop, a compromised cloud account and a hostile network.
+Two honest limits. No password manager can protect you from a virus that is already running on your computer, and Vardo doesn't pretend to. And if you forget your master password, nobody can get your passwords back, including us. Write it down and keep it somewhere safe.
 
-It does not claim to protect you from malware running as your own user. Such malware can read memory and log keystrokes, so no password manager can stop it. For the same reason, any program running as you can talk to Vardo's browser connection.
+## Get Vardo
 
-Inside the app, only the Rust core ever holds a password. The window and the extension receive titles and usernames. They receive a secret only for the moment you copy, reveal or fill it.
+Vardo is young, and there are no downloads yet. If you're comfortable with a terminal, you can build it yourself today.
 
-## What Vardo does not do
+<details>
+<summary>Build Vardo from source</summary>
 
-- **Phones and tablets.** Use [KeePassium](https://keepassium.com), which opens the same file from Google Drive.
-- **Key files.** A vault needs a master password, and only a master password.
-- **Automatic filling.** Nothing fills when a page loads, and no icons appear inside form fields.
-- **Breach checks.** Vardo does not send anything about your passwords to an outside service.
+You need Rust 1.89 or newer, Node 22, and your system's build tools:
 
-## Build from source
-
-You need Rust 1.89 or newer, Node 22, and your platform's build tools:
-
-| Platform | Command |
+| System | Command |
 | --- | --- |
 | Arch | `sudo pacman -S --needed webkit2gtk-4.1 base-devel librsvg libayatana-appindicator` |
 | Debian, Ubuntu | `sudo apt install libwebkit2gtk-4.1-dev build-essential librsvg2-dev libayatana-appindicator3-dev` |
@@ -88,40 +68,33 @@ npm ci
 npm run app:release
 ```
 
-The app is `target/release/vardo-app`. To try it safely, open the demo vault with the password `demopass`:
+The app is `target/release/vardo-app`. To look around without touching your real passwords, open the demo file. Its password is `demopass`.
 
 ```sh
 cp ../fixtures/test_db_kdbx4_with_password_argon2id.kdbx /tmp/demo.kdbx
 ../target/release/vardo-app /tmp/demo.kdbx
 ```
 
-**Google Drive** needs your own free Google OAuth client. Set `VARDO_CLIENT_ID` and `VARDO_CLIENT_SECRET` when you build. Without them, Drive shows as unavailable, and local files and WebDAV still work. Creating a client takes about ten minutes, and [the runbook](docs/RUNBOOKS.md#create-a-google-oauth-client) lists the steps.
+Google Drive sync needs your own free Google sign-in key. Set `VARDO_CLIENT_ID` and `VARDO_CLIENT_SECRET` when you build. [The runbook](docs/RUNBOOKS.md#create-a-google-oauth-client) walks you through getting them in about ten minutes. Without them, everything else still works.
 
-**The browser extension** needs its helper program next to the app:
+To add the browser extension:
 
-1. Run `cargo build --release -p vardo-browser`, and put `vardo-browser-host` beside `vardo-app`.
+1. Run `cargo build --release -p vardo-browser`, and put `vardo-browser-host` next to `vardo-app`.
 2. In Vardo, open Settings, then Browser extension, and press Connect.
-3. In `chrome://extensions`, turn on Developer mode, press Load unpacked, and pick the `extension/` folder.
+3. Open `chrome://extensions`, turn on Developer mode, press Load unpacked, and pick the `extension/` folder.
 
-On GNOME, the tray icon appears only with the AppIndicator extension.
+</details>
 
-## Contributing
+## Help out
 
-`cargo xtask check` runs every check that CI runs. It prints one line per check and keeps the full output in `target/check/`.
+Found a bug or have an idea? Open an issue. Plain descriptions are welcome, no technical detail needed.
 
-The docs are written for coding agents first, and they read fine for people too. Start at [AGENTS.md](AGENTS.md):
+If you'd like to work on the code, start with [AGENTS.md](AGENTS.md). It explains how Vardo fits together, and `cargo xtask check` runs every test. Please never test with a real password file. Use the ones in `fixtures/` with the password `demopass`.
 
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) shows how the parts fit together.
-- [docs/INVARIANTS.md](docs/INVARIANTS.md) lists the rules that must never break, each with the test that proves it.
-- [docs/DECISIONS.md](docs/DECISIONS.md) records each choice, what lost, and when to reopen it.
-- [docs/PLAN.md](docs/PLAN.md) lists what comes next.
+## Found a security problem?
 
-Never test with a real vault. Use the files in `fixtures/` and the password `demopass`.
-
-## Reporting a security problem
-
-Use GitHub's private vulnerability reporting on this repository, or email kornelshakh@proton.me with "Vardo security" in the subject. Never attach a real vault or a real master password.
+Please report it privately through GitHub's vulnerability reporting on this repository, or email kornelshakh@proton.me with "Vardo security" in the subject. Never send a real password file or a real master password.
 
 ## License
 
-Vardo is available under either the [Apache License 2.0](LICENSE-APACHE) or the [MIT License](LICENSE-MIT), at your option.
+Free to use, change and share, under your choice of the [Apache License 2.0](LICENSE-APACHE) or the [MIT License](LICENSE-MIT).
