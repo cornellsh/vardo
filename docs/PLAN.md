@@ -17,10 +17,6 @@ These come first because every later change gets cheaper and safer once they lan
 
 In rough priority order. Each needs its own design pass before code.
 
-### plan:iframes
-
-- Fill inside iframes, with an origin check per frame.
-
 ### plan:generate-into-form
 
 - Generate a password into a sign-up form.

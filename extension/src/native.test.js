@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import {
 	COPY_FIELDS,
+	chooseFrame,
 	SAVE_OUTCOMES,
 	ERROR_CODES,
 	REPLIES,
@@ -63,5 +64,25 @@ describe("the protocol as Rust writes it", () => {
 		expect(understood({ type: "filled-in" })).toBe(false);
 		expect(understood({ type: "fill", username: "a" })).toBe(false);
 		expect(understood(null)).toBe(false);
+	});
+});
+
+describe("choosing the frame to fill", () => {
+	const top = (filled) => ({ frameId: 0, url: "https://example.com/", filled });
+	const frame = (frameId, filled, url = "https://example.com/embed") => ({ frameId, url, filled });
+
+	it("prefers the top frame whenever it has a login field", () => {
+		expect(chooseFrame([top(["username"]), frame(3, ["username", "password"])])).toEqual(top(["username"]));
+	});
+
+	it("falls back to the first frame offering a password", () => {
+		expect(chooseFrame([top([]), frame(5, ["username", "password"]), frame(2, ["password"])])).toEqual(
+			frame(2, ["password"]),
+		);
+	});
+
+	it("ignores frames that only offer a username, and pages that are not on the web", () => {
+		expect(chooseFrame([top([]), frame(1, ["username"])])).toBeNull();
+		expect(chooseFrame([top([]), frame(1, ["password"], "about:blank")])).toBeNull();
 	});
 });

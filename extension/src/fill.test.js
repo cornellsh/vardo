@@ -195,3 +195,17 @@ describe("where it runs", () => {
 		expect(isolated(location.origin, LOGIN)).toEqual({ filled: ["username", "password"] });
 	});
 });
+
+describe("a dry run", () => {
+	it("reports what it would fill and types nothing", () => {
+		page(`<form><input id="u" type="email"><input id="p" type="password"></form>`);
+		expect(fillPage(null, null)).toEqual({ filled: ["username", "password"] });
+		expect(value("#u")).toBe("");
+		expect(value("#p")).toBe("");
+	});
+
+	it("offers nothing on a page without login fields", () => {
+		page(`<input id="q" type="search">`);
+		expect(fillPage(null, null)).toEqual({ filled: [], reason: "no-fields" });
+	});
+});

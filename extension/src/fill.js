@@ -10,15 +10,18 @@
  * It never submits. The person presses Enter or clicks the button, which is the
  * last chance to notice they are somewhere they did not mean to be.
  *
- * @param {string} expectedOrigin The origin Vardo approved this login for.
- * @param {{ username: string, password: string, totp: string | null }} login
+ * Called with `login` null, it types nothing and reports what it would fill.
+ * The extension asks every frame that way to find the one with the form.
+ *
+ * @param {string | null} expectedOrigin The origin Vardo approved this login for.
+ * @param {{ username: string, password: string, totp: string | null } | null} login
  * @returns {{ filled: string[], reason?: string }}
  */
 export function fillPage(expectedOrigin, login) {
 	// The page may have navigated between Vardo approving the login and this
 	// running. Chrome revokes access on a cross-site navigation, but the check
 	// costs nothing and does not depend on that.
-	if (location.origin !== expectedOrigin) {
+	if (expectedOrigin !== null && location.origin !== expectedOrigin) {
 		return { filled: [], reason: "wrong-origin" };
 	}
 
@@ -31,22 +34,47 @@ export function fillPage(expectedOrigin, login) {
 	 *
 	 * @param {HTMLInputElement} el
 	 */
-	const visible = (el) => {
-		if (el.disabled || el.readOnly || el.type === "hidden") return false;
+	const visible = (el) => !el.disabled && !el.readOnly && el.type !== "hidden" && shown(el);
+
+	/**
+	 * Shown on screen in its own document. Styles and scroll are read from that
+	 * document's window, so this also works for an iframe element as seen by
+	 * its parent.
+	 *
+	 * @param {Element} el
+	 */
+	const shown = (el) => {
+		const view = el.ownerDocument.defaultView;
+		if (!view) return false;
 		const rect = el.getBoundingClientRect();
 		if (rect.width < 4 || rect.height < 4) return false;
 		// Pushed off the left or top of the document, where no scrolling can
 		// reach it.
-		if (rect.right + window.scrollX <= 0 || rect.bottom + window.scrollY <= 0) return false;
+		if (rect.right + view.scrollX <= 0 || rect.bottom + view.scrollY <= 0) return false;
 		let opacity = 1;
 		for (let node = /** @type {Element | null} */ (el); node; node = node.parentElement) {
-			const style = getComputedStyle(node);
+			const style = view.getComputedStyle(node);
 			if (style.display === "none") return false;
 			if (style.visibility === "hidden" || style.visibility === "collapse") return false;
 			opacity *= Number.parseFloat(style.opacity || "1");
 		}
 		return opacity >= 0.3;
 	};
+
+	// Everything below sees only this document, so inside a frame a hidden
+	// iframe would hide a form that looks visible from here. Every frame up to
+	// the top must be shown in its parent. A parent this frame cannot look into
+	// is another site, and is refused rather than trusted.
+	for (let w = /** @type {Window} */ (window); w !== w.top; w = /** @type {Window} */ (w.parent)) {
+		/** @type {Element | null} */
+		let frame = null;
+		try {
+			frame = w.frameElement;
+		} catch {
+			frame = null;
+		}
+		if (!frame || !shown(frame)) return { filled: [], reason: "hidden-frame" };
+	}
 
 	/** @param {HTMLInputElement} el */
 	const autocomplete = (el) => (el.getAttribute("autocomplete") || "").toLowerCase().split(/\s+/);
@@ -74,6 +102,7 @@ export function fillPage(expectedOrigin, login) {
 	 * @param {string} value
 	 */
 	const type = (el, value) => {
+		if (!login) return;
 		el.focus();
 		const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
 		if (setter) setter.call(el, value);
@@ -115,29 +144,29 @@ export function fillPage(expectedOrigin, login) {
 			before[before.length - 1] ||
 			null;
 
-		if (username && login.username) {
-			type(username, login.username);
+		if (username && (!login || login.username)) {
+			type(username, login?.username ?? "");
 			filled.push("username");
 		}
-		type(password, login.password);
+		type(password, login?.password ?? "");
 		filled.push("password");
 		// Leave the cursor in the password field, so Enter signs in.
-		password.focus();
+		if (login) password.focus();
 		return { filled };
 	}
 
 	// No password field. Either the first step of a two-step sign-in, asking
 	// only for the username, or the step after, asking for a code.
 	const codes = inputs.filter((el) => textual(el) && looksLikeCode(el));
-	if (login.totp) {
+	if (!login || login.totp) {
 		if (codes.length === 1) {
-			type(codes[0], login.totp);
+			type(codes[0], login?.totp ?? "");
 			return { filled: ["totp"] };
 		}
 		// One box per digit. Typed one digit each, because these forms usually
 		// move the focus along as each box fills.
 		const boxes = inputs.filter((el) => textual(el) && el.maxLength === 1);
-		if (boxes.length === login.totp.length) {
+		if (login?.totp && boxes.length === login.totp.length) {
 			boxes.forEach((box, i) => type(box, login.totp?.[i] ?? ""));
 			return { filled: ["totp"] };
 		}
@@ -147,8 +176,8 @@ export function fillPage(expectedOrigin, login) {
 		inputs.find((el) => autocomplete(el).some((t) => t === "username" || t === "email")) ||
 		inputs.find((el) => el.type === "email") ||
 		inputs.find((el) => textual(el) && /user|email|login|account|identifier/.test(describe(el)));
-	if (identifier && login.username) {
-		type(identifier, login.username);
+	if (identifier && (!login || login.username)) {
+		type(identifier, login?.username ?? "");
 		return { filled: ["username"] };
 	}
 
