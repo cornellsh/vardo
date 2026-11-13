@@ -7,7 +7,8 @@
 //! The shape is the security policy written down. Only [`Response::Fill`]
 //! carries a password out, and only after Vardo has confirmed the login matches
 //! the page it is being filled into. [`Request::Save`] carries one in, when the
-//! person asks to keep what they typed. Listing and searching return titles and
+//! person asks to keep what they typed. [`Response::Generated`] carries one out
+//! for the sign-up form it was just made and kept for. Listing and searching return titles and
 //! usernames. Copying is done by Vardo itself, so the password never reaches
 //! the browser at all.
 
@@ -67,6 +68,10 @@ pub enum Request {
         #[serde(default)]
         replace: bool,
     },
+    /// Make a new password for the sign-up or password-change form on this
+    /// page. Vardo keeps it before replying, so it never exists only in a
+    /// web form that might fail to submit.
+    Generate { url: String, username: String },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -103,6 +108,12 @@ pub enum Response {
     Saved {
         uuid: String,
         outcome: SaveOutcome,
+    },
+    /// The new password, already kept under the page's origin. The second
+    /// reply that carries a password, and only for the page it was made for.
+    Generated {
+        uuid: String,
+        password: String,
     },
     Error {
         code: ErrorCode,

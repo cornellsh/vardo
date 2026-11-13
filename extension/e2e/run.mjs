@@ -325,6 +325,20 @@ console.log("saving");
 	check("it is replaced once the person confirms", text.includes("Password updated in Vardo"), text);
 }
 
+console.log("making a password");
+{
+	const { session, page } = await openPopup("/signup.html");
+	await evaluate(page, `document.querySelector("#email").value = "new-account@example.com"`);
+	const before = (serverLog.match(/effect: changed/g) ?? []).length;
+	await evaluate(session, `[...document.querySelectorAll("button.link")].find((b) => b.textContent.startsWith("Make a password")).click()`);
+	await sleep(1000);
+	const text = await evaluate(session, "document.body.innerText");
+	const values = await fields(page);
+	check("the popup says the password was made and kept", text.includes("New password typed in and kept in Vardo"), text);
+	check("the password and its confirmation get the same new password", values.password.length === 20 && values.password === values.confirm, JSON.stringify({ length: values.password.length, same: values.password === values.confirm }));
+	check("Vardo kept it before the form was sent", (serverLog.match(/effect: changed/g) ?? []).length === before + 1, serverLog);
+}
+
 console.log("Vardo not running");
 {
 	server.kill("SIGTERM");

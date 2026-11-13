@@ -37,6 +37,10 @@ fn requests() -> Vec<Request> {
             password: "correct-horse".into(),
             replace: false,
         },
+        Request::Generate {
+            url: "https://example.com/signup".into(),
+            username: "alex@example.com".into(),
+        },
     ]
 }
 
@@ -72,6 +76,10 @@ fn responses() -> Vec<Response> {
             uuid: "4f9c2a7e5b3d4c1a9e8f7a6b5c4d3e2f".into(),
             outcome: SaveOutcome::Created,
         },
+        Response::Generated {
+            uuid: "4f9c2a7e5b3d4c1a9e8f7a6b5c4d3e2f".into(),
+            password: "kD7#vQ2!pX9mW4zR8sT1".into(),
+        },
         Response::error(ErrorCode::NotAMatch, "That login is not for this page"),
     ]
 }
@@ -88,6 +96,7 @@ fn name_request(r: &Request) -> &'static str {
         Request::Show => "show",
         Request::Launch => "launch",
         Request::Save { .. } => "save",
+        Request::Generate { .. } => "generate",
     }
 }
 
@@ -100,6 +109,7 @@ fn name_response(r: &Response) -> &'static str {
         Response::Shown => "shown",
         Response::Launched => "launched",
         Response::Saved { .. } => "saved",
+        Response::Generated { .. } => "generated",
         Response::Error { .. } => "error",
     }
 }

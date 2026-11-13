@@ -512,3 +512,71 @@ fn saving_is_refused_when_locked_empty_or_not_a_web_page() {
     }
     assert_eq!(v.session.info().entry_count, before, "nothing was added");
 }
+
+// --- generating ------------------------------------------------------------------
+
+#[test]
+fn a_generated_password_is_kept_before_it_is_handed_out() {
+    let mut v = vault("generate-new");
+    let (reply, effect) = ask(
+        Some(&mut v.session),
+        json!({ "type": "generate", "url": "https://shop.example.net/join", "username": "alex" }),
+    );
+    assert_eq!(reply["type"], "generated");
+    let password = reply["password"].as_str().unwrap().to_string();
+    assert_eq!(password.chars().count(), 20);
+    assert!(
+        matches!(effect, Effect::Changed),
+        "the app must refresh and save"
+    );
+    let uuid = reply["uuid"].as_str().unwrap();
+    assert_eq!(*v.session.field_value(uuid, "Password").unwrap(), password);
+    assert_eq!(
+        *v.session.field_value(uuid, "URL").unwrap(),
+        "https://shop.example.net"
+    );
+}
+
+#[test]
+fn generating_for_a_saved_login_keeps_the_old_password_in_history() {
+    let mut v = vault("generate-change");
+    let (reply, _) = ask(
+        Some(&mut v.session),
+        json!({ "type": "generate", "url": "https://github.com/settings/password", "username": "alex" }),
+    );
+    assert_eq!(
+        reply["uuid"], v.github,
+        "a password change updates the existing login"
+    );
+    let fresh = reply["password"].as_str().unwrap();
+    assert_eq!(
+        *v.session.field_value(&v.github, "Password").unwrap(),
+        fresh
+    );
+    let versions = v.session.history(&v.github).unwrap().len();
+    let kept = (0..versions).any(|i| {
+        v.session
+            .history_password(&v.github, i)
+            .is_ok_and(|p| *p == SECRET)
+    });
+    assert!(
+        kept,
+        "the old password survives in case the form is never sent"
+    );
+}
+
+#[test]
+fn generating_needs_an_unlocked_vault_and_a_web_page() {
+    let (reply, _) = ask(
+        None,
+        json!({ "type": "generate", "url": "https://github.com", "username": "" }),
+    );
+    assert_eq!(reply["code"], "locked");
+    let mut v = vault("generate-bad");
+    let (reply, effect) = ask(
+        Some(&mut v.session),
+        json!({ "type": "generate", "url": "chrome://settings", "username": "" }),
+    );
+    assert_eq!(reply["code"], "bad-request");
+    assert!(matches!(effect, Effect::None));
+}

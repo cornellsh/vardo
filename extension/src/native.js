@@ -11,6 +11,7 @@
 
 import { capturePage } from "./capture.js";
 import { fillPage } from "./fill.js";
+import { signUpPage } from "./signup.js";
 
 /** The name the host was registered under by `vardo-browser-host --install`. */
 export const HOST = "app.vardo.browser";
@@ -33,6 +34,7 @@ export const REQUESTS = {
 	show: [],
 	launch: [],
 	save: ["url", "username", "password", "replace"],
+	generate: ["url", "username"],
 };
 
 /** @type {Record<string, readonly string[]>} */
@@ -44,6 +46,7 @@ export const REPLIES = {
 	shown: [],
 	launched: [],
 	saved: ["uuid", "outcome"],
+	generated: ["uuid", "password"],
 	error: ["code", "message"],
 };
 
@@ -198,6 +201,43 @@ export async function captureLogin(tab) {
 		const found = result?.result;
 		if (!found || "reason" in found) return failure("page", "Type the password into the page first");
 		return { type: "captured", ...found };
+	} catch (error) {
+		return failure("page", String(/** @type {Error} */ (error)?.message ?? error));
+	}
+}
+
+/**
+ * Has Vardo make and keep a password for the sign-up or password-change form
+ * in the active tab, then types it in, confirmation box included.
+ *
+ * The form is read first, so Vardo files the password under the username
+ * already typed. Vardo keeps it before replying, so if the form never
+ * submits the password is still in the vault.
+ *
+ * @param {chrome.tabs.Tab} tab
+ * @returns {Promise<{ type: "generated", fields: number } | Failure>}
+ */
+export async function generateInto(tab) {
+	if (tab.id === undefined || !tab.url || !/^https?:/.test(tab.url)) {
+		return failure("page", "Passwords can only be made for web pages");
+	}
+	const target = { tabId: tab.id, frameIds: [0] };
+	try {
+		const [probe] = await chrome.scripting.executeScript({ target, func: signUpPage, args: [null, null] });
+		const form = probe?.result;
+		if (!form || "reason" in form) return failure("page", "No sign-up or password-change form on this page");
+		const reply = await ask({ type: "generate", url: form.url, username: form.username });
+		if (reply.type !== "generated") return reply;
+		const [typed] = await chrome.scripting.executeScript({
+			target,
+			func: signUpPage,
+			args: [new URL(form.url).origin, reply.password],
+		});
+		const result = typed?.result;
+		if (!result || "reason" in result) {
+			return failure("page", "Vardo kept a new password, but the page changed before it could be typed");
+		}
+		return { type: "generated", fields: result.fields };
 	} catch (error) {
 		return failure("page", String(/** @type {Error} */ (error)?.message ?? error));
 	}

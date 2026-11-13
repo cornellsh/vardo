@@ -132,6 +132,17 @@ fn answer(request: Request, session: Option<&mut Session>, id: u64) -> Outcome {
         Request::Fill { uuid, url } => reply(id, fill(session, &uuid, &url)),
         Request::Copy { uuid, field } => copy(session, &uuid, field, id),
         Request::Launch => reply(id, error(ErrorCode::BadRequest, "Vardo is already running")),
+        Request::Generate { url, username } => {
+            let (response, changed) = save_login::generate_login(session, &url, &username);
+            Outcome {
+                reply: envelope(id, response),
+                effect: if changed {
+                    Effect::Changed
+                } else {
+                    Effect::None
+                },
+            }
+        }
         Request::Save {
             url,
             username,

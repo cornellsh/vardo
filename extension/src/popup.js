@@ -8,7 +8,7 @@
  */
 
 import { hostOf, identityOf, initialOf, tintFor } from "./identity.js";
-import { ask, captureLogin, fillInto } from "./native.js";
+import { ask, captureLogin, fillInto, generateInto } from "./native.js";
 
 /** @typedef {import("./native.js").Login} Login */
 
@@ -89,7 +89,12 @@ function showSaveLink() {
 	link.className = "link";
 	link.textContent = "Save the login typed on this page";
 	link.addEventListener("click", () => void saveLogin());
-	note.append(link);
+	const make = document.createElement("button");
+	make.type = "button";
+	make.className = "link";
+	make.textContent = "Make a password for this sign-up";
+	make.addEventListener("click", () => void generate());
+	note.append(link, document.createElement("br"), make);
 	document.body.append(note);
 }
 
@@ -368,6 +373,13 @@ const SAVED = {
 	updated: "Password updated in Vardo",
 	unchanged: "Vardo already has this login",
 };
+
+async function generate() {
+	if (!tab) return;
+	const result = await generateInto(tab);
+	if (result.type === "error") return say(result.message, true);
+	say("New password typed in and kept in Vardo");
+}
 
 async function launch() {
 	await ask({ type: "launch" });

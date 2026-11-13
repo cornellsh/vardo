@@ -200,9 +200,9 @@ Cite a rule in code as `inv:<name>`. The `doc-links` gate of `cargo xtask check`
 
 ### inv:browser-gets-secret-only-to-fill
 
-- **Rule:** Listing returns titles, usernames and match kind only. Copy is performed by the app. Unlocking happens only in the app window.
+- **Rule:** Listing returns titles, usernames and match kind only. Copy is performed by the app. Unlocking happens only in the app window. A password reaches the browser only to fill a matching page, or as a new password made and already kept for the page asking for it.
 - **Why:** A secret that enters the browser for any other reason has nowhere safe to go.
-- **Proof:** `crates/vardo-core/tests/browser.rs::the_logins_for_a_page_are_listed_without_their_passwords`, `crates/vardo-core/tests/browser.rs::copying_hands_the_password_to_vardo_not_the_browser`, `crates/vardo-core/tests/browser.rs::a_locked_vault_says_so_and_gives_nothing_away`.
+- **Proof:** `crates/vardo-core/tests/browser.rs::a_generated_password_is_kept_before_it_is_handed_out`, `crates/vardo-core/tests/browser.rs::the_logins_for_a_page_are_listed_without_their_passwords`, `crates/vardo-core/tests/browser.rs::copying_hands_the_password_to_vardo_not_the_browser`, `crates/vardo-core/tests/browser.rs::a_locked_vault_says_so_and_gives_nothing_away`.
 
 ### inv:fill-only-what-is-seen
 

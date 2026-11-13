@@ -125,6 +125,8 @@ Each flow names the layers it crosses, top to bottom.
 
 **Quick access.** The user presses Cmd+Shift+Space (Ctrl+Shift+Space elsewhere) from any app. The shell builds the quick window on first use and shows it over everything (`app/src-tauri/src/quick.rs`). It searches with the same commands as the main window. Enter copies through Rust, so the window never holds a password, then hides.
 
+**Make a password.** On a sign-up or password-change form, the popup's "Make a password for this sign-up" reads the form's address and the username typed so far. Core generates 20 characters, keeps them under that origin (replacing the login for exactly that site and username, whose history keeps the old one), and only then replies with the password. The extension types it into every new-password field (`extension/src/signup.js`).
+
 **Save a login.** The user types a login into a page, opens the popup and clicks "Save the login typed on this page". Only then does the extension read the top frame (`extension/src/capture.js`). Core saves it under the page origin, or replaces the password of the login saved for exactly that site and username once the user confirms (`inv:save-asks-before-replacing`). The shell tells the window, which refreshes and saves like any other edit.
 
 **Lock.** The tray, Ctrl+L, or five idle minutes. Unsaved changes are saved first. If that save fails, the vault stays unlocked and says so. Locking drops the `Vault` and every derived secret.
