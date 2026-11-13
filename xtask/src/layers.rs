@@ -16,6 +16,7 @@ const TOWER: &[(&str, &[&str])] = &[
     ("vardo-merge", &["vardo-kdbx", "vardo-vault"]),
     ("vardo-sync", &["vardo-kdbx", "vardo-vault", "vardo-merge"]),
     ("vardo-drive", STORAGE),
+    ("vardo-webdav", STORAGE),
     // The contract between core and the native host depends on nothing.
     ("vardo-browser", &[]),
     (
@@ -26,6 +27,7 @@ const TOWER: &[(&str, &[&str])] = &[
             "vardo-merge",
             "vardo-sync",
             "vardo-drive",
+            "vardo-webdav",
             "vardo-browser",
         ],
     ),

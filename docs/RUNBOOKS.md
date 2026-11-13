@@ -84,6 +84,14 @@ cargo run -p vardo-drive --features network --example contract -- \
 - Every destructive call re-reads the file name and aborts unless it starts with `vardo-contract-test-`. It deletes the file when done, also after a failure.
 - `crates/vardo-core/examples/live_drive.rs` and `crates/vardo-core/examples/live_unhappy.rs` drive the full session against live Drive. They read `VARDO_CLIENT_ID` and `VARDO_CLIENT_SECRET` from the environment.
 
+## Run the WebDAV contract against Apache
+
+macOS ships Apache with `mod_dav` and `mod_deflate`. A throwaway config on 127.0.0.1 with Basic auth and `SetOutputFilter DEFLATE` on the DAV directory reproduces `fact:webdav-etag-hazards`. Start it with `httpd -f <config> -DFOREGROUND`, then:
+
+`cargo run -p vardo-webdav --features network --example live -- http://127.0.0.1:<port>/live.kdbx <user> <password>`
+
+Every line must say `ok`. Run it against a real Nextcloud before recommending a provider.
+
 ## Fuzz the parser
 
 Use after any change to `crates/vardo-kdbx/src/xml/` or the header code.

@@ -30,6 +30,7 @@ import type {
 	Uuid,
 	VaultInfo,
 } from "./types";
+import { sourceKey, sourceName, webHost } from "../lib/source";
 import { DEMO_PASSWORD, GROUPS, ENTRIES, storageWarningFor, DEMO_SYNC_PLAN } from "./mockData";
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -100,18 +101,21 @@ export class MockIpc implements Ipc {
 			kind: "file" as const,
 			path: "/vaults/demo.kdbx",
 		};
-		const stem = (name: string) => name.replace(/\.kdbx$/i, "");
-		const leaf = (path: string) => stem(path.split("/").pop() ?? path);
 		const folder = (path: string) =>
 			path.split("/").slice(0, -1).join("/") || "/";
 
 		return {
-			name: source.kind === "file" ? leaf(source.path) : stem(source.name),
-			path: source.kind === "file" ? leaf(source.path) : stem(source.name),
+			name: sourceName(source),
+			path: sourceName(source),
 			// Derived from the actual source, not fixed strings. The old version
 			// reported "/vaults" no matter which vault was open, so opening a
 			// different one changed nothing on screen.
-			location: source.kind === "file" ? folder(source.path) : "Google Drive",
+			location:
+				source.kind === "file"
+					? folder(source.path)
+					: source.kind === "webDav"
+						? webHost(source.url)
+						: "Google Drive",
 			source,
 			// Only a local file can sit in someone else's synced folder. A vault
 			// reached through Drive's own API is not in a folder we can see, and
@@ -409,6 +413,17 @@ export class MockIpc implements Ipc {
 		this.driveConnected = false;
 	}
 
+	// --- WebDAV ---
+
+	async webdavConnect(url: string, username: string, password: string): Promise<VaultSource> {
+		await delay(400);
+		if (!url.startsWith("https://")) throw { kind: "unsupported", detail: "Use https://. Plain http would send your password unencrypted." };
+		if (password !== "dav") throw { kind: "io", detail: "not authorised: the WebDAV server refused these credentials (401)" };
+		const source: VaultSource = { kind: "webDav", url, username };
+		this.recents = [source, ...this.recents];
+		return source;
+	}
+
 	// --- browser extension ---
 
 	private browsersConnected = false;
@@ -518,9 +533,7 @@ export class MockIpc implements Ipc {
 	}
 
 	async forgetVault(source: VaultSource): Promise<void> {
-		const key = (s: VaultSource) =>
-			s.kind === "file" ? `file:${s.path}` : `gdrive:${s.file_id}`;
-		this.recents = this.recents.filter((s) => key(s) !== key(source));
+		this.recents = this.recents.filter((s) => sourceKey(s) !== sourceKey(source));
 	}
 
 	async driveListVaults(): Promise<DriveVault[]> {

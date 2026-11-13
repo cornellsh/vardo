@@ -13,9 +13,8 @@
 //! (`fact:drive-refresh-token-persists`).
 
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, OnceLock};
 
-use keyring_core::{CredentialStore, Entry};
+use keyring_core::Entry;
 use vardo_drive::oauth::Tokens;
 use zeroize::Zeroizing;
 
@@ -73,7 +72,7 @@ fn write(entry: Option<&Entry>, app_dir: &Path, refresh: &str) -> Result<(), Cor
     }
     std::fs::create_dir_all(app_dir).map_err(io)?;
     let path = file(app_dir);
-    write_private(&path, format!("\n{refresh}\n").as_bytes())
+    crate::secrets::write_private(&path, format!("\n{refresh}\n").as_bytes())
 }
 
 fn forget(entry: Option<&Entry>, app_dir: &Path) -> Result<(), CoreError> {
@@ -92,69 +91,14 @@ fn forget(entry: Option<&Entry>, app_dir: &Path) -> Result<(), CoreError> {
     }
 }
 
+/// This app directory's entry in the OS store, keyed by the directory so a
+/// test or a second profile never reads another one's connection.
+fn entry(app_dir: &Path) -> Option<Entry> {
+    crate::secrets::entry(SERVICE, &app_dir.display().to_string())
+}
+
 fn file(app_dir: &Path) -> PathBuf {
     app_dir.join("drive-tokens")
-}
-
-/// Created owner-only, so the token is never readable by others, not even for
-/// the moment between writing and changing permissions.
-fn write_private(path: &Path, bytes: &[u8]) -> Result<(), CoreError> {
-    let tmp = path.with_extension("tmp");
-    let mut options = std::fs::OpenOptions::new();
-    options.write(true).create(true).truncate(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        options.mode(0o600);
-    }
-    let mut out = options.open(&tmp).map_err(io)?;
-    std::io::Write::write_all(&mut out, bytes).map_err(io)?;
-    out.sync_all().map_err(io)?;
-    std::fs::rename(&tmp, path).map_err(io)
-}
-
-// --- the credential store ----------------------------------------------------
-
-/// This app directory's entry in the OS store, or `None` when there is no
-/// store to ask.
-///
-/// Keyed by the app directory, so a test or a second profile never reads
-/// another one's connection.
-fn entry(app_dir: &Path) -> Option<Entry> {
-    static READY: OnceLock<bool> = OnceLock::new();
-    let ready = *READY.get_or_init(|| match os_store() {
-        Ok(store) => {
-            keyring_core::set_default_store(store);
-            true
-        }
-        Err(_) => false,
-    });
-    if !ready {
-        return None;
-    }
-    Entry::new(SERVICE, &app_dir.display().to_string()).ok()
-}
-
-/// Unit tests get an in-memory store, so no test ever touches the person's
-/// real keychain.
-#[cfg(test)]
-fn os_store() -> keyring_core::Result<Arc<CredentialStore>> {
-    Ok(keyring_core::sample::Store::new()?)
-}
-
-#[cfg(all(not(test), target_os = "macos"))]
-fn os_store() -> keyring_core::Result<Arc<CredentialStore>> {
-    Ok(apple_native_keyring_store::keychain::Store::new()?)
-}
-
-#[cfg(all(not(test), windows))]
-fn os_store() -> keyring_core::Result<Arc<CredentialStore>> {
-    Ok(windows_native_keyring_store::Store::new()?)
-}
-
-#[cfg(all(not(test), unix, not(target_os = "macos")))]
-fn os_store() -> keyring_core::Result<Arc<CredentialStore>> {
-    Ok(zbus_secret_service_keyring_store::Store::new()?)
 }
 
 fn io(e: std::io::Error) -> CoreError {

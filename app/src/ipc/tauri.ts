@@ -176,6 +176,10 @@ export class TauriIpc implements Ipc {
 		return invoke("drive_disconnect");
 	}
 
+	webdavConnect(url: string, username: string, password: string): Promise<VaultSource> {
+		return invoke("webdav_connect", { url, username, password });
+	}
+
 	browserHosts(): Promise<BrowserHosts> {
 		return invoke("browser_hosts");
 	}

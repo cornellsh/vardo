@@ -59,6 +59,7 @@ fn key(source: &VaultSource) -> String {
             format!("file:{}", real.display())
         }
         VaultSource::GoogleDrive { file_id, .. } => format!("drive:{file_id}"),
+        VaultSource::WebDav { url, username } => format!("webdav:{username}@{url}"),
     };
     let digest = Sha256::digest(identity.as_bytes());
     digest[..16].iter().map(|b| format!("{b:02x}")).collect()

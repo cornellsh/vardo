@@ -235,7 +235,7 @@ hasPassword: boolean, };
  * compatibility surface. `tag`/`content` rather than the default so the JSON
  * stays readable and a new variant does not disturb the old ones.
  */
-export type VaultSource = { "kind": "file", path: string, } | { "kind": "googleDrive", file_id: string, name: string, };
+export type VaultSource = { "kind": "file", path: string, } | { "kind": "googleDrive", file_id: string, name: string, } | { "kind": "webDav", url: string, username: string, };
 
 export type Issue = "reused" | "weak" | "stale" | "expired";
 

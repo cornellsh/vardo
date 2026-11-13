@@ -109,6 +109,7 @@ pub fn run() {
             commands::drive_upload_vault,
             commands::forget_vault,
             commands::set_tray_unlocked,
+            commands::webdav_connect,
             commands::browser_hosts,
             commands::browser_connect,
             commands::browser_disconnect,

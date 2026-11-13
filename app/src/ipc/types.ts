@@ -235,6 +235,9 @@ export interface Ipc {
 
 	driveDisconnect(): Promise<void>;
 
+	/** Checks a WebDAV vault's address and server credentials, and remembers both. */
+	webdavConnect(url: string, username: string, password: string): Promise<VaultSource>;
+
 	/** Which browsers the extension can reach Vardo from. */
 	browserHosts(): Promise<BrowserHosts>;
 	/** Registers Vardo's helper with every browser that has run. */
