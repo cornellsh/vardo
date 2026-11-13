@@ -23,6 +23,9 @@ env:
   # Incremental builds only help when the same tree is rebuilt, which CI never
   # does, and they make the cache much larger.
   CARGO_INCREMENTAL: 0
+  # Full debug info for every test binary filled the Linux runner's disk, and
+  # the linker died with SIGBUS. Line tables keep panic backtraces readable.
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
 
 # Every action is pinned to a commit, with its version in a comment. A tag can
 # be moved to different code after the fact; a commit cannot. Dependabot keeps
