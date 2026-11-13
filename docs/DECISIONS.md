@@ -186,6 +186,14 @@ The long-form records these came from (ADR-001 to ADR-006, CRITIQUE, RESEARCH, P
 - **Reopen if:** The code needs Firefox-only branches beyond the shortcut link.
 - **Date:** 2026-11-13.
 
+### dec:generate-keeps-first
+
+- **Chose:** Vardo generates the password and keeps it in the vault before handing it to the extension. A login saved for exactly the same site and username has its password replaced, with the old one in history.
+- **Because:** A generated password that lives only in a web form is lost if the form fails to submit, and the person cannot know it. Keeping it first makes the worst case a stale entry, which history repairs.
+- **Rejected:** Generating in the extension, which puts randomness and the only copy in the page's reach. Saving only after submit, which needs a script watching the page.
+- **Reopen if:** Sites rejecting generated passwords leave many stale entries behind.
+- **Date:** 2026-11-13.
+
 ## Process
 
 ### dec:agent-first-docs
