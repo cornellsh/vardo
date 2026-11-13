@@ -26,24 +26,22 @@ pub fn helper() -> Option<PathBuf> {
 
 /// Where each supported browser stands.
 pub fn status() -> Result<BrowserHosts, CoreError> {
-    let (home, helper) = (home()?, helper());
-    Ok(report(&registration::browsers(&home), helper.as_deref()))
+    Ok(report(&browsers()?, helper().as_deref()))
 }
 
 /// Registers the helper with every browser that has run.
 pub fn connect() -> Result<BrowserHosts, CoreError> {
-    let home = home()?;
     let helper = helper().ok_or_else(|| CoreError::Unsupported {
         detail: format!("{HELPER} is not beside Vardo, so there is nothing to connect"),
     })?;
-    let browsers = registration::browsers(&home);
+    let browsers = browsers()?;
     registration::install(&browsers, &helper).map_err(|detail| CoreError::Io { detail })?;
     Ok(report(&browsers, Some(&helper)))
 }
 
 /// Removes the registration from every browser.
 pub fn disconnect() -> Result<BrowserHosts, CoreError> {
-    let browsers = registration::browsers(&home()?);
+    let browsers = browsers()?;
     registration::uninstall(&browsers).map_err(|detail| CoreError::Io { detail })?;
     Ok(report(&browsers, helper().as_deref()))
 }
@@ -64,18 +62,10 @@ fn report(browsers: &[registration::Browser], helper: Option<&Path>) -> BrowserH
     }
 }
 
-fn home() -> Result<PathBuf, CoreError> {
-    // Windows registers hosts in the registry instead (`plan:windows-pipe`).
-    if cfg!(windows) {
-        return Err(CoreError::Unsupported {
-            detail: "Connecting the browser extension is not available on Windows yet".into(),
-        });
-    }
-    std::env::var_os("HOME")
-        .map(PathBuf::from)
-        .ok_or_else(|| CoreError::Io {
-            detail: "HOME is not set".into(),
-        })
+fn browsers() -> Result<Vec<registration::Browser>, CoreError> {
+    registration::browsers().ok_or_else(|| CoreError::Io {
+        detail: "Cannot find your home folder".into(),
+    })
 }
 
 #[cfg(test)]
@@ -90,7 +80,11 @@ mod tests {
         std::fs::create_dir_all(&chrome).unwrap();
         let browsers = vec![registration::Browser {
             name: "Chrome",
+            manifest: chrome
+                .join("NativeMessagingHosts")
+                .join("app.vardo.browser.json"),
             dir: chrome,
+            key: None,
         }];
         let helper = root.join(HELPER);
         registration::install(&browsers, &helper).unwrap();

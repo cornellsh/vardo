@@ -18,7 +18,7 @@
 #![forbid(unsafe_code)]
 
 use std::io::{self, BufRead, BufReader, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use serde_json::{json, Value};
 use vardo_browser::framing;
@@ -108,24 +108,23 @@ fn error(id: u64, code: ErrorCode, message: &str) -> String {
     json!({ "v": VERSION, "id": id, "type": "error", "code": code, "message": message }).to_string()
 }
 
+/// A Unix socket, or on Windows a named pipe opened as a file.
 #[cfg(unix)]
+type Pipe = std::os::unix::net::UnixStream;
+#[cfg(not(unix))]
+type Pipe = std::fs::File;
+
 struct Connection {
-    writer: std::os::unix::net::UnixStream,
-    reader: BufReader<std::os::unix::net::UnixStream>,
+    writer: Pipe,
+    reader: BufReader<Pipe>,
 }
 
-#[cfg(unix)]
 impl Connection {
     fn open() -> Option<Self> {
-        let stream = std::os::unix::net::UnixStream::connect(vardo_browser::socket::path()).ok()?;
-        // Long enough for a save in progress to release the vault, short
-        // enough that a hung Vardo does not hang the browser's popup forever.
-        let timeout = Some(std::time::Duration::from_secs(10));
-        stream.set_read_timeout(timeout).ok()?;
-        stream.set_write_timeout(timeout).ok()?;
-        let reader = BufReader::new(stream.try_clone().ok()?);
+        let pipe = connect()?;
+        let reader = BufReader::new(pipe.try_clone().ok()?);
         Some(Connection {
-            writer: stream,
+            writer: pipe,
             reader,
         })
     }
@@ -144,17 +143,33 @@ impl Connection {
     }
 }
 
-#[cfg(not(unix))]
-struct Connection;
+#[cfg(unix)]
+fn connect() -> Option<Pipe> {
+    let stream = Pipe::connect(vardo_browser::socket::path()).ok()?;
+    // Long enough for a save in progress to release the vault, short enough
+    // that a hung Vardo does not hang the browser's popup forever.
+    let timeout = Some(std::time::Duration::from_secs(10));
+    stream.set_read_timeout(timeout).ok()?;
+    stream.set_write_timeout(timeout).ok()?;
+    Some(stream)
+}
 
-#[cfg(not(unix))]
-impl Connection {
-    fn open() -> Option<Self> {
-        None
-    }
-    fn ask(&mut self, _message: &[u8]) -> io::Result<String> {
-        Err(io::ErrorKind::Unsupported.into())
-    }
+/// The pipe's name is random and published only to this user
+/// (`vardo_browser::socket::pipe_name_file`), so no other account can stand
+/// in for Vardo.
+// shortcut: no read timeout on Windows, where a pipe opened as a file has none; a hung Vardo hangs the popup until Chrome ends the host. Upgrade with overlapped I/O if that is ever seen.
+#[cfg(windows)]
+fn connect() -> Option<Pipe> {
+    std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(vardo_browser::socket::pipe_name()?)
+        .ok()
+}
+
+#[cfg(not(any(unix, windows)))]
+fn connect() -> Option<Pipe> {
+    None
 }
 
 /// Starts Vardo when it is not running.
@@ -204,8 +219,7 @@ fn app_beside_us() -> Option<PathBuf> {
 // --- registering with browsers ----------------------------------------------
 
 fn browsers() -> Result<Vec<registration::Browser>, String> {
-    let home = std::env::var_os("HOME").ok_or("HOME is not set")?;
-    Ok(registration::browsers(Path::new(&home)))
+    registration::browsers().ok_or_else(|| "Cannot find your home folder".into())
 }
 
 fn install() -> Result<(), String> {

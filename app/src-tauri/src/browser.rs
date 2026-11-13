@@ -5,7 +5,7 @@
 //! the clipboard, showing the window, and telling the interface the vault
 //! changed. See `dec:core-decides-shells-act`.
 
-#[cfg(unix)]
+#[cfg(any(unix, windows))]
 pub fn start(app: tauri::AppHandle, state: crate::AppState) {
     use std::sync::Arc;
     use tauri::Emitter;
@@ -37,8 +37,15 @@ pub fn start(app: tauri::AppHandle, state: crate::AppState) {
     std::thread::Builder::new()
         .name("browser-socket".into())
         .spawn(move || {
-            let path = vardo_browser::socket::path();
-            if let Err(e) = vardo_core::browser::server::serve(&path, state.session, perform) {
+            #[cfg(unix)]
+            let served = vardo_core::browser::server::serve(
+                &vardo_browser::socket::path(),
+                state.session,
+                perform,
+            );
+            #[cfg(windows)]
+            let served = vardo_core::browser::server::serve_pipe(state.session, perform);
+            if let Err(e) = served {
                 // The rest of Vardo works without the extension, so this is a
                 // message, not a reason to stop.
                 eprintln!("vardo: browser extension unavailable: {e}");
@@ -47,6 +54,5 @@ pub fn start(app: tauri::AppHandle, state: crate::AppState) {
         .ok();
 }
 
-/// Windows needs a named pipe instead (`plan:windows-pipe`).
-#[cfg(not(unix))]
+#[cfg(not(any(unix, windows)))]
 pub fn start(_app: tauri::AppHandle, _state: crate::AppState) {}

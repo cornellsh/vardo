@@ -1,8 +1,9 @@
 //! Registering the native host with Chromium browsers.
 //!
-//! Contract: writes `app.vardo.browser.json` only into browsers that have run
-//! at least once, naming one host binary and allowing only Vardo's extension.
-//! Disconnecting removes only that file. Shared by `vardo-browser-host
+//! Contract: writes `app.vardo.browser.json` only for browsers that have run at
+//! least once, naming one host binary and allowing only Vardo's extension. On
+//! Windows a per-user registry key points each browser at that file.
+//! Disconnecting removes only what this wrote. Shared by `vardo-browser-host
 //! --install` and the app's settings, so both register identically.
 
 use std::path::{Path, PathBuf};
@@ -16,18 +17,23 @@ pub const EXTENSION_ID: &str = "fkemoafedkbgljikdhjbglhlhfplamll";
 /// The name the extension asks Chrome for.
 pub const HOST_NAME: &str = "app.vardo.browser";
 
-/// A browser and the profile directory it looks for hosts under.
+/// A browser, and where its registration lives.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Browser {
     pub name: &'static str,
+    /// Exists once the browser has run, so it can be connected.
     pub dir: PathBuf,
+    /// The registration file.
+    pub manifest: PathBuf,
+    /// Windows only: the key under `HKEY_CURRENT_USER` whose default value
+    /// names `manifest`. Chrome looks there rather than in a directory.
+    pub key: Option<String>,
 }
 
 /// Where one browser stands.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Status {
     pub name: &'static str,
-    /// The browser has run on this machine, so it can be connected.
     pub installed: bool,
     /// Its registration names `host`. One naming another copy of the host
     /// does not count: that copy may be gone.
@@ -35,8 +41,10 @@ pub struct Status {
 }
 
 /// The browsers checked to work, for this user. Others are added once
-/// someone confirms them.
-pub fn browsers(home: &Path) -> Vec<Browser> {
+/// someone confirms them. `None` when the environment gives no home.
+#[cfg(not(windows))]
+pub fn browsers() -> Option<Vec<Browser>> {
+    let home = PathBuf::from(std::env::var_os("HOME").filter(|h| !h.is_empty())?);
     let mac = cfg!(target_os = "macos");
     let base = if mac {
         home.join("Library/Application Support")
@@ -46,28 +54,55 @@ pub fn browsers(home: &Path) -> Vec<Browser> {
             .unwrap_or_else(|| home.join(".config"))
     };
     let pick = |on_mac: &str, elsewhere: &str| base.join(if mac { on_mac } else { elsewhere });
-    vec![
-        Browser {
-            name: "Google Chrome",
-            dir: pick("Google/Chrome", "google-chrome"),
-        },
-        Browser {
-            name: "Chromium",
-            dir: pick("Chromium", "chromium"),
-        },
-        Browser {
-            name: "Brave",
-            dir: base.join("BraveSoftware/Brave-Browser"),
-        },
-        Browser {
-            name: "Microsoft Edge",
-            dir: pick("Microsoft Edge", "microsoft-edge"),
-        },
-        Browser {
-            name: "Vivaldi",
-            dir: pick("Vivaldi", "vivaldi"),
-        },
-    ]
+    let browser = |name, dir: PathBuf| Browser {
+        name,
+        manifest: dir
+            .join("NativeMessagingHosts")
+            .join(format!("{HOST_NAME}.json")),
+        dir,
+        key: None,
+    };
+    Some(vec![
+        browser("Google Chrome", pick("Google/Chrome", "google-chrome")),
+        browser("Chromium", pick("Chromium", "chromium")),
+        browser("Brave", base.join("BraveSoftware/Brave-Browser")),
+        browser("Microsoft Edge", pick("Microsoft Edge", "microsoft-edge")),
+        browser("Vivaldi", pick("Vivaldi", "vivaldi")),
+    ])
+}
+
+/// On Windows every browser shares one manifest under the user's local app
+/// data, and each has its own registry key pointing at it.
+#[cfg(windows)]
+pub fn browsers() -> Option<Vec<Browser>> {
+    let local = PathBuf::from(std::env::var_os("LOCALAPPDATA").filter(|v| !v.is_empty())?);
+    let manifest = local.join("Vardo").join(format!("{HOST_NAME}.json"));
+    let browser = |name, data: &str, vendor: &str| Browser {
+        name,
+        dir: local.join(data),
+        manifest: manifest.clone(),
+        key: Some(format!(
+            r"Software\{vendor}\NativeMessagingHosts\{HOST_NAME}"
+        )),
+    };
+    Some(vec![
+        browser(
+            "Google Chrome",
+            r"Google\Chrome\User Data",
+            r"Google\Chrome",
+        ),
+        browser("Chromium", r"Chromium\User Data", "Chromium"),
+        browser(
+            "Brave",
+            r"BraveSoftware\Brave-Browser\User Data",
+            r"BraveSoftware\Brave-Browser",
+        ),
+        browser(
+            "Microsoft Edge",
+            r"Microsoft\Edge\User Data",
+            r"Microsoft\Edge",
+        ),
+    ])
 }
 
 /// The registration file Chrome reads.
@@ -81,20 +116,16 @@ pub fn manifest(host: &Path) -> serde_json::Value {
     })
 }
 
-fn file(browser: &Browser) -> PathBuf {
-    browser
-        .dir
-        .join("NativeMessagingHosts")
-        .join(format!("{HOST_NAME}.json"))
-}
-
 pub fn status(browsers: &[Browser], host: &Path) -> Vec<Status> {
     browsers
         .iter()
         .map(|b| Status {
             name: b.name,
             installed: b.dir.is_dir(),
-            connected: names(&file(b), host),
+            connected: names(&b.manifest, host)
+                && b.key
+                    .as_deref()
+                    .is_none_or(|k| registry::get(k).as_deref() == Some(&b.manifest)),
         })
         .collect()
 }
@@ -113,22 +144,18 @@ pub fn install(browsers: &[Browser], host: &Path) -> Result<Vec<&'static str>, S
     let body = serde_json::to_vec_pretty(&manifest(host)).map_err(|e| e.to_string())?;
     let mut done = Vec::new();
     for browser in browsers {
-        // A profile directory for a browser that is not installed would be litter.
+        // Registering a browser that is not installed would be litter.
         if !browser.dir.is_dir() {
             continue;
         }
-        let target = file(browser);
-        target
-            .parent()
-            .map_or(Ok(()), std::fs::create_dir_all)
-            .and_then(|()| std::fs::write(&target, &body))
-            .map_err(|e| {
-                format!(
-                    "{}: could not write {}: {e}",
-                    browser.name,
-                    target.display()
-                )
-            })?;
+        let fail = |e: std::io::Error| format!("{}: could not register: {e}", browser.name);
+        if let Some(parent) = browser.manifest.parent() {
+            std::fs::create_dir_all(parent).map_err(fail)?;
+        }
+        std::fs::write(&browser.manifest, &body).map_err(fail)?;
+        if let Some(key) = &browser.key {
+            registry::set(key, &browser.manifest).map_err(fail)?;
+        }
         done.push(browser.name);
     }
     if done.is_empty() {
@@ -141,33 +168,106 @@ pub fn install(browsers: &[Browser], host: &Path) -> Result<Vec<&'static str>, S
 pub fn uninstall(browsers: &[Browser]) -> Result<Vec<&'static str>, String> {
     let mut done = Vec::new();
     for browser in browsers {
-        let target = file(browser);
-        match std::fs::remove_file(&target) {
-            Ok(()) => done.push(browser.name),
+        let mut found = false;
+        if let Some(key) = &browser.key {
+            found |= registry::delete(key).map_err(|e| format!("{}: {e}", browser.name))?;
+        }
+        match std::fs::remove_file(&browser.manifest) {
+            Ok(()) => found = true,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-            Err(e) => return Err(format!("could not remove {}: {e}", target.display())),
+            Err(e) => {
+                return Err(format!(
+                    "could not remove {}: {e}",
+                    browser.manifest.display()
+                ))
+            }
+        }
+        if found {
+            done.push(browser.name);
         }
     }
     Ok(done)
+}
+
+/// The per-user registry, through `winreg`'s safe API.
+#[cfg(windows)]
+mod registry {
+    use std::path::{Path, PathBuf};
+
+    use winreg::enums::HKEY_CURRENT_USER;
+    use winreg::RegKey;
+
+    pub fn get(key: &str) -> Option<PathBuf> {
+        let value: String = RegKey::predef(HKEY_CURRENT_USER)
+            .open_subkey(key)
+            .ok()?
+            .get_value("")
+            .ok()?;
+        Some(PathBuf::from(value))
+    }
+
+    pub fn set(key: &str, manifest: &Path) -> std::io::Result<()> {
+        let (k, _) = RegKey::predef(HKEY_CURRENT_USER).create_subkey(key)?;
+        k.set_value("", &manifest.as_os_str())
+    }
+
+    /// True when there was a key to delete.
+    pub fn delete(key: &str) -> std::io::Result<bool> {
+        match RegKey::predef(HKEY_CURRENT_USER).delete_subkey_all(key) {
+            Ok(()) => Ok(true),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
+            Err(e) => Err(e),
+        }
+    }
+}
+
+/// No registry elsewhere: no browser carries a key, so these are never reached
+/// with one.
+#[cfg(not(windows))]
+mod registry {
+    use std::path::{Path, PathBuf};
+
+    pub fn get(_key: &str) -> Option<PathBuf> {
+        None
+    }
+
+    pub fn set(_key: &str, _manifest: &Path) -> std::io::Result<()> {
+        Err(std::io::ErrorKind::Unsupported.into())
+    }
+
+    pub fn delete(_key: &str) -> std::io::Result<bool> {
+        Ok(false)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    /// One browser that has run and one that never did. On Windows both carry
+    /// a registry key under a test-only path.
     fn two(tag: &str) -> (PathBuf, Vec<Browser>) {
         let root = std::env::temp_dir().join(format!("vardo-registration-{tag}"));
         let _ = std::fs::remove_dir_all(&root);
         let present = root.join("chrome");
         std::fs::create_dir_all(&present).unwrap();
+        let key = |name: &str| {
+            cfg!(windows).then(|| {
+                format!(r"Software\VardoTest\{tag}\{name}\NativeMessagingHosts\{HOST_NAME}")
+            })
+        };
         let browsers = vec![
             Browser {
                 name: "Present",
+                manifest: root.join("present").join(format!("{HOST_NAME}.json")),
                 dir: present,
+                key: key("present"),
             },
             Browser {
                 name: "Absent",
                 dir: root.join("never-run"),
+                manifest: root.join("absent").join(format!("{HOST_NAME}.json")),
+                key: key("absent"),
             },
         ];
         (root, browsers)
@@ -179,18 +279,25 @@ mod tests {
         let host = root.join("vardo-browser-host");
         assert_eq!(install(&browsers, &host).unwrap(), ["Present"]);
         assert!(
-            !browsers[1].dir.exists(),
+            !browsers[1].manifest.exists(),
             "no litter for a browser that never ran"
         );
+        if let Some(key) = &browsers[1].key {
+            assert_eq!(registry::get(key), None);
+        }
 
         let written: serde_json::Value =
-            serde_json::from_slice(&std::fs::read(file(&browsers[0])).unwrap()).unwrap();
+            serde_json::from_slice(&std::fs::read(&browsers[0].manifest).unwrap()).unwrap();
         assert_eq!(written, manifest(&host));
         assert_eq!(
             written["allowed_origins"],
             json!([format!("chrome-extension://{EXTENSION_ID}/")]),
             "only Vardo's extension may start the host"
         );
+        if let Some(key) = &browsers[0].key {
+            assert_eq!(registry::get(key).as_ref(), Some(&browsers[0].manifest));
+        }
+        uninstall(&browsers).unwrap();
     }
 
     #[test]
@@ -204,6 +311,7 @@ mod tests {
 
         install(&browsers, &host).unwrap();
         assert!(status(&browsers, &host)[0].connected);
+        uninstall(&browsers).unwrap();
     }
 
     #[test]
@@ -213,6 +321,9 @@ mod tests {
         install(&browsers, &host).unwrap();
         assert_eq!(uninstall(&browsers).unwrap(), ["Present"]);
         assert!(!status(&browsers, &host)[0].connected);
+        if let Some(key) = &browsers[0].key {
+            assert_eq!(registry::get(key), None, "the registry key is gone too");
+        }
         assert!(uninstall(&browsers).unwrap().is_empty());
     }
 

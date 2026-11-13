@@ -170,6 +170,14 @@ The long-form records these came from (ADR-001 to ADR-006, CRITIQUE, RESEARCH, P
 - **Reopen if:** The shortcut collides with a common app, or people want to choose their own.
 - **Date:** 2026-11-13.
 
+### dec:windows-pipe-name
+
+- **Chose:** On Windows, Vardo listens on a named pipe whose name holds 128 random bits, new each start, written to `%LOCALAPPDATA%\Vardo\browser-pipe`. The host reads the name there. The listener refuses remote clients. Registration writes one manifest and a per-user registry key per browser.
+- **Because:** Any local account can create a free pipe name, so a fixed one lets another user start first and receive what the extension sends, including logins being saved. Only this user can read their profile folder, so only they can find the pipe. This needs no `unsafe` code, which core forbids.
+- **Rejected:** A fixed name as KeePassXC uses, which accepts that squatting. Checking the server's process owner from the host, which needs Win32 calls through `unsafe`.
+- **Reopen if:** Same-user processes become part of the threat model (`dec:threat-model`).
+- **Date:** 2026-11-13.
+
 ## Process
 
 ### dec:agent-first-docs

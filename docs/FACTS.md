@@ -156,7 +156,7 @@ Live checks ran on 2026-08-27 with `crates/vardo-drive/examples/contract.rs` aga
 
 ### fact:platform-windows
 
-- CI runs the core tests on Windows. There is no browser socket on Windows (`plan:windows-pipe`). No one uses it daily.
+- CI runs the core tests on Windows, including the browser pipe (`crates/vardo-core/tests/browser_pipe.rs`). The app itself is not built or run on Windows by CI, so the window, the tray and the extension end to end are unverified there. No one uses it daily. Observed 2026-11-13.
 
 ## Tooling
 

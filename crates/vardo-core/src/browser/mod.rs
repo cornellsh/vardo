@@ -23,7 +23,7 @@
 
 pub mod host;
 mod save_login;
-#[cfg(unix)]
+#[cfg(any(unix, windows))]
 pub mod server;
 
 use serde::Serialize;
