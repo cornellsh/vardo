@@ -52,7 +52,3 @@ In rough priority order. Each needs its own design pass before code.
 ### plan:distribution
 
 - Ed25519 updater signing, macOS notarisation, Windows Trusted Signing, AppImage, Flatpak, AUR and the Chrome Web Store.
-
-### plan:glib-alert
-
-- Dependabot alert 1: `glib` below 0.20 has an unsound iterator, pulled in by Tauri's GTK stack. Resolve when Tauri moves to glib 0.20, and record the decision in `deny.toml` until then.

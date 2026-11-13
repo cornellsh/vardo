@@ -164,6 +164,10 @@ Live checks ran on 2026-08-27 with `crates/vardo-drive/examples/contract.rs` aga
 
 - CI lints with the latest stable Rust. Clippy 1.99 added `useless_borrows_in_formatting`, which failed `main` on 2026-11-12 with no code change.
 
+### fact:glib-pinned-by-tauri
+
+- Tauri 2.11 reaches `glib` 0.18.5 through its GTK3 stack on Linux. Dependabot alert 1 (RUSTSEC-2024-0429, an unsound iterator over GLib variant strings) needs glib 0.20, which only GTK4 bindings use. Tauri 3, in alpha, is where that changes. `deny.toml` records the advisory with its reason, and Vardo never builds or iterates a GLib variant. Recheck on each Tauri upgrade, and drop the `deny.toml` entry once `cargo tree -i glib` shows 0.20. Observed 2026-11-13.
+
 ### fact:minimatch-override
 
 - `@typescript-eslint/typescript-estree` 8.72.2 asks for `minimatch` ^10.2.2, but GHSA-g3hv-75wg-m249 is fixed only in 11.0.1, so CI's `npm audit` failed. `app/package.json` overrides it to ^11.0.1 for that package alone. The lint still passes and still catches errors. Delete the override once typescript-estree accepts minimatch 11. Observed 2026-11-12.
