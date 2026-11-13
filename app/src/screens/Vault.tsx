@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { EntryDetailPane } from "../components/EntryDetail";
 import { Notice } from "../components/Notice";
+import { CommandPalette } from "../components/CommandPalette";
+import type { Command } from "../components/CommandPalette";
 import { EntryList } from "../components/EntryList";
 import { GroupRail } from "../components/GroupRail";
 import { useAutoLock } from "../hooks/useAutoLock";
@@ -71,6 +73,7 @@ export function Vault({ info, onLock }: Props) {
 	// change the vault's shape.
 	const [live, setLive] = useState<VaultInfo>(info);
 	const [elsewhereSeen, setElsewhereSeen] = useState(false);
+	const [palette, setPalette] = useState(false);
 
 	/**
 	 * Writes the vault, and throws if it could not.
@@ -284,6 +287,11 @@ export function Vault({ info, onLock }: Props) {
 	useEffect(() => {
 		function onKey(e: KeyboardEvent) {
 			const mod = e.ctrlKey || e.metaKey;
+			if (e.key === "k" && mod) {
+				e.preventDefault();
+				setPalette((open) => !open);
+				return;
+			}
 			if (e.key === "s" && mod) {
 				e.preventDefault();
 				// Kept, because muscle memory is real and the shortcut existing
@@ -328,8 +336,40 @@ export function Vault({ info, onLock }: Props) {
 		return () => window.removeEventListener("beforeunload", warn);
 	}, [dirty]);
 
+	// Each command reuses the callback behind a button or shortcut, so the
+	// palette cannot do something the window itself would not.
+	const commands = useMemo<Command[]>(() => {
+		const list: Command[] = [];
+		if (info.writable) list.push({ id: "new", label: "New entry", shortcut: "Ctrl+N", run: () => void addEntry() });
+		if (info.writable && live.source.kind === "googleDrive") {
+			list.push({
+				id: "sync",
+				label: "Sync with Google Drive",
+				run: () => {
+					setSaveBlocked(false);
+					setReviewing(true);
+				},
+			});
+		}
+		list.push({
+			id: "health",
+			label: "Password health",
+			run: () => {
+				setSettings(false);
+				setReviewing(false);
+				setHealth(true);
+				setRailOpen(false);
+			},
+		});
+		list.push({ id: "settings", label: "Settings", run: () => setSettings(true) });
+		if (mode !== "three") list.push({ id: "groups", label: "Show groups", run: () => setRailOpen(true) });
+		list.push({ id: "lock", label: "Lock now", shortcut: "Ctrl+L", run: () => void lockNow() });
+		return list;
+	}, [info.writable, live.source.kind, mode, addEntry, lockNow]);
+
 	return (
 		<div className="flex h-full flex-col">
+			{palette && <CommandPalette commands={commands} onClose={() => setPalette(false)} />}
 			{/* There is no unsaved-changes bar.
 
 			    There was one, and it made no sense once you looked at it: a strip
