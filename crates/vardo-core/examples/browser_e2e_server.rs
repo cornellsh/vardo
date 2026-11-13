@@ -39,7 +39,7 @@ fn main() {
             // Only the length: this output may end up in a CI log.
             Effect::Copy(value) => println!("effect: copy ({} characters)", value.len()),
             Effect::Show => println!("effect: show"),
-            Effect::Changed => println!("effect: changed"),
+            Effect::Changed { .. } => println!("effect: changed"),
             Effect::None => {}
         }
         Ok(())

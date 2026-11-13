@@ -434,3 +434,68 @@ fn an_old_version_can_be_restored_and_the_restore_undone() {
     assert_eq!(*s.field_value(&uuid, "Password").unwrap(), "changed-once");
     assert_eq!(*s.field_value(&uuid, "Extra").unwrap(), "added later");
 }
+
+// --- icons ------------------------------------------------------------------
+
+/// Answers like a site with a PNG at /apple-touch-icon.png, and checks on every
+/// request that nobody holds the session lock while it answers.
+struct SiteThatChecksTheLock<'a> {
+    shared: &'a std::sync::Mutex<Option<Session>>,
+    requests: usize,
+}
+
+impl vardo_drive::http::HttpTransport for SiteThatChecksTheLock<'_> {
+    fn send(
+        &mut self,
+        request: vardo_drive::http::Request,
+    ) -> Result<vardo_drive::http::Response, String> {
+        self.requests += 1;
+        assert!(
+            self.shared.try_lock().is_ok(),
+            "the session stayed locked while a website answered"
+        );
+        let png = include_bytes!("../../../app/src-tauri/icons/32x32.png");
+        let found = request.url.ends_with("/apple-touch-icon.png");
+        Ok(vardo_drive::http::Response {
+            status: if found { 200 } else { 404 },
+            headers: Default::default(),
+            body: if found { png.to_vec() } else { Vec::new() },
+        })
+    }
+}
+
+#[test]
+fn an_icon_is_fetched_without_holding_the_session_and_only_once() {
+    let (mut s, _path) = writable("icon-shared");
+    let root = s.groups().uuid;
+    let uuid = s.create_entry(&root).unwrap();
+    s.update_entry(
+        &uuid,
+        &[vardo_core::model::FieldEdit {
+            key: "URL".into(),
+            value: Some("https://example.org/login".into()),
+            protected: false,
+        }],
+    )
+    .unwrap();
+    assert!(s.entries_missing_icons().contains(&uuid));
+
+    let shared = std::sync::Mutex::new(Some(s));
+    let mut site = SiteThatChecksTheLock {
+        shared: &shared,
+        requests: 0,
+    };
+    let icon = vardo_core::session::fetch_icon_shared_via(&shared, &uuid, &mut site).unwrap();
+    assert!(icon.unwrap().starts_with("data:image/png;base64,"));
+    assert!(site.requests > 0);
+
+    let s = shared.lock().unwrap();
+    assert!(!s.as_ref().unwrap().entries_missing_icons().contains(&uuid));
+    drop(s);
+
+    // A saved login whose entry already has an icon makes no request at all.
+    let before = site.requests;
+    let again = vardo_core::session::fetch_icon_shared_via(&shared, &uuid, &mut site).unwrap();
+    assert_eq!(again, None);
+    assert_eq!(site.requests, before);
+}

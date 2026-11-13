@@ -561,7 +561,8 @@ export class MockIpc implements Ipc {
 	}
 
 	async entriesMissingIcons(): Promise<Uuid[]> {
-		return [];
+		this.assertUnlocked();
+		return ENTRIES.filter((e) => e.summary.urlHost && !e.summary.iconPng).map((e) => e.summary.uuid);
 	}
 
 	async history(uuid: Uuid): Promise<HistoryVersion[]> {

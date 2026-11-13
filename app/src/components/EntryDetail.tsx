@@ -47,7 +47,10 @@ export function EntryDetailPane({
 	 * exit plays on an empty box.
 	 */
 	const [lastActionError, setLastActionError] = useState("");
-	/** Entries already tried, so a site with no icon is asked once per session. */
+	/**
+	 * Entry and address pairs already tried, so a site with no icon is asked once
+	 * per session, and saving a new address asks again.
+	 */
 	const tried = useRef(new Set<string>());
 
 	useEffect(() => {
@@ -72,8 +75,10 @@ export function EntryDetailPane({
 			//
 			// The result is written into the vault, so it happens once ever rather
 			// than once per device or once per visit.
-			if (next && !next.iconPng && writable && !tried.current.has(uuid)) {
-				tried.current.add(uuid);
+			const url = next?.fields.find((f) => f.key === "URL")?.value ?? "";
+			const attempt = `${uuid}\n${url}`;
+			if (next && !next.iconPng && url && writable && !tried.current.has(attempt)) {
+				tried.current.add(attempt);
 				try {
 					const png = await api.fetchIcon(uuid);
 					if (!cancelled && png) {

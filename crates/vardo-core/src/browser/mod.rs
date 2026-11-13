@@ -46,8 +46,11 @@ pub enum Effect {
     Copy(Zeroizing<String>),
     /// Bring the window forward.
     Show,
-    /// The vault changed. The app refreshes what it shows and saves.
-    Changed,
+    /// The vault changed: this entry was saved. The app refreshes what it
+    /// shows, saves, and fetches the entry's icon, since its site is open.
+    Changed {
+        uuid: String,
+    },
 }
 
 pub struct Outcome {
@@ -134,14 +137,7 @@ fn answer(request: Request, session: Option<&mut Session>, id: u64) -> Outcome {
         Request::Launch => reply(id, error(ErrorCode::BadRequest, "Vardo is already running")),
         Request::Generate { url, username } => {
             let (response, changed) = save_login::generate_login(session, &url, &username);
-            Outcome {
-                reply: envelope(id, response),
-                effect: if changed {
-                    Effect::Changed
-                } else {
-                    Effect::None
-                },
-            }
+            changed_outcome(id, response, changed)
         }
         Request::Save {
             url,
@@ -152,16 +148,23 @@ fn answer(request: Request, session: Option<&mut Session>, id: u64) -> Outcome {
             let password = Zeroizing::new(password);
             let (response, changed) =
                 save_login::save_login(session, &url, &username, &password, replace);
-            Outcome {
-                reply: envelope(id, response),
-                effect: if changed {
-                    Effect::Changed
-                } else {
-                    Effect::None
-                },
-            }
+            changed_outcome(id, response, changed)
         }
         Request::Show | Request::Status => unreachable!("answered above"),
+    }
+}
+
+/// The reply to a save, naming the entry it changed, if any.
+fn changed_outcome(id: u64, response: Response, changed: bool) -> Outcome {
+    let effect = match &response {
+        Response::Saved { uuid, .. } | Response::Generated { uuid, .. } if changed => {
+            Effect::Changed { uuid: uuid.clone() }
+        }
+        _ => Effect::None,
+    };
+    Outcome {
+        reply: envelope(id, response),
+        effect,
     }
 }
 

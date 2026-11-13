@@ -28,6 +28,7 @@ use crate::CoreError;
 mod edit;
 pub mod entries;
 mod files;
+pub use files::{fetch_icon_shared, fetch_icon_shared_via};
 mod instance;
 pub mod save;
 

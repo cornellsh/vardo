@@ -498,7 +498,8 @@ pub async fn drive_pick_vault(app: tauri::AppHandle) -> CmdResult<Option<VaultSo
 /// Downloads this entry's site icon and stores it in the vault.
 ///
 /// Blocking: it makes up to three HTTP requests. Returns null when the site
-/// has no usable icon, which is ordinary rather than a failure.
+/// has no usable icon, which is ordinary rather than a failure. The session
+/// stays free while the site answers, so other commands never wait on it.
 #[tauri::command]
 pub async fn fetch_icon(
     state: tauri::State<'_, AppState>,
@@ -506,9 +507,7 @@ pub async fn fetch_icon(
 ) -> CmdResult<Option<String>> {
     let state = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let mut guard = state.session.lock().unwrap();
-        let session = guard.as_mut().ok_or(CoreError::Locked)?;
-        session.fetch_icon(&uuid)
+        vardo_core::session::fetch_icon_shared(&state.session, &uuid)
     })
     .await
     .map_err(|e| CoreError::Io {

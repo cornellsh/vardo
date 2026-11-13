@@ -11,6 +11,13 @@ pub fn start(app: tauri::AppHandle, state: crate::AppState) {
     use tauri::Emitter;
     use vardo_core::browser::Effect;
 
+    fn changed(app: &tauri::AppHandle) {
+        if let Err(e) = app.emit("vault://changed", ()) {
+            eprintln!("vardo: could not tell the window the vault changed: {e}");
+        }
+    }
+
+    let session = state.session.clone();
     let perform = Arc::new(move |effect: Effect| match effect {
         Effect::None => Ok(()),
         Effect::Show => {
@@ -26,10 +33,16 @@ pub fn start(app: tauri::AppHandle, state: crate::AppState) {
         // The interface refreshes and saves, as after any edit. The login is in
         // the session either way, and locking saves a dirty vault first, so a
         // missed event is logged rather than reported as a failed save.
-        Effect::Changed => {
-            if let Err(e) = app.emit("vault://changed", ()) {
-                eprintln!("vardo: could not tell the window the vault changed: {e}");
-            }
+        Effect::Changed { uuid } => {
+            changed(&app);
+            // The person is on that site, so fetching its icon tells it nothing
+            // new. Off this thread: the socket must not wait on a website.
+            let (app, session) = (app.clone(), session.clone());
+            std::thread::spawn(move || {
+                if let Ok(Some(_)) = vardo_core::session::fetch_icon_shared(&session, &uuid) {
+                    changed(&app);
+                }
+            });
             Ok(())
         }
     });

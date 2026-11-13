@@ -258,6 +258,6 @@ Cite a rule in code as `inv:<name>`. The `doc-links` gate of `cargo xtask check`
 
 ### inv:no-phone-home
 
-- **Rule:** No telemetry, no CDN, no remote scripts or fonts. Site icons come from the site itself, never a third-party icon service. The WebView CSP allows only `self`, `data:` images and IPC.
-- **Why:** Which sites a person uses is itself sensitive (`dec:no-server-no-telemetry`).
-- **Proof:** The CSP in `app/src-tauri/tauri.conf.json`. `crates/vardo-core/src/favicon.rs`. `app/src/csp.test.ts` fails on any change to the CSP.
+- **Rule:** No telemetry, no CDN, no remote scripts or fonts. Site icons come from the site itself, never a third-party icon service. An icon is fetched when its entry is opened or saved, including a login saved from the extension, or for every entry when the person asks in Settings after seeing how many sites that contacts. Never on unlock. The WebView CSP allows only `self`, `data:` images and IPC.
+- **Why:** Which sites a person uses is itself sensitive (`dec:no-server-no-telemetry`). A burst to every site at unlock would broadcast the whole list.
+- **Proof:** The CSP in `app/src-tauri/tauri.conf.json`. `crates/vardo-core/src/favicon.rs`. `app/src/csp.test.ts` fails on any change to the CSP. `app/src/components/IconFetch.dom.test.tsx` shows the count before any fetch. `crates/vardo-core/tests/session.rs::an_icon_is_fetched_without_holding_the_session_and_only_once` keeps a slow site from freezing the app.

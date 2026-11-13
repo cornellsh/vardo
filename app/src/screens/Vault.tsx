@@ -10,6 +10,7 @@ import type { GroupAction } from "../components/GroupRail";
 import { useAutoLock } from "../hooks/useAutoLock";
 import { DriveConnect } from "../components/DriveConnect";
 import { BrowserConnect } from "../components/BrowserConnect";
+import { IconFetch } from "../components/IconFetch";
 import { MergeReview } from "./MergeReview";
 import { errorText } from "../ipc/error";
 import { saveThenLock } from "../lib/saveThenLock";
@@ -618,6 +619,11 @@ export function Vault({ info, onLock }: Props) {
 							<div className="mt-4">
 								<BrowserConnect />
 							</div>
+							{info.writable && (
+								<div className="mt-4">
+									<IconFetch onProgress={refresh} onFinished={save} />
+								</div>
+							)}
 							{live.storageWarning && (
 								<div className="mt-4">
 									<StorageNote warning={live.storageWarning} />

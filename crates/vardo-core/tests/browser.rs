@@ -393,7 +393,7 @@ fn a_new_login_becomes_an_entry_for_its_site() {
     assert_eq!(reply["type"], "saved");
     assert_eq!(reply["outcome"], "created");
     assert!(
-        matches!(effect, Effect::Changed),
+        matches!(&effect, Effect::Changed { uuid } if reply["uuid"] == uuid.as_str()),
         "the app must refresh and save"
     );
     let uuid = reply["uuid"].as_str().unwrap();
@@ -449,7 +449,7 @@ fn a_different_saved_password_is_replaced_only_when_the_person_confirms() {
     );
     assert_eq!(reply["outcome"], "updated");
     assert_eq!(reply["uuid"], v.github);
-    assert!(matches!(effect, Effect::Changed));
+    assert!(matches!(&effect, Effect::Changed { uuid } if reply["uuid"] == uuid.as_str()));
     assert_eq!(
         *v.session.field_value(&v.github, "Password").unwrap(),
         "rotated"
@@ -526,7 +526,7 @@ fn a_generated_password_is_kept_before_it_is_handed_out() {
     let password = reply["password"].as_str().unwrap().to_string();
     assert_eq!(password.chars().count(), 20);
     assert!(
-        matches!(effect, Effect::Changed),
+        matches!(&effect, Effect::Changed { uuid } if reply["uuid"] == uuid.as_str()),
         "the app must refresh and save"
     );
     let uuid = reply["uuid"].as_str().unwrap();
