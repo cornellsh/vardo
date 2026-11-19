@@ -5160,7 +5160,7 @@ name = "vardo-core"
 version = "0.0.1"
 dependencies = [
  "apple-native-keyring-store",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "hmac 0.12.1",
  "interprocess",
  "keyring-core",
@@ -5200,7 +5200,7 @@ dependencies = [
  "cbc 0.1.2",
  "chacha20 0.9.1",
  "flate2",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "hmac 0.12.1",
  "salsa20 0.10.2",
  "sha2 0.10.9",
@@ -5231,7 +5231,7 @@ dependencies = [
 name = "vardo-vault"
 version = "0.0.1"
 dependencies = [
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "vardo-kdbx",
  "zeroize",
 ]
