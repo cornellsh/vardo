@@ -615,17 +615,6 @@ checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
 
 [[package]]
 name = "chacha20"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3613f74bd2eac03dad61bd53dbe620703d4371614fe0bc3b9f04dd36fe4e818"
-dependencies = [
- "cfg-if",
- "cipher 0.4.4",
- "cpufeatures 0.2.17",
-]
-
-[[package]]
-name = "chacha20"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "65c35e4b699c7e15ccbe7ee35c005e4fc0a278d22238a2857e6ce2dadeda1b06"
@@ -2383,7 +2372,7 @@ dependencies = [
  "block-modes",
  "byteorder",
  "cbc 0.2.1",
- "chacha20 0.10.2",
+ "chacha20",
  "chrono",
  "cipher 0.5.2",
  "flate2",
@@ -5198,7 +5187,7 @@ dependencies = [
  "aes 0.8.4",
  "argon2",
  "cbc 0.1.2",
- "chacha20 0.9.1",
+ "chacha20",
  "flate2",
  "getrandom 0.4.3",
  "hmac 0.12.1",
