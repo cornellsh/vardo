@@ -130,6 +130,11 @@ const GATES: &[Gate] = &[
         fast: false,
         run: e2e,
     },
+    Gate {
+        name: "e2e-firefox",
+        fast: false,
+        run: e2e_firefox,
+    },
 ];
 
 struct Ctx {
@@ -350,6 +355,35 @@ fn e2e(c: &mut Ctx) -> Outcome {
         &["e2e/run.mjs"],
         &[("CHROMIUM", &chromium)],
     )
+}
+
+fn e2e_firefox(c: &mut Ctx) -> Outcome {
+    if let Some(skip) = missing_node_modules(&c.root, "extension") {
+        return skip;
+    }
+    let Some(firefox) = find_firefox() else {
+        return Outcome::Skip("no Firefox: set FIREFOX, or install Firefox".into());
+    };
+    c.run(
+        "extension",
+        "node",
+        &["e2e/run.mjs", "firefox"],
+        &[("FIREFOX", &firefox)],
+    )
+}
+
+/// `$FIREFOX`, else the usual macOS install, else `firefox` on the PATH.
+fn find_firefox() -> Option<PathBuf> {
+    if let Some(set) = env::var_os("FIREFOX").filter(|v| !v.is_empty()) {
+        return Some(PathBuf::from(set));
+    }
+    let path = env::var_os("PATH").unwrap_or_default();
+    [PathBuf::from(
+        "/Applications/Firefox.app/Contents/MacOS/firefox",
+    )]
+    .into_iter()
+    .chain(env::split_paths(&path).map(|dir| dir.join("firefox")))
+    .find(|p| p.is_file())
 }
 
 /// `$CHROMIUM`, else the newest Chrome for Testing in the usual caches, else a
