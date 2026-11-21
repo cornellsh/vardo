@@ -190,6 +190,10 @@ Live checks ran on 2026-08-27 with `crates/vardo-drive/examples/contract.rs` aga
 
 - `@typescript-eslint/typescript-estree` 8.72.2 asks for `minimatch` ^10.2.2, but GHSA-g3hv-75wg-m249 is fixed only in 11.0.1, so CI's `npm audit` failed. `app/package.json` overrides it to ^11.0.1 for that package alone. The lint still passes and still catches errors. Delete the override once typescript-estree accepts minimatch 11. Observed 2026-11-12.
 
+### fact:typescript-7-blocked-by-lint
+
+- `@typescript-eslint/parser` 8.73.0 accepts TypeScript `>=4.8.4 <6.1.0`, so TypeScript 7 fails `npm ci` in `app/` with ERESOLVE. `app/` stays on TypeScript 6.0 until typescript-eslint widens that range. `extension/` has no lint and runs TypeScript 7. Dependabot will keep offering 7 for `app/`; it fails CI and is never auto-merged. Observed 2026-11-21.
+
 ### fact:telegram-palette-contrast
 
 - Telegram's palette is not APCA-verified. Day `windowSubTextFg` `#999999` on white is about 2.8:1. `dialogsBgActive` `#419fd9` under white text is about 2.9:1. The contrast gate caught nine failures that eyeballing missed, mostly hover states and the focus ring.

@@ -3,7 +3,7 @@
 //! All primitives come from the RustCrypto family. We implement the KDBX
 //! *composition* of them, not the primitives themselves.
 
-use aes::cipher::{BlockDecryptMut, BlockEncrypt, KeyInit, KeyIvInit};
+use aes::cipher::{BlockCipherEncrypt, BlockModeDecrypt, KeyInit, KeyIvInit};
 use hmac::{Hmac, Mac};
 use sha2::{Digest, Sha256, Sha512};
 use zeroize::{Zeroize, Zeroizing};
@@ -96,16 +96,16 @@ impl MasterKeys {
     /// Computes the header HMAC that authenticates `header_raw`.
     pub fn header_hmac(&self, header_raw: &[u8]) -> [u8; 32] {
         let key = self.block_key(HEADER_BLOCK_INDEX);
-        let mut mac =
-            <HmacSha256 as Mac>::new_from_slice(key.as_slice()).expect("HMAC accepts any key len");
+        let mut mac = <HmacSha256 as KeyInit>::new_from_slice(key.as_slice())
+            .expect("HMAC accepts any key len");
         mac.update(header_raw);
         mac.finalize().into_bytes().into()
     }
 
     pub fn verify_header_hmac(&self, header_raw: &[u8], expected: &[u8]) -> Result<()> {
         let key = self.block_key(HEADER_BLOCK_INDEX);
-        let mut mac =
-            <HmacSha256 as Mac>::new_from_slice(key.as_slice()).expect("HMAC accepts any key len");
+        let mut mac = <HmacSha256 as KeyInit>::new_from_slice(key.as_slice())
+            .expect("HMAC accepts any key len");
         mac.update(header_raw);
         // Constant-time comparison; `verify_slice` is the whole reason we use
         // the mac API rather than comparing digests by hand.
@@ -202,9 +202,9 @@ fn aes_kdf(composite: &[u8; 32], seed: &[u8], rounds: u64) -> Result<Zeroizing<V
     let mut buf = Zeroizing::new(*composite);
     for _ in 0..rounds {
         // Two independent 16-byte ECB blocks, as KeePass specifies.
-        let (a, b) = buf.split_at_mut(16);
-        cipher.encrypt_block(aes::cipher::generic_array::GenericArray::from_mut_slice(a));
-        cipher.encrypt_block(aes::cipher::generic_array::GenericArray::from_mut_slice(b));
+        for block in buf.as_chunks_mut::<16>().0 {
+            cipher.encrypt_block(block.into());
+        }
     }
     Ok(Zeroizing::new(Sha256::digest(buf.as_slice()).to_vec()))
 }
@@ -225,8 +225,8 @@ pub fn read_hmac_block_stream(keys: &MasterKeys, buf: &[u8]) -> Result<Vec<u8>> 
         let data = c.take(len as usize)?;
 
         let key = keys.block_key(index);
-        let mut mac =
-            <HmacSha256 as Mac>::new_from_slice(key.as_slice()).expect("HMAC accepts any key len");
+        let mut mac = <HmacSha256 as KeyInit>::new_from_slice(key.as_slice())
+            .expect("HMAC accepts any key len");
         mac.update(&index.to_le_bytes());
         mac.update(&len.to_le_bytes());
         mac.update(data);
@@ -252,8 +252,8 @@ pub fn write_hmac_block_stream(keys: &MasterKeys, data: &[u8], out: &mut Vec<u8>
     let mut index: u64 = 0;
     let emit = |chunk: &[u8], index: u64, out: &mut Vec<u8>| {
         let key = keys.block_key(index);
-        let mut mac =
-            <HmacSha256 as Mac>::new_from_slice(key.as_slice()).expect("HMAC accepts any key len");
+        let mut mac = <HmacSha256 as KeyInit>::new_from_slice(key.as_slice())
+            .expect("HMAC accepts any key len");
         let len = chunk.len() as u32;
         mac.update(&index.to_le_bytes());
         mac.update(&len.to_le_bytes());
@@ -338,7 +338,7 @@ pub fn derive_kdbx3_key(
 pub fn encrypt(cipher_id: [u8; 16], key: &[u8; 32], iv: &[u8], data: &[u8]) -> Result<Vec<u8>> {
     match cipher_id {
         header::CIPHER_AES256_CBC => {
-            use aes::cipher::BlockEncryptMut;
+            use aes::cipher::BlockModeEncrypt;
             let iv: [u8; 16] = iv.try_into().map_err(|_| Error::Malformed {
                 what: "EncryptionIV",
                 detail: format!("AES-CBC needs a 16-byte IV, got {}", iv.len()),
@@ -348,7 +348,7 @@ pub fn encrypt(cipher_id: [u8; 16], key: &[u8; 32], iv: &[u8], data: &[u8]) -> R
             let mut buf = vec![0u8; data.len() + 16];
             buf[..data.len()].copy_from_slice(data);
             let n = cbc::Encryptor::<aes::Aes256>::new(key.into(), &iv.into())
-                .encrypt_padded_mut::<aes::cipher::block_padding::Pkcs7>(&mut buf, data.len())
+                .encrypt_padded::<aes::cipher::block_padding::Pkcs7>(&mut buf, data.len())
                 .map_err(|e| Error::Malformed {
                     what: "AES-CBC payload",
                     detail: format!("padding failed: {e}"),
@@ -361,7 +361,7 @@ pub fn encrypt(cipher_id: [u8; 16], key: &[u8; 32], iv: &[u8], data: &[u8]) -> R
         // same operation.
         header::CIPHER_CHACHA20 => decrypt(cipher_id, key, iv, data),
         header::CIPHER_TWOFISH => {
-            use aes::cipher::BlockEncryptMut;
+            use aes::cipher::BlockModeEncrypt;
             let iv: [u8; 16] = iv.try_into().map_err(|_| Error::Malformed {
                 what: "EncryptionIV",
                 detail: format!("Twofish-CBC needs a 16-byte IV, got {}", iv.len()),
@@ -369,7 +369,7 @@ pub fn encrypt(cipher_id: [u8; 16], key: &[u8; 32], iv: &[u8], data: &[u8]) -> R
             let mut buf = vec![0u8; data.len() + 16];
             buf[..data.len()].copy_from_slice(data);
             let n = cbc::Encryptor::<twofish::Twofish>::new(key.into(), &iv.into())
-                .encrypt_padded_mut::<aes::cipher::block_padding::Pkcs7>(&mut buf, data.len())
+                .encrypt_padded::<aes::cipher::block_padding::Pkcs7>(&mut buf, data.len())
                 .map_err(|e| Error::Malformed {
                     what: "Twofish-CBC payload",
                     detail: format!("padding failed: {e}"),
@@ -391,7 +391,7 @@ pub fn decrypt(cipher_id: [u8; 16], key: &[u8; 32], iv: &[u8], data: &[u8]) -> R
             })?;
             let mut buf = data.to_vec();
             let plain = Aes256CbcDec::new(key.into(), &iv.into())
-                .decrypt_padded_mut::<aes::cipher::block_padding::Pkcs7>(&mut buf)
+                .decrypt_padded::<aes::cipher::block_padding::Pkcs7>(&mut buf)
                 .map_err(|e| Error::Malformed {
                     what: "AES-CBC payload",
                     detail: format!("invalid padding: {e}"),
@@ -415,7 +415,7 @@ pub fn decrypt(cipher_id: [u8; 16], key: &[u8; 32], iv: &[u8], data: &[u8]) -> R
             })?;
             let mut buf = data.to_vec();
             let plain = cbc::Decryptor::<twofish::Twofish>::new(key.into(), &iv.into())
-                .decrypt_padded_mut::<aes::cipher::block_padding::Pkcs7>(&mut buf)
+                .decrypt_padded::<aes::cipher::block_padding::Pkcs7>(&mut buf)
                 .map_err(|e| Error::Malformed {
                     what: "Twofish-CBC payload",
                     detail: format!("invalid padding: {e}"),

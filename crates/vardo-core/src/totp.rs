@@ -195,26 +195,26 @@ impl Totp {
     }
 
     fn hmac(&self, message: &[u8]) -> Vec<u8> {
-        use hmac::{Hmac, Mac};
+        use hmac::{Hmac, KeyInit, Mac};
         use sha1::Sha1;
         use sha2::{Sha256, Sha512};
 
         match self.algorithm {
             Algorithm::Sha1 => {
                 let mut m =
-                    <Hmac<Sha1> as Mac>::new_from_slice(&self.secret).expect("any key size");
+                    <Hmac<Sha1> as KeyInit>::new_from_slice(&self.secret).expect("any key size");
                 m.update(message);
                 m.finalize().into_bytes().to_vec()
             }
             Algorithm::Sha256 => {
                 let mut m =
-                    <Hmac<Sha256> as Mac>::new_from_slice(&self.secret).expect("any key size");
+                    <Hmac<Sha256> as KeyInit>::new_from_slice(&self.secret).expect("any key size");
                 m.update(message);
                 m.finalize().into_bytes().to_vec()
             }
             Algorithm::Sha512 => {
                 let mut m =
-                    <Hmac<Sha512> as Mac>::new_from_slice(&self.secret).expect("any key size");
+                    <Hmac<Sha512> as KeyInit>::new_from_slice(&self.secret).expect("any key size");
                 m.update(message);
                 m.finalize().into_bytes().to_vec()
             }

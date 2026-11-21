@@ -11,6 +11,11 @@ updates:
     schedule:
       interval: weekly
     groups:
+      # RustCrypto crates share trait crates (cipher, digest), so a new release
+      # only compiles when every one of them moves at once. First match wins,
+      # so this sits above the catch-all.
+      rustcrypto:
+        patterns: [aes, cbc, chacha20, salsa20, twofish, sha1, sha2, hmac, argon2, cipher, digest]
       rust:
         patterns: ["*"]
         update-types: [minor, patch]
