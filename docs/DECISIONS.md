@@ -230,10 +230,10 @@ Do not relitigate a decision without its reopen condition. To reverse one, add a
 
 ### dec:dependabot-automerge
 
-- **Chose:** `.github/workflows/automerge.yml` queues every Dependabot pull request for auto-merge except major version bumps. A ruleset on `main` requires the CI checks, so GitHub merges only once they pass. The branch is deleted on merge. The repository admin bypasses the ruleset, so the owner pushes straight to `main` as before.
+- **Chose:** `.github/workflows/automerge.yml` queues every Dependabot pull request for auto-merge except breaking bumps. A bump is breaking when the leading non-zero version component changes, as Cargo reads it: 1.4 to 2.0, 0.13 to 0.17, or 0.0.1 to 0.0.2. A ruleset on `main` requires the CI checks, so GitHub merges only once they pass. The branch is deleted on merge. The repository admin bypasses the ruleset, so the owner pushes straight to `main` as before.
 - **Because:** The owner wants dependency updates to land without anyone clicking. CI runs the conformance, merge-property and end-to-end checks, which is the same bar a human merge would meet.
-- **Rejected:** Merging majors too, since those change APIs and usually need code changes. Requiring branches to be up to date, since nothing would update them and every merge would stall the rest.
-- **Reopen if:** An automatic merge breaks `main`. A pre-1.0 crate going from 0.10 to 0.11 counts as minor here, so it merges on green CI alone.
+- **Rejected:** Merging breaking bumps too, since those change APIs and usually need code changes. Trusting Dependabot's own `update-type`, since it calls 0.13 to 0.17 minor; keepass 0.13 to 0.17 merged that way unreviewed. Requiring branches to be up to date, since nothing would update them and every merge would stall the rest.
+- **Reopen if:** An automatic merge breaks `main`.
 - **Date:** 2026-11-21.
 
 ### dec:release-command

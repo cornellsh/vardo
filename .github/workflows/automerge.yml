@@ -1,5 +1,5 @@
 # Merges Dependabot's pull requests once the checks that main requires pass.
-# Major version bumps wait for a person (dec:dependabot-automerge).
+# Breaking bumps wait for a person (dec:dependabot-automerge).
 # yamllint disable rule:line-length
 name: Dependabot
 
@@ -17,9 +17,23 @@ jobs:
     steps:
       - id: meta
         uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+      # Breaking means the leading non-zero component changed, as Cargo reads
+      # it: 1.4 to 2.0, but also 0.13 to 0.17 and 0.0.1 to 0.0.2. Dependabot
+      # calls the last two minor and patch. An unknown version counts as breaking.
+      - id: semver
+        env:
+          DEPS: ${{ steps.meta.outputs.updated-dependencies-json }}
+        run: |
+          breaking=$(jq '
+            def parts: split(".") | map(tonumber? // -1);
+            def lead: . as $v | ([range(0; length) | select($v[.] != 0)] | first // (length - 1)) as $i | $v[0:$i + 1];
+            [.[] | select(.prevVersion == null or .newVersion == null
+              or ((.prevVersion | parts | lead) as $l | (.newVersion | parts)[0:($l | length)] != $l))] | length > 0
+          ' <<< "$DEPS")
+          echo "breaking=$breaking" >> "$GITHUB_OUTPUT"
       # --auto queues the merge; GitHub performs it once the required checks
       # pass, and never if one fails.
-      - if: steps.meta.outputs.update-type != 'version-update:semver-major'
+      - if: steps.semver.outputs.breaking == 'false'
         run: gh pr merge --auto --squash "$PR"
         env:
           PR: ${{ github.event.pull_request.html_url }}

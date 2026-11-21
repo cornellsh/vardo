@@ -194,6 +194,10 @@ Live checks ran on 2026-08-27 with `crates/vardo-drive/examples/contract.rs` aga
 
 - `@typescript-eslint/parser` 8.73.0 accepts TypeScript `>=4.8.4 <6.1.0`, so TypeScript 7 fails `npm ci` in `app/` with ERESOLVE. `app/` stays on TypeScript 6.0 until typescript-eslint widens that range. `extension/` has no lint and runs TypeScript 7. Dependabot will keep offering 7 for `app/`; it fails CI and is never auto-merged. Observed 2026-11-21.
 
+### fact:eslint-10-blocked-by-jsx-a11y
+
+- `eslint-plugin-jsx-a11y` 6.10.2 does not accept eslint 10, so eslint 10 fails `npm ci` in `app/` with ERESOLVE. `app/` stays on eslint 9 until the plugin widens its peer range. PR #29 was closed with `@dependabot ignore this major version`, so Dependabot stays quiet about eslint 10; retry by hand when the plugin releases. Observed 2026-11-21.
+
 ### fact:telegram-palette-contrast
 
 - Telegram's palette is not APCA-verified. Day `windowSubTextFg` `#999999` on white is about 2.8:1. `dialogsBgActive` `#419fd9` under white text is about 2.9:1. The contrast gate caught nine failures that eyeballing missed, mostly hover states and the focus ring.
