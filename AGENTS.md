@@ -38,13 +38,14 @@ Docs never state counts, pass rates or "done". Those rot. Run the command instea
 | Lint as CI does | `cargo clippy --workspace --all-targets --all-features -- -D warnings` |
 | Interface tests | `cd app && npx vitest run` |
 | Interface in a browser, no Rust | `cd app && npm run build && npm run preview` |
-| Extension in a real browser | `cd extension && CHROMIUM=<binary> npm run e2e` |
+| Extension in a real browser | `cd extension && CHROMIUM=<binary> npm run e2e`, or `FIREFOX=<binary> npm run e2e:firefox` |
 | Release binaries | `cd app && npm run app:release`, then `cargo build --release -p vardo-browser` |
 
 Setup facts that cost failed runs:
 
 - The check skips the app and extension gates unless `npm ci` ran in `app/` and `extension/`. It prints each skip and its reason.
 - The e2e gate uses `$CHROMIUM`, else the newest Chrome for Testing under `~/.cache/chrome-for-testing` or `~/.cache/puppeteer`, else a Chromium on the path. Branded Chrome ignores `--load-extension`, so it is never picked.
+- The e2e-firefox gate uses `$FIREFOX`, else `/Applications/Firefox.app`, else `firefox` on the path. It drives Firefox internals (`extension/e2e/firefox.mjs`), so a new Firefox can break the harness while the extension is fine.
 - Compiling `vardo-app` needs the built interface in app/dist, which git ignores. The check writes a placeholder when it is missing. A bare `cargo build` does not.
 - CI lints with the latest stable Rust. A new release can add a lint that fails `main` with no code change (`fact:clippy-moves`).
 - The minimum Rust version is 1.89, in `Cargo.toml`. CI builds with Node 22.

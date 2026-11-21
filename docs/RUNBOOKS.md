@@ -16,7 +16,7 @@ Use on a new machine, before `cargo xtask check`.
    - macOS: `xcode-select --install`
    - Windows: Visual Studio Build Tools with "Desktop development with C++".
 4. `keepassxc-cli` for the interop tests. On macOS, `brew install --cask keepassxc` links it.
-5. A browser for the e2e: `npx @puppeteer/browsers install chrome@stable --path ~/.cache/chrome-for-testing`. The check finds it there. Elsewhere, point `CHROMIUM` at the binary.
+5. A browser for the e2e: `npx @puppeteer/browsers install chrome@stable --path ~/.cache/chrome-for-testing`. The check finds it there. Elsewhere, point `CHROMIUM` at the binary. The Firefox e2e uses an installed Firefox, or `FIREFOX`.
 6. Secrets, never in the repo: put `oauth-client.env` (exports `VARDO_CLIENT_ID` and `VARDO_CLIENT_SECRET`) and `extension-key.pem` in `~/.config/vardo/`, dir mode 700, files mode 600.
 
 ## Create a Google OAuth client
@@ -46,7 +46,7 @@ The desktop client secret is not secret, per Google, since anything built into a
 3. In Vardo's settings, Browser extension, press Connect. It registers the host beside the app with every Chromium-family browser whose config dir exists. Disconnect removes it. `vardo-browser-host --install` and `--uninstall` do the same from a terminal, through the same code (`crates/vardo-browser/src/registration.rs`).
 4. In `chrome://extensions`, enable Developer mode, choose Load unpacked, and pick `extension/`. The id is always `fkemoafedkbgljikdhjbglhlhfplamll`.
 5. On a sign-in page, press Alt+Shift+L.
-6. Firefox: `cd extension && npm run build:firefox`, then in `about:debugging`, This Firefox, Load Temporary Add-on, pick `dist/firefox/manifest.json` inside the extension folder. Connect registers Firefox too. Its popup link for setting a shortcut opens a Chrome page, so set the key in `about:addons` instead.
+6. Firefox: `cd extension && npm run build:firefox`, then in `about:debugging`, This Firefox, Load Temporary Add-on, pick `dist/firefox/manifest.json` inside the extension folder. Connect registers Firefox too, once Firefox has run at least once. A temporary add-on is gone after a restart. Release Firefox installs an add-on for good only when Mozilla has signed it (`plan:firefox-signing`).
 
 ## Add Vardo to the Linux application menu
 

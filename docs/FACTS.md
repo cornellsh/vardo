@@ -174,7 +174,9 @@ Live checks ran on 2026-08-27 with `crates/vardo-drive/examples/contract.rs` aga
 
 ### fact:firefox-build-lints-clean
 
-- `web-ext lint` 8 reports no errors, warnings or notices for the Firefox build (`dist/firefox` inside the extension folder). The add-on has not been loaded in a real Firefox, and no e2e runs there. Observed 2026-11-13.
+- `web-ext lint` 8 reports no errors, warnings or notices for the Firefox build (`dist/firefox` inside the extension folder). Observed 2026-11-13.
+- The whole e2e passes in Firefox 160 on macOS: filling, frames, two-factor codes, saving, making a password, and Vardo not running (`extension/e2e/firefox.mjs`). The Linux run is CI's. Observed 2026-11-21.
+- On macOS Firefox looks for native hosts under the real home folder and ignores `HOME`, so the e2e points `XREUserNativeManifests` at its own folder. Observed 2026-11-21.
 
 ### fact:clippy-moves
 

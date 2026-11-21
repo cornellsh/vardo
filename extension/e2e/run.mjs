@@ -1,13 +1,15 @@
-// The extension, end to end, in a real Chromium.
+// The extension, end to end, in a real Chromium or Firefox.
 //
 //   npm run e2e            (from extension/)
+//   npm run e2e:firefox
 //
 // Starts, in a private temporary directory:
 //   - a small web server with a sign-in page and a two-factor page,
 //   - Vardo's browser socket for a vault built by Vardo's own code
 //     (`browser_e2e_server`, the exact server the app runs, without a window),
-//   - headless Chromium with this extension loaded and the native host
+//   - the headless browser with this extension loaded and the native host
 //     registered with it by `vardo-browser-host --install`.
+//     chromium.mjs and firefox.mjs each drive one.
 //
 // Then it clicks the toolbar button the way a person would, which is what
 // grants the extension access to the tab, and checks what the popup shows and
@@ -18,7 +20,8 @@
 // DevTools protocol reach the page, not the browser. The run checks instead
 // that the shortcut was assigned, which is how it failed in practice.
 //
-// Needs: cargo, and Chromium (set CHROMIUM if it is not `chromium`).
+// Needs: cargo, and Chromium (set CHROMIUM if it is not `chromium`) or
+// Firefox (set FIREFOX if it is not `firefox`).
 
 import { spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, rmSync, readFileSync } from "node:fs";
@@ -27,13 +30,13 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const EXT_ID = "fkemoafedkbgljikdhjbglhlhfplamll";
 const here = dirname(fileURLToPath(import.meta.url));
 const extension = resolve(here, "..");
 const repo = resolve(extension, "..");
-const chromium = process.env.CHROMIUM ?? "chromium";
+const which = process.argv[2] ?? "chromium";
+if (!["chromium", "firefox"].includes(which)) throw new Error(`unknown browser: ${which}`);
+const driver = await import(`./${which}.mjs`);
 const SITE_PORT = 18765;
-const DEBUG_PORT = 19333;
 
 const work = mkdtempSync(join(tmpdir(), "vardo-e2e-"));
 const env = {
@@ -42,16 +45,15 @@ const env = {
 	XDG_CONFIG_HOME: join(work, "config"),
 };
 mkdirSync(env.XDG_RUNTIME_DIR, { mode: 0o700 });
-// Chromium looks for native hosts inside its profile, and `--install` writes
-// into the profile directory each browser uses by default. On macOS that is
-// under HOME, which XDG_CONFIG_HOME does not move, so the install gets its own
-// HOME instead of writing into the real one.
+// `--install` registers with each browser whose folder exists. On macOS those
+// are under HOME, which XDG_CONFIG_HOME does not move, so the install gets its
+// own HOME instead of writing into the real one.
 const mac = process.platform === "darwin";
 const home = join(work, "home");
-const profile = mac ? join(home, "Library", "Application Support", "Chromium") : join(env.XDG_CONFIG_HOME, "chromium");
-mkdirSync(profile, { recursive: true });
+mkdirSync(driver.profileDir({ home, env, mac }), { recursive: true });
 
 const children = [];
+const groups = new Set();
 let failures = 0;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -63,10 +65,10 @@ function check(name, ok, detail = "") {
 /**
  * Stops everything, waits for it to stop, then deletes the directory.
  *
- * Chromium is not one process. Signalling only the one it started with left
- * its renderer and GPU helpers writing the profile while it was deleted, so
- * the delete failed after every check had passed. It runs in its own process
- * group, the whole group is signalled, and the delete retries briefly. A
+ * A browser is not one process. Signalling only the one it started with left
+ * Chromium's renderer and GPU helpers writing the profile while it was
+ * deleted, so the delete failed after every check had passed. It runs in its
+ * own process group, the whole group is signalled, and the delete retries. A
  * cleanup problem is reported but never turns a passing run into a failure.
  */
 async function finish(code) {
@@ -76,7 +78,7 @@ async function finish(code) {
 	for (const child of children) {
 		try {
 			// A negative pid signals the group, for children started detached.
-			process.kill(child.spawnargs.includes("--headless=new") ? -child.pid : child.pid, "SIGTERM");
+			process.kill(groups.has(child) ? -child.pid : child.pid, "SIGTERM");
 		} catch {
 			// Already gone.
 		}
@@ -128,134 +130,70 @@ const site = createServer((req, res) => {
 }).listen(SITE_PORT, "127.0.0.1");
 
 const registered = spawnSync(host, ["--install"], { env: { ...env, HOME: home }, encoding: "utf8" });
-check("the host registers itself with the browser", registered.status === 0, registered.stderr);
+const browserName = which === "firefox" ? "Firefox" : "Chromium";
+// It reports on stderr: stdout is the channel to the browser.
+check("the host registers itself with the browser", registered.status === 0 && registered.stderr.includes(`Registered with ${browserName}`), registered.stderr);
 
 // --- the browser --------------------------------------------------------------------
 
-const browser = spawn(
-	chromium,
-	[
-		"--headless=new",
-		// Ubuntu 24.04 runners forbid the unprivileged namespaces Chromium's
-		// sandbox needs. The pages here are local test fixtures; nowhere else.
-		...(process.env.CI ? ["--no-sandbox"] : []),
-		// Otherwise macOS asks for the login keychain, which a headless run
-		// cannot answer.
-		...(mac ? ["--use-mock-keychain"] : []),
-		"--enable-unsafe-extension-debugging",
-		`--user-data-dir=${profile}`,
-		`--load-extension=${extension}`,
-		`--disable-extensions-except=${extension}`,
-		`--remote-debugging-port=${DEBUG_PORT}`,
-		"--no-first-run",
-		"--no-default-browser-check",
-		"--disable-features=DisableLoadExtensionCommandLineSwitch",
-		"about:blank",
-	],
-	// Its own process group, so `finish` can stop its helpers too.
-	{ env, stdio: "ignore", detached: true },
-);
-children.push(browser);
-
-let version;
-for (let i = 0; i < 60 && !version; i++) {
-	await sleep(250);
-	version = await fetch(`http://127.0.0.1:${DEBUG_PORT}/json/version`).then((r) => r.json()).catch(() => null);
-}
-if (!version) {
-	console.error("Chromium did not start. Set CHROMIUM to its path.");
+let browser;
+try {
+	browser = await driver.start({
+		extension,
+		work,
+		home,
+		env,
+		mac,
+		track: (child) => {
+			children.push(child);
+			groups.add(child);
+		},
+	});
+} catch (error) {
+	console.error(error.message);
 	await finish(1);
 }
 
-const ws = new WebSocket(version.webSocketDebuggerUrl);
-await new Promise((r) => ws.addEventListener("open", r));
-let nextId = 1;
-const pending = new Map();
-ws.addEventListener("message", (e) => {
-	let m;
-	try {
-		m = JSON.parse(e.data);
-	} catch {
-		return; // Not a reply to anything we asked.
-	}
-	if (m.id && pending.has(m.id)) {
-		pending.get(m.id)(m);
-		pending.delete(m.id);
-	}
-});
-const send = (method, params = {}, sessionId) => {
-	const id = nextId++;
-	ws.send(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) }));
-	return new Promise((r) => pending.set(id, r));
-};
-const evaluate = async (sessionId, expression) => {
-	const r = await send("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true }, sessionId);
-	return r.result?.result?.value;
-};
-const targets = async (type) =>
-	(await send("Target.getTargets", type ? { filter: [{ type }] } : {})).result.targetInfos;
-const attach = async (targetId) =>
-	(await send("Target.attachToTarget", { targetId, flatten: true })).result.sessionId;
-
 let opened = 0;
 
-/** Opens `path` in a tab, clicks the toolbar button, returns the popup's session. */
+/**
+ * Opens `path` in a new tab, clicks the toolbar button, and waits for the
+ * popup to hear back from Vardo. Returns the popup and an evaluator for the page.
+ */
 async function openPopup(path) {
-	// A unique address each time, so the tab and the page found below are
-	// certainly the ones just opened. The first version matched on the path,
-	// found an older tab, and read back a page that was never filled.
-	const url = `http://127.0.0.1:${SITE_PORT}${path}?run=${++opened}`;
-	await send("Target.createTarget", { url });
-	// Polled rather than slept for: a fixed wait was long enough on an idle
-	// machine and not on a busy one, and one run in five failed that way.
-	let tab;
-	let page;
-	for (let i = 0; i < 40 && !(tab && page); i++) {
-		await sleep(200);
-		tab = (await targets("tab")).find((t) => t.url === url);
-		page = (await targets()).find((t) => t.type === "page" && t.url === url);
+	// A unique address each time, so the tab and the page found are certainly
+	// the ones just opened. The first version matched on the path, found an
+	// older tab, and read back a page that was never filled.
+	try {
+		const opening = await browser.openPopup(`http://127.0.0.1:${SITE_PORT}${path}?run=${++opened}`);
+		for (let i = 0; i < 40; i++) {
+			await sleep(250);
+			const text = await opening.popup.text();
+			if (text && !/^\s*$/.test(text)) break;
+		}
+		await sleep(300);
+		return opening;
+	} catch (error) {
+		// Through finish, or the browser outlives the run.
+		console.error(error);
+		return finish(1);
 	}
-	if (!tab || !page) throw new Error(`could not find the tab for ${url}`);
-	const pageSession = await attach(page.targetId);
-	for (let i = 0; i < 40; i++) {
-		if ((await evaluate(pageSession, "document.readyState")) === "complete") break;
-		await sleep(100);
-	}
-	await send("Target.activateTarget", { targetId: page.targetId });
-	const triggered = await send("Extensions.triggerAction", { id: EXT_ID, targetId: tab.targetId });
-	if (triggered.error) throw new Error(`triggerAction: ${triggered.error.message}`);
-	let popup;
-	for (let i = 0; i < 40 && !popup; i++) {
-		await sleep(250);
-		popup = (await targets()).find((t) => t.url.startsWith(`chrome-extension://${EXT_ID}/src/popup.html`));
-	}
-	if (!popup) throw new Error("the popup never opened");
-	const session = await attach(popup.targetId);
-	// Wait for it to hear back from Vardo.
-	for (let i = 0; i < 40; i++) {
-		await sleep(250);
-		const text = await evaluate(session, "document.body.innerText");
-		if (text && !/^\s*$/.test(text)) break;
-	}
-	await sleep(300);
-	return { session, page: pageSession };
 }
 
-const fields = (session) =>
-	evaluate(session, `Object.fromEntries([...document.querySelectorAll('input')].map(i => [i.id, i.value]))`);
+const fields = (page) => page(`Object.fromEntries([...document.querySelectorAll('input')].map(i => [i.id, i.value]))`);
 
 // --- the checks -----------------------------------------------------------------------
 
 console.log("signing in");
 {
-	const { session, page } = await openPopup("/login.html");
-	const text = await evaluate(session, "document.body.innerText");
+	const { popup, page } = await openPopup("/login.html");
+	const text = await popup.text();
 	check("the popup lists the login saved for this site", text.includes("Test site"), text);
 	check("a login saved for another port is not offered", !text.includes("Other service"), text);
 	// Chrome writes it in each platform's own notation.
 	check("the keyboard shortcut was assigned", /Alt\+Shift\+L|⌥⇧L/.test(text), text);
 
-	await evaluate(session, "document.querySelector('.row.fills').click()");
+	await popup.choose();
 	await sleep(1200);
 	const values = await fields(page);
 	check("the username is filled", values.email === "e2e-user@example.com", JSON.stringify(values));
@@ -266,22 +204,21 @@ console.log("signing in");
 
 console.log("copying");
 {
-	const { session } = await openPopup("/login.html");
-	await evaluate(session, `document.querySelector('button[aria-label="Copy password"]').click()`);
+	const { popup } = await openPopup("/login.html");
+	await popup.press("Copy password");
 	await sleep(800);
-	const text = await evaluate(session, "document.body.innerText");
+	const text = await popup.text();
 	check("the popup says the password was copied", text.includes("Password copied"), text);
 	check("Vardo did the copying, not the browser", serverLog.includes("effect: copy (16 characters)"), serverLog);
 }
 
 console.log("frames");
 {
-	const { session, page } = await openPopup("/frame.html");
+	const { popup, page } = await openPopup("/frame.html");
 	await sleep(500);
-	await evaluate(session, "document.querySelector('.row.fills').click()");
+	await popup.choose();
 	await sleep(1200);
-	const frames = await evaluate(
-		page,
+	const frames = await page(
 		`Object.fromEntries([...document.querySelectorAll("iframe")].map((f) => [f.id, { email: f.contentDocument.querySelector("#email").value, password: f.contentDocument.querySelector("#password").value }]))`,
 	);
 	const shown = JSON.stringify(frames);
@@ -291,8 +228,8 @@ console.log("frames");
 
 console.log("two-factor");
 {
-	const { session, page } = await openPopup("/totp.html");
-	await evaluate(session, "document.querySelector('.row.fills').click()");
+	const { popup, page } = await openPopup("/totp.html");
+	await popup.choose();
 	await sleep(1200);
 	const values = await fields(page);
 	check("the code field gets a six-digit code", /^\d{6}$/.test(values.code ?? ""), JSON.stringify(values));
@@ -301,38 +238,35 @@ console.log("two-factor");
 console.log("saving");
 {
 	const type = (page, email, password) =>
-		evaluate(page, `document.querySelector("#email").value = ${JSON.stringify(email)}; document.querySelector("#password").value = ${JSON.stringify(password)}`);
-	const clickSave = (session) =>
-		evaluate(session, `[...document.querySelectorAll("button.link")].find((b) => b.textContent.startsWith("Save the login")).click()`);
-
-	let { session, page } = await openPopup("/login.html");
+		page(`document.querySelector("#email").value = ${JSON.stringify(email)}; document.querySelector("#password").value = ${JSON.stringify(password)}`);
+	let { popup, page } = await openPopup("/login.html");
 	await type(page, "new-user@example.com", "brand-new-pw");
-	await clickSave(session);
+	await popup.press("Save the login");
 	await sleep(800);
-	let text = await evaluate(session, "document.body.innerText");
+	let text = await popup.text();
 	check("a typed login is saved to Vardo", text.includes("Saved to Vardo"), text);
 	check("Vardo tells the app the vault changed", serverLog.includes("effect: changed"), serverLog);
 
-	({ session, page } = await openPopup("/login.html"));
+	({ popup, page } = await openPopup("/login.html"));
 	await type(page, "e2e-user@example.com", "rotated-pw");
-	await clickSave(session);
+	await popup.press("Save the login");
 	await sleep(800);
-	text = await evaluate(session, "document.body.innerText");
+	text = await popup.text();
 	check("a different saved password is not replaced without asking", text.includes("Replace the saved password?"), text);
-	await evaluate(session, `[...document.querySelectorAll("button.button")].find((b) => b.textContent === "Replace").click()`);
+	await popup.press("Replace");
 	await sleep(800);
-	text = await evaluate(session, "document.body.innerText");
+	text = await popup.text();
 	check("it is replaced once the person confirms", text.includes("Password updated in Vardo"), text);
 }
 
 console.log("making a password");
 {
-	const { session, page } = await openPopup("/signup.html");
-	await evaluate(page, `document.querySelector("#email").value = "new-account@example.com"`);
+	const { popup, page } = await openPopup("/signup.html");
+	await page(`document.querySelector("#email").value = "new-account@example.com"`);
 	const before = (serverLog.match(/effect: changed/g) ?? []).length;
-	await evaluate(session, `[...document.querySelectorAll("button.link")].find((b) => b.textContent.startsWith("Make a password")).click()`);
+	await popup.press("Make a password");
 	await sleep(1000);
-	const text = await evaluate(session, "document.body.innerText");
+	const text = await popup.text();
 	const values = await fields(page);
 	check("the popup says the password was made and kept", text.includes("New password typed in and kept in Vardo"), text);
 	check("the password and its confirmation get the same new password", values.password.length === 20 && values.password === values.confirm, JSON.stringify({ length: values.password.length, same: values.password === values.confirm }));
@@ -343,8 +277,8 @@ console.log("Vardo not running");
 {
 	server.kill("SIGTERM");
 	await sleep(500);
-	const { session } = await openPopup("/login.html");
-	const text = await evaluate(session, "document.body.innerText");
+	const { popup } = await openPopup("/login.html");
+	const text = await popup.text();
 	check("the popup says Vardo is not running", text.includes("Vardo isn't running"), text);
 	check("and offers to start it", text.includes("Start Vardo"), text);
 }

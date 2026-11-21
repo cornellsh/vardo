@@ -28,3 +28,8 @@ In rough priority order. Each needs its own design pass before code.
 ### plan:distribution
 
 - Ed25519 updater signing, macOS notarisation, Windows Trusted Signing, AppImage, Flatpak, AUR and the Chrome Web Store.
+
+### plan:firefox-signing
+
+- **Do:** Have Mozilla sign the Firefox build, listed on addons.mozilla.org or unlisted for download (`web-ext sign`). Release Firefox refuses an unsigned add-on except as a temporary one, which a restart removes. Needs the project owner's addons.mozilla.org API key.
+- **Done when:** A signed `.xpi` installs in release Firefox and survives a restart.

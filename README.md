@@ -9,6 +9,7 @@
   <a href="#download"><img height="28" alt="Linux: Vardo app" src="https://img.shields.io/badge/Linux-Vardo_app-1b7db7?style=flat-square&labelColor=24292f&logoColor=white&logo=linux"></a>
   <br>
   <a href="#download"><img height="28" alt="Chrome, Edge, Brave: Vardo extension" src="https://img.shields.io/badge/Chrome%2C_Edge%2C_Brave-Vardo_extension-1b7db7?style=flat-square&labelColor=24292f&logoColor=white&logo=googlechrome"></a>
+  <a href="#download"><img height="28" alt="Firefox: Vardo extension" src="https://img.shields.io/badge/Firefox-Vardo_extension-1b7db7?style=flat-square&labelColor=24292f&logoColor=white&logo=firefoxbrowser"></a>
   <a href="https://apps.apple.com/app/keepassium-password-manager/id1435127111"><img height="28" alt="iPhone and iPad: KeePassium" src="https://img.shields.io/badge/iPhone_%26_iPad-KeePassium-1b7db7?style=flat-square&labelColor=24292f&logoColor=white&logo=apple"></a>
   <a href="https://play.google.com/store/apps/details?id=com.kunzisoft.keepass.free"><img height="28" alt="Android: KeePassDX" src="https://img.shields.io/badge/Android-KeePassDX-1b7db7?style=flat-square&labelColor=24292f&logoColor=white&logo=android"></a>
 </p>

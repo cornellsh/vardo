@@ -65,7 +65,9 @@ async function showShortcut() {
 		link.className = "link";
 		link.textContent = "Set a key to fill from any page";
 		link.addEventListener("click", () => {
-			void chrome.tabs.create({ url: "chrome://extensions/shortcuts" });
+			// Firefox 137+ has its own call and refuses to open Chrome's page.
+			const commands = /** @type {{ openShortcutSettings?: () => Promise<void> }} */ (chrome.commands);
+			void (commands.openShortcutSettings ? commands.openShortcutSettings() : chrome.tabs.create({ url: "chrome://extensions/shortcuts" }));
 			window.close();
 		});
 		note.append(link);

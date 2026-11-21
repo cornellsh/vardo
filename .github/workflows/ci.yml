@@ -86,6 +86,11 @@ jobs:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: echo "CHROMIUM=$CHROME_PATH" >> "$GITHUB_ENV"
 
+      # Firefox comes with the runner image. Naming it here turns a missing
+      # Firefox into a failure instead of a skipped Firefox end-to-end check.
+      - name: Point the check at Firefox
+        run: firefox --version && echo "FIREFOX=$(command -v firefox)" >> "$GITHUB_ENV"
+
       - name: Confirm KeePassXC is present
         run: keepassxc-cli --version
 

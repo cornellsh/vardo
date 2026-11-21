@@ -8,6 +8,7 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p .",
     "e2e": "node e2e/run.mjs",
+    "e2e:firefox": "node e2e/run.mjs firefox",
     "build:firefox": "node scripts/firefox.mjs"
   },
   "devDependencies": {
