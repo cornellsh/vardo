@@ -29,3 +29,4 @@ vardo-core = { path = "../../crates/vardo-core" }
 vardo-browser = { path = "../../crates/vardo-browser" }
 tauri-plugin-updater = "2.14.1"
 serde_json = "1.0.154"
+open = "5"

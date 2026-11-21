@@ -6,12 +6,11 @@
 //! `vardo-drive`, and this module decides when to make them
 //! (`dec:app-owns-network`).
 //!
-//! - [`auth`]: OAuth with PKCE and a loopback redirect, and fresh access tokens.
+//! - [`auth`]: OAuth with PKCE and a loopback redirect, fresh access tokens, and
+//!   Google's desktop picker for a vault the app cannot see yet.
 //! - [`vaults`]: listing vaults the app can see and uploading a new one.
-//! - [`picker`]: the Google Picker handover for a vault the app cannot see yet.
 //! - [`tokens`]: where the refresh token is kept.
 
 pub mod auth;
-pub mod picker;
 pub mod tokens;
 pub mod vaults;

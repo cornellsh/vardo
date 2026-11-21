@@ -49,7 +49,8 @@ Live checks ran on 2026-08-27 with `crates/vardo-drive/examples/contract.rs` aga
 ### fact:drive-picker-system-browser
 
 - The JavaScript Picker cannot run inside a desktop WebView. Its origin is `file://` or `localhost`, `postMessage` fails the origin check, and it returns 403, often only once packaged.
-- The app opens the picker in the system browser with `trigger_onepick=true` on the authorization URL.
+- The app opens the picker in the system browser with `trigger_onepick=true` and `prompt=consent` on the authorization URL, so signing in and picking is one page. Google answers with `picked_file_ids` (comma-separated) beside `code` (developers.google.com/workspace/drive/picker/guides/desktop-mobile-picker, read 2026-11-21). Proof: `crates/vardo-core/src/drive/auth.rs::choosing_a_vault_signs_in_and_returns_the_picked_file_in_one_trip`.
+- **Unverified** live: the earlier JavaScript picker page was replaced on 2026-11-21 before this flow ran against a real Google account. It needs the Google Picker API enabled in the Cloud project.
 
 ### fact:drive-quota-403
 

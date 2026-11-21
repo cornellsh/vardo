@@ -63,7 +63,7 @@ export function StorageNote({ warning }: Props) {
 					<p className="mt-2 text-[var(--window-fg)]">{warning.remedy}</p>
 					{warning.providerHint === "google-drive" && (
 						<p className="mt-1 text-[var(--window-sub-text-fg)]">
-							Lock the vault, then use Choose from Drive.
+							Lock the vault, then choose Google Drive.
 						</p>
 					)}
 				</div>

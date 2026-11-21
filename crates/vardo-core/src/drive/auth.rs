@@ -19,6 +19,7 @@
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;
 use std::path::Path;
+use std::time::{Duration, Instant};
 
 use vardo_drive::oauth::{self, ClientConfig, Pkce, Tokens};
 use vardo_drive::ureq_transport::UreqTransport;
@@ -71,7 +72,11 @@ pub struct PendingAuth {
 }
 
 /// Starts the loopback server and builds the authorisation URL.
-pub fn begin(client: &DriveClient) -> Result<PendingAuth, CoreError> {
+///
+/// `pick` adds Google's desktop picker to the same browser page, so signing in
+/// and choosing a vault is one trip. Only for a click that asked to choose a
+/// vault: a plain sign-in must not put a chooser over the user's Drive.
+pub fn begin(client: &DriveClient, pick: bool) -> Result<PendingAuth, CoreError> {
     let listener = TcpListener::bind("127.0.0.1:0").map_err(io)?;
     let port = listener.local_addr().map_err(io)?.port();
     let redirect = format!("http://127.0.0.1:{port}");
@@ -91,10 +96,7 @@ pub fn begin(client: &DriveClient) -> Result<PendingAuth, CoreError> {
         .map(|b| format!("{b:02x}"))
         .collect::<String>();
 
-    // `false` for the picker: this call establishes the grant, and a separate
-    // step chooses the file. Requesting a picker here would put a chooser over
-    // the user's whole Drive during what is nominally a login.
-    let url = oauth::authorization_url(&client.config(), &pkce, &redirect, &state, false);
+    let url = oauth::authorization_url(&client.config(), &pkce, &redirect, &state, pick);
 
     Ok(PendingAuth {
         listener,
@@ -106,12 +108,14 @@ pub fn begin(client: &DriveClient) -> Result<PendingAuth, CoreError> {
 }
 
 /// Blocks until the browser comes back, then exchanges the code.
+///
+/// Returns the file the user picked, when [`begin`] asked for the picker.
 pub fn complete(
     client: &DriveClient,
     pending: PendingAuth,
     app_dir: &Path,
-) -> Result<(), CoreError> {
-    let code = wait_for_code(&pending.listener, &pending.state)?;
+) -> Result<Option<String>, CoreError> {
+    let (code, picked) = wait_for_code(&pending.listener, &pending.state)?;
     let mut http = UreqTransport::new();
     let tokens = oauth::exchange_code(
         &mut http,
@@ -123,8 +127,13 @@ pub fn complete(
     .map_err(|e| CoreError::Io {
         detail: format!("could not complete sign-in: {e}"),
     })?;
-    super::tokens::store(app_dir, &tokens)
+    super::tokens::store(app_dir, &tokens)?;
+    Ok(picked)
 }
+
+/// Long enough to sign in and find a file in a large Drive, short enough that
+/// a closed tab does not hold a port for the rest of the session.
+const TIMEOUT: Duration = Duration::from_secs(600);
 
 /// A fresh access token, refreshing if we have to.
 pub fn access(client: &DriveClient, app_dir: &Path) -> Result<Tokens, CoreError> {
@@ -149,12 +158,47 @@ pub fn access(client: &DriveClient, app_dir: &Path) -> Result<Tokens, CoreError>
     Ok(fresh)
 }
 
-/// Reads the single redirect request and extracts `?code=`.
-fn wait_for_code(listener: &TcpListener, expected_state: &str) -> Result<String, CoreError> {
-    let (stream, _) = listener.accept().map_err(io)?;
-    let mut reader = BufReader::new(&stream);
-    let mut line = String::new();
-    reader.read_line(&mut line).map_err(io)?;
+/// Waits for the redirect and extracts `code` and, after a pick, the file.
+///
+/// Requests that carry neither `state` nor `error` (a favicon probe) are
+/// answered and skipped, so they cannot eat the one redirect we need.
+fn wait_for_code(
+    listener: &TcpListener,
+    expected_state: &str,
+) -> Result<(String, Option<String>), CoreError> {
+    listener.set_nonblocking(true).map_err(io)?;
+    let deadline = Instant::now() + TIMEOUT;
+    let (stream, line) = loop {
+        if Instant::now() > deadline {
+            return Err(CoreError::Io {
+                detail: "sign-in timed out; try again".into(),
+            });
+        }
+        let stream = match listener.accept() {
+            Ok((s, _)) => s,
+            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                std::thread::sleep(Duration::from_millis(100));
+                continue;
+            }
+            Err(e) => return Err(io(e)),
+        };
+        stream.set_nonblocking(false).map_err(io)?;
+        stream
+            .set_read_timeout(Some(Duration::from_secs(10)))
+            .map_err(io)?;
+        let mut line = String::new();
+        if BufReader::new(&stream).read_line(&mut line).is_err() {
+            continue;
+        }
+        if line.contains("state=") || line.contains("error=") {
+            break (stream, line);
+        }
+        let mut s = &stream;
+        let _ = write!(
+            s,
+            "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+        );
+    };
 
     let respond = |body: &str| {
         let mut s = &stream;
@@ -173,11 +217,20 @@ fn wait_for_code(listener: &TcpListener, expected_state: &str) -> Result<String,
     let mut code = None;
     let mut state = None;
     let mut error = None;
+    let mut picked = None;
     for pair in query.split('&') {
         match pair.split_once('=') {
             Some(("code", v)) => code = Some(percent_decode(v)),
             Some(("state", v)) => state = Some(percent_decode(v)),
             Some(("error", v)) => error = Some(percent_decode(v)),
+            // Comma-separated; Vardo asks for one file, so the first is it.
+            Some(("picked_file_ids", v)) => {
+                picked = percent_decode(v)
+                    .split(',')
+                    .next()
+                    .filter(|id| !id.is_empty())
+                    .map(str::to_string)
+            }
             _ => {}
         }
     }
@@ -207,7 +260,7 @@ fn wait_for_code(listener: &TcpListener, expected_state: &str) -> Result<String,
                 "Connected.",
                 "You can close this tab and return to Vardo.",
             ));
-            Ok(c)
+            Ok((c, picked))
         }
         None => {
             respond(&page(
@@ -286,7 +339,7 @@ mod tests {
             client_id: "cid".into(),
             client_secret: "secret".into(),
         };
-        let pending = begin(&client).expect("begin");
+        let pending = begin(&client, false).expect("begin");
 
         assert!(pending.url.contains("code_challenge="));
         assert!(pending.url.contains("code_challenge_method=S256"));
@@ -300,5 +353,37 @@ mod tests {
         );
         assert!(pending.url.contains(&pending.state));
         assert!(pending.redirect.starts_with("http://127.0.0.1:"));
+    }
+
+    #[test]
+    fn choosing_a_vault_signs_in_and_returns_the_picked_file_in_one_trip() {
+        let client = DriveClient {
+            client_id: "cid".into(),
+            client_secret: "secret".into(),
+        };
+        let pending = begin(&client, true).expect("begin");
+        assert!(pending.url.contains("trigger_onepick=true"));
+        assert!(pending.url.contains("prompt=consent"));
+
+        let port = pending.redirect.rsplit(':').next().unwrap().to_string();
+        let state = pending.state.clone();
+        let browser = std::thread::spawn(move || {
+            use std::io::Read;
+            let get = |path: &str| {
+                let mut s = std::net::TcpStream::connect(format!("127.0.0.1:{port}")).unwrap();
+                write!(s, "GET {path} HTTP/1.1\r\nHost: x\r\n\r\n").unwrap();
+                let mut out = String::new();
+                let _ = s.read_to_string(&mut out);
+                out
+            };
+            // A favicon probe first must not consume the redirect.
+            get("/favicon.ico");
+            get(&format!(
+                "/?state={state}&picked_file_ids=1AbC%2C2DeF&code=c0de&scope=x"
+            ))
+        });
+        let got = wait_for_code(&pending.listener, &pending.state).expect("redirect");
+        assert_eq!(got, ("c0de".to_string(), Some("1AbC".to_string())));
+        assert!(browser.join().unwrap().contains("Connected."));
     }
 }

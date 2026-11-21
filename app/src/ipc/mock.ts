@@ -820,6 +820,7 @@ export class MockIpc implements Ipc {
 		// Models the real thing: a round trip through the browser, then a file
 		// that was not in the list before because Vardo could not see it.
 		await delay(1800);
+		this.driveConnected = true;
 		const source: VaultSource = {
 			kind: "googleDrive",
 			file_id: "picked-1",

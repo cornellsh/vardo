@@ -42,6 +42,25 @@ pub fn list(client: &DriveClient, app_dir: &Path) -> Result<Vec<DriveFile>, Core
     Ok(files)
 }
 
+/// The vault the user just chose in Google's picker, as a source.
+///
+/// The pick granted it to the app, so it is now in [`list`], which also gives
+/// its name.
+// shortcut: [`list`] reads one page of 100, so an app that created more files
+// misses an old pick; page through or fetch `files/{id}` if that ever happens.
+pub fn picked(client: &DriveClient, app_dir: &Path, id: &str) -> Result<VaultSource, CoreError> {
+    list(client, app_dir)?
+        .into_iter()
+        .find(|f| f.id == id)
+        .map(|f| VaultSource::GoogleDrive {
+            file_id: f.id,
+            name: f.name,
+        })
+        .ok_or_else(|| CoreError::Io {
+            detail: "Google Drive did not hand over the file you chose".into(),
+        })
+}
+
 /// Copies a local vault into Drive and returns it as a source.
 ///
 /// The local file is left exactly where it is. Moving it would mean deleting

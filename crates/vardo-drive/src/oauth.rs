@@ -106,6 +106,10 @@ pub fn authorization_url(
         ("access_type", "offline".to_string()),
     ];
     if pick_file {
+        // Google requires both for the desktop picker, and answers with
+        // `picked_file_ids` beside the code (developers.google.com/workspace/
+        // drive/picker/guides/desktop-mobile-picker).
+        params.push(("prompt", "consent".to_string()));
         params.push(("trigger_onepick", "true".to_string()));
     }
 

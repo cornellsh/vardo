@@ -341,12 +341,17 @@ pub fn drive_status(app: tauri::AppHandle) -> CmdResult<vardo_core::model::Drive
 /// check it against.
 #[tauri::command]
 pub async fn drive_connect(app: tauri::AppHandle) -> CmdResult<()> {
-    let dir = app_dir(&app)?;
+    sign_in(&app, false).await.map(|_| ())
+}
+
+/// Signs in, and with `pick` lets the user choose a vault on the same page.
+async fn sign_in(app: &tauri::AppHandle, pick: bool) -> CmdResult<Option<String>> {
+    let dir = app_dir(app)?;
     let client = DriveClient::built_in().ok_or(CoreError::Unsupported {
         detail: "this build has no Google client id, so Drive cannot be connected".into(),
     })?;
 
-    let pending = vardo_core::drive::auth::begin(&client)?;
+    let pending = vardo_core::drive::auth::begin(&client, pick)?;
 
     // Hand the URL to the system browser. If that fails the user still gets it
     // in the event, so the flow is recoverable by copying it.
@@ -414,18 +419,13 @@ pub fn show_browser_extension_folder(app: tauri::AppHandle) -> CmdResult<()> {
     })
 }
 
+/// Opens a URL in the default browser, or a folder in the file manager.
+///
+/// Through the shell's own handler (`ShellExecuteExW` on Windows), not
+/// `explorer <url>`, which opened File Explorer instead of the browser for the
+/// Google sign-in URL.
 fn open_in_browser(url: &str) -> std::io::Result<()> {
-    #[cfg(target_os = "linux")]
-    let program = "xdg-open";
-    #[cfg(target_os = "macos")]
-    let program = "open";
-    #[cfg(target_os = "windows")]
-    let program = "explorer";
-
-    std::process::Command::new(program)
-        .arg(url)
-        .spawn()
-        .map(|_| ())
+    open::that_detached(url)
 }
 
 /// Vaults in Drive that Vardo is allowed to see.
@@ -482,46 +482,36 @@ pub async fn drive_upload_vault(app: tauri::AppHandle, path: String) -> CmdResul
     Ok(source)
 }
 
-/// Opens Google's file picker so the user can hand Vardo an existing vault.
+/// Signs in and opens Google's picker on the same browser page, so the user
+/// can hand Vardo a vault it did not create. One trip, signed in or not.
 ///
-/// The only way to reach a file Vardo did not create without widening the
-/// scope to the user's whole Drive. Returns `None` if they close it without
-/// choosing, which is an ordinary outcome rather than a failure.
+/// The only way to reach such a file without widening the scope to the
+/// user's whole Drive. `None` if Google returned no pick.
 #[tauri::command]
 pub async fn drive_pick_vault(app: tauri::AppHandle) -> CmdResult<Option<VaultSource>> {
+    let Some(id) = sign_in(&app, true).await? else {
+        return Ok(None);
+    };
     let dir = app_dir(&app)?;
     let client = DriveClient::built_in().ok_or(CoreError::Unsupported {
         detail: "this build has no Google client id".into(),
     })?;
-
-    let pending = tauri::async_runtime::spawn_blocking({
+    let source = tauri::async_runtime::spawn_blocking({
         let dir = dir.clone();
-        move || vardo_core::drive::picker::begin(&client, &dir)
+        move || vardo_core::drive::vaults::picked(&client, &dir, &id)
     })
     .await
     .map_err(|e| CoreError::Io {
         detail: e.to_string(),
     })??;
 
-    // The URL also goes to the UI, so the flow is recoverable by copying it if
-    // opening a browser fails - which it does on minimal Linux installs.
-    let _ = open_in_browser(&pending.url);
-    app.emit("drive://picker-url", pending.url.clone())
-        .map_err(|e| CoreError::Io {
-            detail: e.to_string(),
-        })?;
-
-    let picked =
-        tauri::async_runtime::spawn_blocking(move || vardo_core::drive::picker::wait(pending))
-            .await
-            .map_err(|e| CoreError::Io {
-                detail: e.to_string(),
-            })??;
-
-    if let Some(source) = &picked {
-        let _ = vardo_core::recents::remember(&dir, source);
+    let _ = vardo_core::recents::remember(&dir, &source);
+    // The user is in the browser; bring them back to the password field.
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.unminimize();
+        let _ = window.set_focus();
     }
-    Ok(picked)
+    Ok(Some(source))
 }
 
 /// Downloads this entry's site icon and stores it in the vault.

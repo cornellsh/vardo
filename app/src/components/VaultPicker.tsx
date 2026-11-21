@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { DriveLogo } from "./DriveLogo";
 import { Notice, splitTechnical } from "./Notice";
@@ -255,74 +255,92 @@ function SourceIcon({
  * vault in Drive: Vardo genuinely cannot see it until it is handed over. An
  * empty box with no explanation would read as a broken feature, and the natural
  * next thought would be that Vardo does not really work.
+ *
+ * So when there is nothing to list, opening the panel goes straight to
+ * Google: one browser page signs in and picks the vault, then the app comes
+ * back to the password field.
  */
 function DriveList({ onPick }: { onPick: (s: VaultSource) => void }) {
 	const [state, setState] = useState<
 		| { phase: "loading" }
 		| { phase: "picking" }
-		| { phase: "disconnected" }
 		| { phase: "ready"; vaults: DriveVault[] }
 		| { phase: "error"; message: string }
 	>({ phase: "loading" });
+	/** Only the latest browser trip may change the panel; an abandoned one
+	 * finishes (or times out) later and must not overwrite it. */
+	const trip = useRef(0);
+
+	/**
+	 * Google's own picker, which is the only way to reach a vault already in
+	 * someone's Drive. It signs in on the same page when needed.
+	 */
+	const pickFromDrive = useCallback(async () => {
+		const mine = ++trip.current;
+		setState({ phase: "picking" });
+		try {
+			const api = await ipc();
+			const source = await api.drivePickVault();
+			if (mine !== trip.current) return;
+			if (source) {
+				onPick(source);
+				return;
+			}
+			setState({ phase: "ready", vaults: await api.driveListVaults() });
+		} catch (err) {
+			if (mine === trip.current)
+				setState({ phase: "error", message: errorText(err) });
+		}
+	}, [onPick]);
 
 	const load = useCallback(async () => {
 		setState({ phase: "loading" });
 		try {
 			const api = await ipc();
-			const status = await api.driveStatus();
-			if (!status.connected) {
-				setState({ phase: "disconnected" });
+			const vaults = (await api.driveStatus()).connected
+				? await api.driveListVaults()
+				: [];
+			if (vaults.length === 0) {
+				await pickFromDrive();
 				return;
 			}
-			setState({ phase: "ready", vaults: await api.driveListVaults() });
+			setState({ phase: "ready", vaults });
 		} catch (err) {
 			setState({ phase: "error", message: errorText(err) });
 		}
-	}, []);
+	}, [pickFromDrive]);
 
 	useEffect(() => {
 		void load();
-	}, [load]);
-
-	async function connect() {
-		setState({ phase: "loading" });
-		try {
-			await (await ipc()).driveConnect();
-			await load();
-		} catch (err) {
-			setState({ phase: "error", message: errorText(err) });
-		}
-	}
+		// Once per opening: re-running on a new `onPick` would reopen the browser.
+	}, []);
 
 	async function uploadExisting() {
-		const picked = await (await ipc()).pickVaultFile();
+		const api = await ipc();
+		const picked = await api.pickVaultFile();
 		if (!picked) return;
+		const mine = ++trip.current;
 		setState({ phase: "loading" });
 		try {
-			onPick(await (await ipc()).driveUploadVault(picked));
-			await load();
+			if (!(await api.driveStatus()).connected) await api.driveConnect();
+			const source = await api.driveUploadVault(picked);
+			if (mine === trip.current) onPick(source);
 		} catch (err) {
-			setState({ phase: "error", message: errorText(err) });
+			if (mine === trip.current)
+				setState({ phase: "error", message: errorText(err) });
 		}
 	}
 
-	/**
-	 * Google's own picker, which is the only way to reach a vault already in
-	 * someone's Drive. Everything else here can only show what Vardo made.
-	 */
-	async function pickFromDrive() {
-		setState({ phase: "picking" });
-		try {
-			const source = await (await ipc()).drivePickVault();
-			if (source) {
-				onPick(source);
-				return;
-			}
-			await load();
-		} catch (err) {
-			setState({ phase: "error", message: errorText(err) });
-		}
-	}
+	const uploadButton = (
+		<button
+			type="button"
+			onClick={() => void uploadExisting()}
+			className="btn btn-quiet cursor-pointer"
+			style={{ color: "var(--window-sub-text-fg)" }}
+		>
+			Upload one from here&hellip;
+		</button>
+	);
 
 	return (
 		<div
@@ -337,27 +355,22 @@ function DriveList({ onPick }: { onPick: (s: VaultSource) => void }) {
 			)}
 
 			{state.phase === "picking" && (
-				<p style={{ color: "var(--window-active-text-fg)" }}>
-					Choose your vault in the browser.
-				</p>
-			)}
-
-			{state.phase === "disconnected" && (
 				<>
-					<p style={{ color: "var(--window-sub-text-fg)" }}>
-						Sign in to open a vault kept in Drive.
+					<p style={{ color: "var(--window-active-text-fg)" }}>
+						Choose your vault in your browser. Vardo opens it when you
+						are done.
 					</p>
-					<button
-						type="button"
-						onClick={() => void connect()}
-						className="btn btn-quiet mt-2 flex cursor-pointer items-center gap-2 rounded-[var(--button-radius)] px-3 py-1.5 font-semibold"
-						style={{
-							color: "var(--window-fg-active)",
-						}}
-					>
-						<DriveLogo size={16} />
-						Sign in
-					</button>
+					<div className="mt-2 flex flex-wrap gap-x-4">
+						<button
+							type="button"
+							onClick={() => void pickFromDrive()}
+							className="btn btn-quiet cursor-pointer font-semibold"
+							style={{ color: "var(--window-active-text-fg)" }}
+						>
+							Open the browser again
+						</button>
+						{uploadButton}
+					</div>
 				</>
 			)}
 
@@ -373,11 +386,7 @@ function DriveList({ onPick }: { onPick: (s: VaultSource) => void }) {
 					);
 				})()}
 
-			{state.phase === "ready" && state.vaults.length === 0 && (
-				<p style={{ color: "var(--window-sub-text-fg)" }}>
-					Vardo only sees vaults you have given it.
-				</p>
-			)}
+			{state.phase === "error" && <div className="mt-2">{uploadButton}</div>}
 
 			{/* Always offered, not just when the list is empty. A vault already in
 			    Drive is invisible here until it is picked, so "my vault is missing"
@@ -390,16 +399,9 @@ function DriveList({ onPick }: { onPick: (s: VaultSource) => void }) {
 						className="btn btn-quiet cursor-pointer font-semibold"
 						style={{ color: "var(--window-active-text-fg)" }}
 					>
-						Choose from Drive&hellip;
+						Choose another from Drive&hellip;
 					</button>
-					<button
-						type="button"
-						onClick={() => void uploadExisting()}
-						className="btn btn-quiet cursor-pointer"
-						style={{ color: "var(--window-sub-text-fg)" }}
-					>
-						Upload one from here&hellip;
-					</button>
+					{uploadButton}
 				</div>
 			)}
 

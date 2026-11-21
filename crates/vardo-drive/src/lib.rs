@@ -14,7 +14,6 @@
 
 pub mod drive;
 pub mod http;
-pub mod loopback;
 pub mod oauth;
 
 #[cfg(feature = "network")]
