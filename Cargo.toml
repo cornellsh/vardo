@@ -51,9 +51,11 @@ zeroize = { version = "1", features = ["derive"] }
 [profile.dev.package]
 aes.opt-level = 3
 argon2.opt-level = 3
+blake2.opt-level = 3
 cbc.opt-level = 3
 chacha20.opt-level = 3
 hmac.opt-level = 3
+miniz_oxide.opt-level = 3
 salsa20.opt-level = 3
 sha2.opt-level = 3
 twofish.opt-level = 3
