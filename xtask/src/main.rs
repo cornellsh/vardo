@@ -6,6 +6,7 @@
 //! non-zero. A gate that cannot run says why instead of passing.
 //!
 //! Usage: `cargo xtask check [--fast] [--only <gate>]... [--json]`
+//! Releasing: `cargo xtask release <patch|minor|major|X.Y.Z>` (release.rs).
 
 #![forbid(unsafe_code)]
 
@@ -13,6 +14,7 @@ mod doclinks;
 mod ipc;
 mod layers;
 mod modules;
+mod release;
 
 use std::{
     env,
@@ -475,12 +477,21 @@ fn changed_crates(root: &Path) -> Option<Vec<String>> {
 fn usage() -> ExitCode {
     let names: Vec<_> = GATES.iter().map(|g| g.name).collect();
     eprintln!("usage: cargo xtask check [--fast] [--only <gate>]... [--json]");
+    eprintln!("       cargo xtask release <patch|minor|major|X.Y.Z>");
     eprintln!("gates: {}", names.join(", "));
     ExitCode::from(2)
 }
 
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().skip(1).collect();
+    if let [cmd, how] = &args[..] {
+        if cmd == "release" {
+            let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .parent()
+                .expect("xtask sits in the workspace");
+            return release::main(root, how);
+        }
+    }
     if args.first().map(String::as_str) != Some("check") {
         return usage();
     }

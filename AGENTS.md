@@ -39,6 +39,7 @@ Docs never state counts, pass rates or "done". Those rot. Run the command instea
 | Interface tests | `cd app && npx vitest run` |
 | Interface in a browser, no Rust | `cd app && npm run build && npm run preview` |
 | Extension in a real browser | `cd extension && CHROMIUM=<binary> npm run e2e`, or `FIREFOX=<binary> npm run e2e:firefox` |
+| Publish a release | `cargo xtask release patch` (or minor, major, X.Y.Z). See `dec:release-command` |
 | Release binaries | `cd app && npm run app:release`, then `cargo build --release -p vardo-browser` |
 
 Setup facts that cost failed runs:

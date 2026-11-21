@@ -227,3 +227,19 @@ The long-form records these came from (ADR-001 to ADR-006, CRITIQUE, RESEARCH, P
 - **Rejected:** Waiting for signing (`plan:distribution`), which left the project with no downloads at all.
 - **Reopen if:** Gatekeeper or SmartScreen stops offering a way past the warning, or auto-update is wanted, since the updater needs signed builds.
 - **Date:** 2026-11-21.
+
+### dec:dependabot-automerge
+
+- **Chose:** `.github/workflows/automerge.yml` queues every Dependabot pull request for auto-merge except major version bumps. A ruleset on `main` requires the CI checks, so GitHub merges only once they pass. The branch is deleted on merge. The repository admin bypasses the ruleset, so the owner pushes straight to `main` as before.
+- **Because:** The owner wants dependency updates to land without anyone clicking. CI runs the conformance, merge-property and end-to-end checks, which is the same bar a human merge would meet.
+- **Rejected:** Merging majors too, since those change APIs and usually need code changes. Requiring branches to be up to date, since nothing would update them and every merge would stall the rest.
+- **Reopen if:** An automatic merge breaks `main`. A pre-1.0 crate going from 0.10 to 0.11 counts as minor here, so it merges on green CI alone.
+- **Date:** 2026-11-21.
+
+### dec:release-command
+
+- **Chose:** `cargo xtask release <patch|minor|major|X.Y.Z>` writes the new version into all eight files that state it, commits, signs a `v*` tag and pushes both atomically. The tag starts `dec:unsigned-releases`.
+- **Because:** One command cannot leave the versions disagreeing, which the release workflow refuses. The owner signs the tag, and the ruleset needs no bot allowed to push to `main`.
+- **Rejected:** A workflow that bumps and pushes from CI, which needs a bot that bypasses the `main` ruleset and an unsigned tag. Releasing on every merge, which would publish a download nobody asked for after each dependency bump.
+- **Reopen if:** Releases should happen without a person deciding when.
+- **Date:** 2026-11-21.
