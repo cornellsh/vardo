@@ -19,7 +19,7 @@ members = [
 exclude = ["fuzz"]
 
 [workspace.package]
-version = "0.0.1"
+version = "0.0.2"
 edition = "2021"
 # Vardo needs 1.90, for tauri-plugin-updater 2.13+ (1.89 was `File::try_lock`).
 # Dependencies need 1.88: the ICU Unicode tables behind URL parsing and

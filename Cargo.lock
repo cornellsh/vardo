@@ -5445,7 +5445,7 @@ dependencies = [
 
 [[package]]
 name = "vardo-app"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "serde_json",
  "tauri",
@@ -5460,7 +5460,7 @@ dependencies = [
 
 [[package]]
 name = "vardo-browser"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "psl",
  "serde",
@@ -5471,7 +5471,7 @@ dependencies = [
 
 [[package]]
 name = "vardo-conformance"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "keepass",
  "vardo-kdbx",
@@ -5479,7 +5479,7 @@ dependencies = [
 
 [[package]]
 name = "vardo-core"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "apple-native-keyring-store",
  "getrandom 0.4.3",
@@ -5505,7 +5505,7 @@ dependencies = [
 
 [[package]]
 name = "vardo-drive"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "sha2 0.11.1",
  "ureq",
@@ -5515,7 +5515,7 @@ dependencies = [
 
 [[package]]
 name = "vardo-kdbx"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "aes",
  "argon2",
@@ -5533,7 +5533,7 @@ dependencies = [
 
 [[package]]
 name = "vardo-merge"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "vardo-kdbx",
  "vardo-vault",
@@ -5542,7 +5542,7 @@ dependencies = [
 
 [[package]]
 name = "vardo-sync"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "vardo-kdbx",
  "vardo-merge",
@@ -5551,7 +5551,7 @@ dependencies = [
 
 [[package]]
 name = "vardo-vault"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "getrandom 0.4.3",
  "vardo-kdbx",
@@ -5560,7 +5560,7 @@ dependencies = [
 
 [[package]]
 name = "vardo-webdav"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "ureq",
  "vardo-sync",
@@ -6510,7 +6510,7 @@ checksum = "b9cc00251562a284751c9973bace760d86c0276c471b4be569fe6b068ee97a56"
 
 [[package]]
 name = "xtask"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "serde_json",
 ]

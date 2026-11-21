@@ -1,7 +1,7 @@
 {
   "name": "vardo-extension",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.0.2",
   "type": "module",
   "description": "Vardo's browser extension. Plain JavaScript, loaded as-is: there is no build step.",
   "scripts": {
