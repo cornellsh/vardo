@@ -12,6 +12,7 @@ const FRIENDLY: Record<string, string> = {
 	"wrong-password": "Wrong password.",
 	"not-found": "That item no longer exists.",
 	locked: "The vault is locked.",
+	"unsaved-changes": "Save your changes first. Restarting would lose them.",
 };
 
 export function errorText(err: unknown): string {

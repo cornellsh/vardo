@@ -58,6 +58,9 @@ import type {
 	Times,
 	TotpCode,
 	UnlockPhase,
+	UpdateChecks,
+	UpdateState,
+	UpdateStatus,
 	VaultInfo,
 	VaultSource,
 } from "./bindings";
@@ -95,6 +98,9 @@ export type {
 	Times,
 	TotpCode,
 	UnlockPhase,
+	UpdateChecks,
+	UpdateState,
+	UpdateStatus,
 	VaultInfo,
 	VaultSource,
 };
@@ -246,6 +252,24 @@ export interface Ipc {
 	/** Registers Vardo's helper with every browser that has run. */
 	browserConnect(): Promise<BrowserHosts>;
 	browserDisconnect(): Promise<BrowserHosts>;
+	/** The folder to pick in "Load unpacked". It updates with Vardo. */
+	browserExtensionFolder(): Promise<string>;
+	showBrowserExtensionFolder(): Promise<void>;
+
+	// --- updates (dec:auto-update) ---
+
+	updateStatus(): Promise<UpdateStatus>;
+	/** Saves the answer; "on" also checks straight away. */
+	setUpdateChecks(checks: UpdateChecks): Promise<UpdateStatus>;
+	/** One check now, whatever the setting: asking is consent for it. */
+	checkForUpdate(): Promise<UpdateStatus>;
+	/**
+	 * Installs the downloaded update and restarts. Rejects with
+	 * `unsaved-changes` rather than lose them.
+	 */
+	installUpdate(): Promise<void>;
+	/** Resolves to a function that stops listening. */
+	onUpdate(handler: (status: UpdateStatus) => void): Promise<() => void>;
 
 	/**
 	 * Vaults in Drive that Vardo may see. Empty is a normal answer, not a

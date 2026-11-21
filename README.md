@@ -50,20 +50,19 @@ On Linux, install the `.deb`, or make the `.AppImage` executable and run it.
 
 Once Vardo is running, choose where your file lives (Google Drive, WebDAV, or Open a file for one on this computer) and enter your master password. Do the same on your other computers and pick the same file.
 
+The first time, Vardo asks whether to check for updates once a day. Say yes and it downloads new versions itself, then asks you to restart when one is ready. You can change this, or check by hand, in Settings.
+
+On a Mac, the first time Vardo opens after an update, macOS asks for your login password before Vardo can read a saved Google or WebDAV sign-in. Click Always Allow.
+
 ### In your browser
 
-The extension isn't in the browser stores yet, so you add it yourself. Download the zip for your browser from the [Releases page](https://github.com/cornellsh/vardo/releases/latest) and unzip it somewhere you won't delete it.
+The extension isn't in the browser stores yet, so you add it yourself.
 
-| Browser | File |
-| --- | --- |
-| Chrome, Edge, Brave, Vivaldi | `vardo-extension-chrome-….zip` |
-| Firefox | `vardo-extension-firefox-….zip` |
+In Chrome, Edge, Brave or Vivaldi, open Settings in the Vardo app and click Connect next to your browsers. Vardo then shows a folder. Open the browser's extensions page, switch on Developer mode, click Load unpacked and choose that folder. The extension in it updates with Vardo, and the browser picks up the new version when it restarts.
 
-In Chrome, Edge, Brave or Vivaldi, open the extensions page, switch on Developer mode, click Load unpacked and choose the folder.
+In Firefox, download `vardo-extension-firefox-….zip` from the [Releases page](https://github.com/cornellsh/vardo/releases/latest) and unzip it. Go to `about:debugging`, click This Firefox, then Load Temporary Add-on, and choose the `manifest.json` file inside the folder. Firefox forgets temporary add-ons when it restarts, so you'll have to repeat this until Mozilla signs the extension. Then click Connect in Vardo's Settings.
 
-In Firefox, go to `about:debugging`, click This Firefox, then Load Temporary Add-on, and choose the `manifest.json` file inside the folder. Firefox forgets temporary add-ons when it restarts, so you'll have to repeat this until Mozilla signs the extension.
-
-Then open Settings in the Vardo app and click Connect next to your browsers. On a login page, click the Vardo button in the toolbar or press Alt+Shift+L to fill in your details. The extension gets your passwords from the app, so keep Vardo running.
+On a login page, click the Vardo button in the toolbar or press Alt+Shift+L to fill in your details. The extension gets your passwords from the app, so keep Vardo running.
 
 ### On your phone
 
@@ -78,7 +77,7 @@ When you change a password on one device, the others pick it up the next time th
 <details>
 <summary>Build from source</summary>
 
-You need Rust 1.89+, Node 22, and your system's build tools (on Linux, WebKitGTK 4.1 and an AppIndicator library).
+You need Rust 1.90+, Node 22, and your system's build tools (on Linux, WebKitGTK 4.1 and an AppIndicator library).
 
 ```sh
 git clone https://github.com/cornellsh/vardo

@@ -10,6 +10,8 @@ describe("BrowserConnect", () => {
 		render(<BrowserConnect />);
 		fireEvent.click(await screen.findByRole("button", { name: "Connect" }));
 		await screen.findByText("Connected to Google Chrome, Brave");
+		await screen.findByText(/app\.vardo\.desktop\/extension$/);
+		expect(screen.getByRole("button", { name: "Show folder" })).toBeTruthy();
 		fireEvent.click(screen.getByRole("button", { name: "Disconnect" }));
 		await screen.findByText("Fill passwords in Chrome, Brave, Edge and others");
 		expect(screen.getByRole("button", { name: "Connect" })).toBeTruthy();

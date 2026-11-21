@@ -7,7 +7,7 @@ Each runbook says when to use it. Keep the steps exact and short.
 
 Use on a new machine, before `cargo xtask check`.
 
-1. Rust through rustup: `rustup toolchain install stable 1.89 --profile minimal -c clippy,rustfmt`.
+1. Rust through rustup: `rustup toolchain install stable 1.90 --profile minimal -c clippy,rustfmt`.
 2. Node 22. CI uses 22. Run `npm ci` in `app/` and in `extension/`.
 3. System libraries:
    - Arch: `sudo pacman -S --needed webkit2gtk-4.1 base-devel librsvg libayatana-appindicator`
@@ -44,9 +44,24 @@ The desktop client secret is not secret, per Google, since anything built into a
 1. `cargo build --release -p vardo-browser`.
 2. Put `vardo-browser-host` next to `vardo-app`. The host starts the app from its own directory when the user asks.
 3. In Vardo's settings, Browser extension, press Connect. It registers the host beside the app with every Chromium-family browser whose config dir exists. Disconnect removes it. `vardo-browser-host --install` and `--uninstall` do the same from a terminal, through the same code (`crates/vardo-browser/src/registration.rs`).
-4. In `chrome://extensions`, enable Developer mode, choose Load unpacked, and pick `extension/`. The id is always `fkemoafedkbgljikdhjbglhlhfplamll`.
+4. In `chrome://extensions`, enable Developer mode, choose Load unpacked, and pick `extension/` while developing. An installed app shows its own copy under Connect, which updates with the app (`dec:auto-update`). The id is always `fkemoafedkbgljikdhjbglhlhfplamll`.
 5. On a sign-in page, press Alt+Shift+L.
 6. Firefox: `cd extension && npm run build:firefox`, then in `about:debugging`, This Firefox, Load Temporary Add-on, pick `dist/firefox/manifest.json` inside the extension folder. Connect registers Firefox too, once Firefox has run at least once. A temporary add-on is gone after a restart. Release Firefox installs an add-on for good only when Mozilla has signed it.
+
+## Keep the updater key
+
+The updater key signs every update (`dec:auto-update`). Installed copies trust only its public key, in `app/src-tauri/tauri.conf.json`.
+
+1. The private key is `~/.tauri/vardo-updater.key` on the Mac Studio, its password `~/.tauri/vardo-updater.password`. Both are the repository secrets `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
+2. Keep a copy of both files offline. GitHub secrets cannot be read back, so they are not a backup.
+3. Losing the key or leaking it means a new key, a new public key in the config, and every existing install updated by hand once.
+
+## Test an update on this Mac
+
+1. Build two versions with `createUpdaterArtifacts`, the signing key in the environment, and the endpoint pointed at a local server, as `release.yml` does with `--config`. Give them a test identifier so they keep their own settings.
+2. Serve the newer `Vardo.app.tar.gz` and a `latest.json` naming it with its `.sig` contents.
+3. Run the older copy from `/private/tmp`, not `/tmp`: the updater refuses a path through a symlink.
+4. A tampered file must fail with "signature verification failed", and a manifest naming another version must fail too.
 
 ## Add Vardo to the Linux application menu
 

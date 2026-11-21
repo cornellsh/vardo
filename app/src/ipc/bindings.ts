@@ -255,9 +255,25 @@ export type HealthReport = { findings: Array<Finding>,
 checked: number, };
 
 /**
+ * The person's answer to "check for updates automatically?".
+ */
+export type UpdateChecks = "unasked" | "on" | "off";
+
+/**
+ * Where looking for an update stands, for the interface to show.
+ */
+export type UpdateState = { "kind": "idle" } | { "kind": "checking" } | { "kind": "upToDate" } | { "kind": "downloading", version: string, } | { "kind": "ready", version: string, notes: string, } | { "kind": "failed", message: string, };
+
+export type UpdateStatus = { 
+/**
+ * The running version.
+ */
+current: string, checks: UpdateChecks, state: UpdateState, };
+
+/**
  * Errors as the UI models them.
  *
  * Deliberately coarse. A caller must not be able to distinguish a wrong
  * password from a corrupt file any more finely than KDBX itself does.
  */
-export type CoreError = { "kind": "wrong-password" } | { "kind": "not-found", path: string, } | { "kind": "corrupt", detail: string, } | { "kind": "unsupported", detail: string, } | { "kind": "io", detail: string, } | { "kind": "locked" } | { "kind": "remote-missing", path: string, } | { "kind": "remote-password" } | { "kind": "out-of-space" } | { "kind": "drive-not-connected" } | { "kind": "drive-auth-expired", detail: string, } | { "kind": "offline", detail: string, } | { "kind": "remote-changed", detail: string, };
+export type CoreError = { "kind": "wrong-password" } | { "kind": "not-found", path: string, } | { "kind": "corrupt", detail: string, } | { "kind": "unsupported", detail: string, } | { "kind": "io", detail: string, } | { "kind": "locked" } | { "kind": "remote-missing", path: string, } | { "kind": "remote-password" } | { "kind": "out-of-space" } | { "kind": "drive-not-connected" } | { "kind": "drive-auth-expired", detail: string, } | { "kind": "offline", detail: string, } | { "kind": "remote-changed", detail: string, } | { "kind": "unsaved-changes" };

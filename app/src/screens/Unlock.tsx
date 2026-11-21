@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { Presence } from "../components/Presence";
+import { UpdatePrompt } from "../components/Updates";
 import { VardoMark } from "../components/VardoMark";
 import { VaultPicker } from "../components/VaultPicker";
 import { errorText } from "../ipc/error";
@@ -211,6 +212,7 @@ export function Unlock({ onUnlocked, lockedReason }: Props) {
 				>
 					{busy ? "Unlocking…" : "Unlock"}
 				</button>
+				<UpdatePrompt />
 			</form>
 		</div>
 	);

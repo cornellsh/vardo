@@ -1,7 +1,9 @@
 # Builds the app for every desktop and the extension for every browser, and
 # publishes them as a GitHub Release when a version tag is pushed:
 #   cargo xtask release patch (dec:release-command)
-# The builds are not signed or notarised (dec:unsigned-releases).
+# The builds are not signed or notarised (dec:unsigned-releases). Updates are:
+# every file the app can update itself from carries a minisign signature, and
+# latest.json lists them (dec:auto-update).
 # yamllint disable rule:line-length
 name: Release
 
@@ -53,11 +55,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {os: macos-latest, target: aarch64-apple-darwin, files: "dmg/*.dmg"}
-          - {os: macos-latest, target: x86_64-apple-darwin, files: "dmg/*.dmg"}
-          - {os: windows-latest, target: x86_64-pc-windows-msvc, files: "nsis/*.exe"}
+          - {os: macos-latest, target: aarch64-apple-darwin, arch: aarch64, files: "dmg/*.dmg macos/*.app.tar.gz*"}
+          - {os: macos-latest, target: x86_64-apple-darwin, arch: x64, files: "dmg/*.dmg macos/*.app.tar.gz*"}
+          - {os: windows-latest, target: x86_64-pc-windows-msvc, files: "nsis/*.exe nsis/*.exe.sig"}
           # The oldest supported Ubuntu, so the binaries need the oldest glibc.
-          - {os: ubuntu-22.04, target: x86_64-unknown-linux-gnu, files: "deb/*.deb appimage/*.AppImage"}
+          - {os: ubuntu-22.04, target: x86_64-unknown-linux-gnu, files: "deb/*.deb deb/*.deb.sig appimage/*.AppImage appimage/*.AppImage.sig"}
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -97,18 +99,30 @@ jobs:
       # OAuth secret is not confidential (RFC 8252 8.5); it stays out of git.
       # signingIdentity "-" signs the whole macOS bundle ad hoc after the host
       # is added, which Apple Silicon needs to open it at all.
+      # createUpdaterArtifacts signs each updatable file with the updater key;
+      # the app refuses an update whose signature does not match the public key
+      # in tauri.conf.json. It lives only here so local builds need no key.
       - name: App
         working-directory: app
         env:
           VARDO_CLIENT_ID: ${{ secrets.VARDO_CLIENT_ID }}
           VARDO_CLIENT_SECRET: ${{ secrets.VARDO_CLIENT_SECRET }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           npx tauri build --target "${{ matrix.target }}" --config \
-            '{"bundle":{"externalBin":["binaries/vardo-browser-host"],"macOS":{"signingIdentity":"-"}}}'
+            '{"bundle":{"createUpdaterArtifacts":true,"externalBin":["binaries/vardo-browser-host"],"macOS":{"signingIdentity":"-"}}}'
 
       - name: Upload
         run: |
           cd "target/${{ matrix.target }}/release/bundle"
+          # Both Macs name the update Vardo.app.tar.gz, so it gets the version
+          # and architecture the way the dmg does.
+          if [ -n "${{ matrix.arch }}" ]; then
+            for f in macos/Vardo.app.tar.gz macos/Vardo.app.tar.gz.sig; do
+              mv "$f" "macos/Vardo_${TAG#v}_${{ matrix.arch }}${f#macos/Vardo}"
+            done
+          fi
           gh release upload "$TAG" ${{ matrix.files }} --clobber
 
   extension:
@@ -145,4 +159,34 @@ jobs:
       contents: write
     runs-on: ubuntu-24.04
     steps:
+      # The app reads releases/latest/download/latest.json. Each platform names
+      # its file and that file's signature; a missing signature fails here, so a
+      # release never publishes with a platform that cannot update. The updater
+      # looks for os-arch-installer first, then os-arch.
+      - name: Update manifest
+        run: |
+          v="${TAG#v}"
+          mkdir sigs && cd sigs
+          gh release download "$TAG" --pattern '*.sig'
+          base="https://github.com/$GH_REPO/releases/download/$TAG"
+          entry() {
+            jq -n --arg url "$base/${1%.sig}" --rawfile sig "$1" \
+              '{url: $url, signature: ($sig | rtrimstr("\n"))}'
+          }
+          mac_arm=$(entry "Vardo_${v}_aarch64.app.tar.gz.sig")
+          mac_x64=$(entry "Vardo_${v}_x64.app.tar.gz.sig")
+          win=$(entry "Vardo_${v}_x64-setup.exe.sig")
+          appimage=$(entry "Vardo_${v}_amd64.AppImage.sig")
+          deb=$(entry "Vardo_${v}_amd64.deb.sig")
+          jq -n --arg version "$v" --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg notes "$(gh release view "$TAG" --json body -q .body)" \
+            --argjson mac_arm "$mac_arm" --argjson mac_x64 "$mac_x64" --argjson win "$win" \
+            --argjson appimage "$appimage" --argjson deb "$deb" \
+            '{version: $version, notes: $notes, pub_date: $date, platforms: {
+              "darwin-aarch64": $mac_arm, "darwin-aarch64-app": $mac_arm,
+              "darwin-x86_64": $mac_x64, "darwin-x86_64-app": $mac_x64,
+              "windows-x86_64": $win, "windows-x86_64-nsis": $win,
+              "linux-x86_64": $appimage, "linux-x86_64-appimage": $appimage,
+              "linux-x86_64-deb": $deb}}' > latest.json
+          gh release upload "$TAG" latest.json --clobber
       - run: gh release edit "$TAG" --draft=false --latest

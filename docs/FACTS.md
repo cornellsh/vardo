@@ -186,6 +186,17 @@ Live checks ran on 2026-08-27 with `crates/vardo-drive/examples/contract.rs` aga
 
 - Tauri 2.11 reaches `glib` 0.18.5 through its GTK3 stack on Linux. Dependabot alert 1 (RUSTSEC-2024-0429, an unsound iterator over GLib variant strings) needs glib 0.20, which only GTK4 bindings use. Tauri 3, in alpha, is where that changes. `deny.toml` records the advisory with its reason, and Vardo never builds or iterates a GLib variant. Recheck on each Tauri upgrade, and drop the `deny.toml` entry once `cargo tree -i glib` shows 0.20. Observed 2026-11-13.
 
+### fact:keychain-partition-is-cdhash
+
+- **Fact:** On macOS a Keychain item made by an app without an Apple Team ID gets the partition `cdhash:<hash of that build>`. A self-signed certificate changes the app's designated requirement to the certificate, but codesign still reports `TeamIdentifier=not set`, so the partition stays the code hash.
+- **So:** Each update of the ad hoc signed app asks once for the login password before it reads the Drive token or WebDAV password. Only a Developer ID removes this.
+- **Checked:** 2026-11-21, macOS on the Mac Studio. A test binary signed with a self-signed code-signing certificate stored an item through `apple-native-keyring-store`; `security dump-keychain -a` showed `partition_id` `cdhash:`.
+
+### fact:updater-signature-names-version
+
+- **Fact:** `tauri build` with `createUpdaterArtifacts` and tauri-cli 2.12.6 writes `version:<app version>` into the signature's trusted comment, so `requireSignedVersion` can be on.
+- **Checked:** 2026-11-21, local build of 0.0.90.
+
 ### fact:minimatch-override
 
 - `@typescript-eslint/typescript-estree` 8.72.2 asks for `minimatch` ^10.2.2, but GHSA-g3hv-75wg-m249 is fixed only in 11.0.1, so CI's `npm audit` failed. `app/package.json` overrides it to ^11.0.1 for that package alone. The lint still passes and still catches errors. Delete the override once typescript-estree accepts minimatch 11. Observed 2026-11-12.

@@ -11,6 +11,7 @@ import { useAutoLock } from "../hooks/useAutoLock";
 import { DriveConnect } from "../components/DriveConnect";
 import { BrowserConnect } from "../components/BrowserConnect";
 import { IconFetch } from "../components/IconFetch";
+import { UpdateSettings } from "../components/Updates";
 import { MergeReview } from "./MergeReview";
 import { errorText } from "../ipc/error";
 import { saveThenLock } from "../lib/saveThenLock";
@@ -615,7 +616,10 @@ export function Vault({ info, onLock }: Props) {
 									"slide-up var(--duration-slide-wrap) var(--ease-out-circ)",
 							}}
 						>
-							<DriveConnect />
+							<UpdateSettings />
+							<div className="mt-4">
+								<DriveConnect />
+							</div>
 							<div className="mt-4">
 								<BrowserConnect />
 							</div>

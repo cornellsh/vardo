@@ -48,7 +48,7 @@ Setup facts that cost failed runs:
 - The e2e-firefox gate uses `$FIREFOX`, else `/Applications/Firefox.app`, else `firefox` on the path. It drives Firefox internals (`extension/e2e/firefox.mjs`), so a new Firefox can break the harness while the extension is fine.
 - Compiling `vardo-app` needs the built interface in app/dist, which git ignores. The check writes a placeholder when it is missing. A bare `cargo build` does not.
 - CI lints with the latest stable Rust. A new release can add a lint that fails `main` with no code change (`fact:clippy-moves`).
-- The minimum Rust version is 1.89, in `Cargo.toml`. CI builds with Node 22.
+- The minimum Rust version is 1.90, in `Cargo.toml`. CI builds with Node 22.
 - Some Rust tests call `keepassxc-cli` and skip without it. CI installs it.
 
 ## Test data

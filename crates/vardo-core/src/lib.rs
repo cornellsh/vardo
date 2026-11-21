@@ -44,6 +44,7 @@ pub mod session;
 pub mod source;
 pub mod sync;
 pub mod totp;
+pub mod updates;
 pub mod webdav;
 
 pub use error::CoreError;

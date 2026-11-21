@@ -27,6 +27,8 @@ import type {
 	SyncPreview,
 	TotpCode,
 	UnlockPhase,
+	UpdateChecks,
+	UpdateStatus,
 	Uuid,
 	VaultInfo,
 } from "./types";
@@ -460,6 +462,53 @@ export class MockIpc implements Ipc {
 		await delay(200);
 		this.browsersConnected = false;
 		return this.browserReport();
+	}
+
+	async browserExtensionFolder(): Promise<string> {
+		return "/Users/you/Library/Application Support/app.vardo.desktop/extension";
+	}
+
+	async showBrowserExtensionFolder(): Promise<void> {}
+
+	// --- updates ---
+
+	private update: UpdateStatus = { current: "0.0.1", checks: "unasked", state: { kind: "idle" } };
+	private updateListeners = new Set<(status: UpdateStatus) => void>();
+
+	private setUpdate(change: Partial<UpdateStatus>): UpdateStatus {
+		this.update = { ...this.update, ...change };
+		for (const listener of this.updateListeners) listener(this.update);
+		return this.update;
+	}
+
+	async updateStatus(): Promise<UpdateStatus> {
+		return this.update;
+	}
+
+	async setUpdateChecks(checks: UpdateChecks): Promise<UpdateStatus> {
+		this.setUpdate({ checks });
+		return checks === "on" ? this.checkForUpdate() : this.update;
+	}
+
+	async checkForUpdate(): Promise<UpdateStatus> {
+		this.setUpdate({ state: { kind: "checking" } });
+		await delay(400);
+		this.setUpdate({ state: { kind: "downloading", version: "0.0.2" } });
+		await delay(600);
+		return this.setUpdate({
+			state: { kind: "ready", version: "0.0.2", notes: "Fixes and improvements." },
+		});
+	}
+
+	async installUpdate(): Promise<void> {
+		if (this.dirty) throw { kind: "unsaved-changes" };
+		await delay(300);
+		this.setUpdate({ current: "0.0.2", state: { kind: "upToDate" } });
+	}
+
+	async onUpdate(handler: (status: UpdateStatus) => void): Promise<() => void> {
+		this.updateListeners.add(handler);
+		return () => this.updateListeners.delete(handler);
 	}
 
 	// --- sync ---

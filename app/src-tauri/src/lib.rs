@@ -28,6 +28,7 @@ mod clipboard;
 mod commands;
 mod quick;
 mod tray;
+mod updates;
 
 /// The unlocked session, or nothing.
 ///
@@ -45,6 +46,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(quick::plugin())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             // One state, shared by the window's commands and the browser
             // extension, so both always agree on whether the vault is open.
@@ -53,6 +55,15 @@ pub fn run() {
             tray::build(app.handle())?;
             quick::register(app.handle());
             browser::start(app.handle().clone(), state);
+            updates::start(app.handle().clone());
+            // At every start, so the folder the browser loads matches this
+            // version as soon as the browser restarts after an update.
+            let handle = app.handle().clone();
+            std::thread::spawn(move || {
+                if let Err(e) = commands::extension_folder(&handle) {
+                    eprintln!("vardo: could not refresh the extension folder: {e}");
+                }
+            });
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -115,7 +126,13 @@ pub fn run() {
             commands::browser_hosts,
             commands::browser_connect,
             commands::browser_disconnect,
+            commands::browser_extension_folder,
+            commands::show_browser_extension_folder,
             quick::quick_done,
+            updates::update_status,
+            updates::set_update_checks,
+            updates::check_for_update,
+            updates::install_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Vardo");

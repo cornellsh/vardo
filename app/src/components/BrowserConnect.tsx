@@ -16,6 +16,7 @@ export function BrowserConnect() {
 	const [hosts, setHosts] = useState<BrowserHosts | null>(null);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [folder, setFolder] = useState<string | null>(null);
 
 	const refresh = useCallback(async () => {
 		try {
@@ -28,6 +29,17 @@ export function BrowserConnect() {
 	useEffect(() => {
 		void refresh();
 	}, [refresh]);
+
+	useEffect(() => {
+		if (!hosts?.browsers.some((b) => b.connected)) return;
+		void (async () => {
+			try {
+				setFolder(await (await ipc()).browserExtensionFolder());
+			} catch (err) {
+				setError(errorText(err));
+			}
+		})();
+	}, [hosts]);
 
 	async function change(connect: boolean) {
 		setBusy(true);
@@ -94,10 +106,27 @@ export function BrowserConnect() {
 					Start Chrome, Chromium, Brave, Edge or Vivaldi once, then come back.
 				</p>
 			)}
-			{anyConnected && (
-				<p className="mt-3 text-[var(--window-sub-text-fg)]">
-					Install the Vardo extension in the browser if you have not yet.
-				</p>
+			{anyConnected && folder && (
+				<div className="mt-3 text-[var(--window-sub-text-fg)]">
+					<p>
+						To install the extension, open the browser's extensions page, turn on
+						Developer mode, choose Load unpacked, and pick this folder. It updates
+						with Vardo when the browser restarts.
+					</p>
+					<div className="mt-2 flex items-center gap-2">
+						<code className="min-w-0 flex-1 select-text break-all text-[var(--window-fg)]">
+							{folder}
+						</code>
+						<button
+							type="button"
+							onClick={() => void ipc().then((api) => api.showBrowserExtensionFolder())}
+							className="btn btn-quiet shrink-0 cursor-pointer rounded-[var(--button-radius)] px-3 py-1.5 font-semibold"
+							style={{ color: "var(--window-fg-active)" }}
+						>
+							Show folder
+						</button>
+					</div>
+				</div>
 			)}
 
 			{error &&

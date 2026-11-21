@@ -20,7 +20,7 @@ use vardo_core::{CoreError, Session};
 
 use crate::AppState;
 
-type CmdResult<T> = Result<T, CoreError>;
+pub(crate) type CmdResult<T> = Result<T, CoreError>;
 
 /// Runs `f` against the unlocked session, or reports that it is locked.
 fn with_session<T>(
@@ -383,6 +383,35 @@ pub fn browser_connect() -> CmdResult<vardo_core::model::BrowserHosts> {
 #[tauri::command]
 pub fn browser_disconnect() -> CmdResult<vardo_core::model::BrowserHosts> {
     vardo_core::browser::host::disconnect()
+}
+
+/// Where the Chromium extension lives, refreshed from the copy inside the app
+/// (`vardo_core::browser::extension`), so an app update updates it too.
+pub(crate) fn extension_folder(app: &tauri::AppHandle) -> CmdResult<std::path::PathBuf> {
+    let io = |e: tauri::Error| CoreError::Io {
+        detail: e.to_string(),
+    };
+    let from = app.path().resource_dir().map_err(io)?.join("extension");
+    let to = app.path().app_data_dir().map_err(io)?.join("extension");
+    std::fs::create_dir_all(app.path().app_data_dir().map_err(io)?).map_err(|e| CoreError::Io {
+        detail: e.to_string(),
+    })?;
+    vardo_core::browser::extension::refresh(&from, &to)?;
+    Ok(to)
+}
+
+/// The folder to pick in the browser's "Load unpacked".
+#[tauri::command]
+pub fn browser_extension_folder(app: tauri::AppHandle) -> CmdResult<String> {
+    Ok(extension_folder(&app)?.display().to_string())
+}
+
+#[tauri::command]
+pub fn show_browser_extension_folder(app: tauri::AppHandle) -> CmdResult<()> {
+    let folder = extension_folder(&app)?;
+    open_in_browser(&folder.display().to_string()).map_err(|e| CoreError::Io {
+        detail: e.to_string(),
+    })
 }
 
 fn open_in_browser(url: &str) -> std::io::Result<()> {

@@ -65,6 +65,8 @@ pub enum CoreError {
     RemoteChanged {
         detail: String,
     },
+    /// Something would end this run, and with it the changes not yet saved.
+    UnsavedChanges,
 }
 
 impl std::fmt::Display for CoreError {
@@ -94,6 +96,7 @@ impl std::fmt::Display for CoreError {
             CoreError::DriveAuthExpired { detail } => write!(f, "{detail}"),
             CoreError::Offline { detail } => write!(f, "{detail}"),
             CoreError::RemoteChanged { .. } => write!(f, "This vault changed elsewhere"),
+            CoreError::UnsavedChanges => write!(f, "Save your changes first"),
         }
     }
 }

@@ -155,7 +155,7 @@ Do not relitigate a decision without its reopen condition. To reverse one, add a
 
 ### dec:warn-on-second-window
 
-- **Chose:** An advisory OS file lock per vault in the app directory, held while unlocked. A second window gets a notice and stays writable. Rust 1.89 is the minimum, for `File::try_lock`.
+- **Chose:** An advisory OS file lock per vault in the app directory, held while unlocked. A second window gets a notice and stays writable. `File::try_lock` needs Rust 1.89.
 - **Because:** The conditional save already prevents the lost update (`inv:atomic-verified-save`). The lock only moves the news to unlock time. A read-only second window would block the person in the common harmless case, a window left open and forgotten. The OS drops the lock when a process dies, so a crash leaves nothing stale.
 - **Rejected:** A read-only second window. A single-instance plugin, which on Linux needs D-Bus and still says nothing about KeePassXC. A locking crate, when the standard library has one.
 - **Reopen if:** People lose work to a merge they did not expect despite the notice.
@@ -225,7 +225,7 @@ Do not relitigate a decision without its reopen condition. To reverse one, add a
 - **Chose:** A `v*` tag runs `.github/workflows/release.yml`. It builds the macOS dmg (Apple Silicon and Intel), the Windows installer, the Linux deb and AppImage, and both extension zips, then publishes a GitHub Release. Nothing is signed beyond macOS ad hoc. The browser host ships inside each bundle as a Tauri sidecar, added only by the release build.
 - **Because:** People should be able to install Vardo now. Signing needs paid accounts, and the project owner chose to ship without them.
 - **Rejected:** Waiting for signing, which left the project with no downloads at all.
-- **Reopen if:** Gatekeeper or SmartScreen stops offering a way past the warning, or auto-update is wanted, since the updater needs signed builds.
+- **Reopen if:** Gatekeeper or SmartScreen stops offering a way past the warning, or the Keychain prompt after each update (`fact:keychain-partition-is-cdhash`) costs more than an Apple Developer ID.
 - **Date:** 2026-11-21.
 
 ### dec:dependabot-automerge
@@ -242,4 +242,12 @@ Do not relitigate a decision without its reopen condition. To reverse one, add a
 - **Because:** One command cannot leave the versions disagreeing, which the release workflow refuses. The owner signs the tag, and the ruleset needs no bot allowed to push to `main`.
 - **Rejected:** A workflow that bumps and pushes from CI, which needs a bot that bypasses the `main` ruleset and an unsigned tag. Releasing on every merge, which would publish a download nobody asked for after each dependency bump.
 - **Reopen if:** Releases should happen without a person deciding when.
+- **Date:** 2026-11-21.
+
+### dec:auto-update
+
+- **Chose:** The app updates itself through tauri-plugin-updater from `releases/latest/download/latest.json`, which `.github/workflows/release.yml` writes. Every update file carries a minisign signature from the updater key, and the app refuses one that does not match the public key in `app/src-tauri/tauri.conf.json` or names another version (`requireSignedVersion`). The first unlock screen asks once whether to check daily; "Check now" in Settings works either way. A found update downloads and verifies in the background, then waits for "Restart to update", which refuses while there are unsaved changes. The Chromium extension ships inside the app and is copied to a fixed folder, so loading it unpacked from there updates it at the next browser restart.
+- **Because:** A password manager must get security fixes to people who will never visit the releases page. The updater signature is separate from Apple and Microsoft signing, so it works with unsigned builds and still stops a swapped download. Asking first keeps `inv:no-phone-home` true. Restarting locks the vault, so it waits for the person.
+- **Rejected:** Checking without asking, which breaks `inv:no-phone-home`. Installing silently, which locks the vault under someone mid-task. A self-signed macOS certificate to stop the Keychain prompt, since the prompt follows the code hash anyway (`fact:keychain-partition-is-cdhash`). The Chrome Web Store and Firefox add-on site for extension updates, which the owner has not chosen yet.
+- **Reopen if:** The updater key is lost or leaks: every installed copy then needs a manual reinstall with a new key. Or the owner buys signing or store accounts.
 - **Date:** 2026-11-21.

@@ -30,6 +30,8 @@ import type {
 	SyncPreview,
 	TotpCode,
 	UnlockPhase,
+	UpdateChecks,
+	UpdateStatus,
 	Uuid,
 	VaultInfo,
 } from "./types";
@@ -267,6 +269,34 @@ export class TauriIpc implements Ipc {
 	async pickAnyFile(): Promise<string | null> {
 		const picked = await open({ multiple: false, directory: false });
 		return typeof picked === "string" ? picked : null;
+	}
+
+	updateStatus(): Promise<UpdateStatus> {
+		return invoke("update_status");
+	}
+
+	setUpdateChecks(checks: UpdateChecks): Promise<UpdateStatus> {
+		return invoke("set_update_checks", { checks });
+	}
+
+	checkForUpdate(): Promise<UpdateStatus> {
+		return invoke("check_for_update");
+	}
+
+	installUpdate(): Promise<void> {
+		return invoke("install_update");
+	}
+
+	async onUpdate(handler: (status: UpdateStatus) => void): Promise<() => void> {
+		return listen<UpdateStatus>("vardo://update", (e) => handler(e.payload));
+	}
+
+	browserExtensionFolder(): Promise<string> {
+		return invoke("browser_extension_folder");
+	}
+
+	showBrowserExtensionFolder(): Promise<void> {
+		return invoke("show_browser_extension_folder");
 	}
 
 	setTrayUnlocked(unlocked: boolean): Promise<void> {

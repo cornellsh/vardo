@@ -57,6 +57,9 @@ fn render() -> String {
         decl::<Issue>(&cfg),
         decl::<Finding>(&cfg),
         decl::<Report>(&cfg),
+        decl::<crate::updates::UpdateChecks>(&cfg),
+        decl::<crate::updates::UpdateState>(&cfg),
+        decl::<crate::updates::UpdateStatus>(&cfg),
         decl::<CoreError>(&cfg),
     ];
     format!(
