@@ -27,7 +27,7 @@ In rough priority order. Each needs its own design pass before code.
 
 ### plan:distribution
 
-- Ed25519 updater signing, macOS notarisation, Windows Trusted Signing, AppImage, Flatpak, AUR and the Chrome Web Store.
+- Unsigned builds ship on every `v*` tag through `.github/workflows/release.yml` (`dec:unsigned-releases`). Left: Ed25519 updater signing, macOS notarisation, Windows Trusted Signing, Flatpak, AUR and the Chrome Web Store.
 
 ### plan:firefox-signing
 

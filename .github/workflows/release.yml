@@ -1,0 +1,148 @@
+# Builds the app for every desktop and the extension for every browser, and
+# publishes them as a GitHub Release when a version tag is pushed:
+#   git tag v0.0.1 && git push origin v0.0.1
+# The builds are not signed or notarised (dec:unsigned-releases).
+# yamllint disable rule:line-length
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+# Nothing is cached: a release must not build from a cache that a
+# pull-request run could have written.
+  TAG: ${{ github.ref_name }}
+  GH_TOKEN: ${{ github.token }}
+  GH_REPO: ${{ github.repository }}
+
+jobs:
+  draft:
+    name: Draft the release
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # A tag that disagrees with the version inside the builds would publish
+      # files whose names and About box say something else.
+      - name: Tag matches every version
+        run: |
+          v="${TAG#v}"
+          for found in "$(jq -r .version app/src-tauri/tauri.conf.json)" \
+                       "$(jq -r .version extension/manifest.json)" \
+                       "$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml)"; do
+            [ "$found" = "$v" ] || { echo "tag $TAG but a version says $found"; exit 1; }
+          done
+      # Draft first, so people never see a release with half its files.
+      - run: gh release create "$TAG" --draft --title "Vardo $TAG" --generate-notes
+
+  app:
+    name: App (${{ matrix.target }})
+    needs: draft
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: macos-latest, target: aarch64-apple-darwin, files: "dmg/*.dmg"}
+          - {os: macos-latest, target: x86_64-apple-darwin, files: "dmg/*.dmg"}
+          - {os: windows-latest, target: x86_64-pc-windows-msvc, files: "nsis/*.exe"}
+          # The oldest supported Ubuntu, so the binaries need the oldest glibc.
+          - {os: ubuntu-22.04, target: x86_64-unknown-linux-gnu, files: "deb/*.deb appimage/*.AppImage"}
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: System libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: stable
+          targets: ${{ matrix.target }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - run: npm ci
+        working-directory: app
+
+      # The app connects browsers by registering the host that sits beside it
+      # (browser/host.rs `helper`), so the host ships inside every bundle.
+      # Tauri wants a sidecar named with the target it was built for.
+      - name: Browser host
+        run: |
+          cargo build --release --locked -p vardo-browser --bin vardo-browser-host --target "${{ matrix.target }}"
+          ext=""; [ "$RUNNER_OS" = Windows ] && ext=.exe
+          mkdir -p app/src-tauri/binaries
+          cp "target/${{ matrix.target }}/release/vardo-browser-host$ext" \
+             "app/src-tauri/binaries/vardo-browser-host-${{ matrix.target }}$ext"
+
+      # Compiled into the binary through option_env! (drive/auth.rs). A desktop
+      # OAuth secret is not confidential (RFC 8252 8.5); it stays out of git.
+      # signingIdentity "-" signs the whole macOS bundle ad hoc after the host
+      # is added, which Apple Silicon needs to open it at all.
+      - name: App
+        working-directory: app
+        env:
+          VARDO_CLIENT_ID: ${{ secrets.VARDO_CLIENT_ID }}
+          VARDO_CLIENT_SECRET: ${{ secrets.VARDO_CLIENT_SECRET }}
+        run: |
+          npx tauri build --target "${{ matrix.target }}" --config \
+            '{"bundle":{"externalBin":["binaries/vardo-browser-host"],"macOS":{"signingIdentity":"-"}}}'
+
+      - name: Upload
+        run: |
+          cd "target/${{ matrix.target }}/release/bundle"
+          gh release upload "$TAG" ${{ matrix.files }} --clobber
+
+  extension:
+    name: Extension
+    needs: draft
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      # Load unpacked takes a folder, so each zip unpacks to one.
+      - name: Zips
+        run: |
+          v="${TAG#v}"
+          mkdir -p out/vardo-extension-chrome
+          cp -r extension/manifest.json extension/icons extension/src out/vardo-extension-chrome/
+          rm out/vardo-extension-chrome/src/*.test.js
+          (cd extension && node scripts/firefox.mjs)
+          cp -r extension/dist/firefox out/vardo-extension-firefox
+          cd out
+          zip -qr "vardo-extension-chrome-$v.zip" vardo-extension-chrome
+          zip -qr "vardo-extension-firefox-$v.zip" vardo-extension-firefox
+          gh release upload "$TAG" ./*.zip --clobber
+
+  publish:
+    name: Publish
+    needs: [app, extension]
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04
+    steps:
+      - run: gh release edit "$TAG" --draft=false --latest

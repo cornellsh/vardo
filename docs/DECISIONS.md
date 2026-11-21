@@ -219,3 +219,11 @@ The long-form records these came from (ADR-001 to ADR-006, CRITIQUE, RESEARCH, P
 - **Rejected:** `check.sh`, which blocked Windows and stopped at the first failure. `just` or `make`, which add a tool to install and still need shell for the logic.
 - **Reopen if:** The gates need parallelism the runner cannot give simply.
 - **Date:** 2026-11-12.
+
+### dec:unsigned-releases
+
+- **Chose:** A `v*` tag runs `.github/workflows/release.yml`. It builds the macOS dmg (Apple Silicon and Intel), the Windows installer, the Linux deb and AppImage, and both extension zips, then publishes a GitHub Release. Nothing is signed beyond macOS ad hoc. The browser host ships inside each bundle as a Tauri sidecar, added only by the release build.
+- **Because:** People should be able to install Vardo now. Signing needs paid accounts, and the project owner chose to ship without them.
+- **Rejected:** Waiting for signing (`plan:distribution`), which left the project with no downloads at all.
+- **Reopen if:** Gatekeeper or SmartScreen stops offering a way past the warning, or auto-update is wanted, since the updater needs signed builds.
+- **Date:** 2026-11-21.

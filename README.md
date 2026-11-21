@@ -54,7 +54,25 @@ Vardo opens your existing file as it is. Nothing to import.
 
 ## Download
 
-Coming soon. Until then, you can build it yourself.
+Get the latest version from [Releases](https://github.com/cornellsh/vardo/releases/latest).
+
+| Device | File |
+| --- | --- |
+| Mac with Apple Silicon | `Vardo_…_aarch64.dmg` |
+| Mac with Intel | `Vardo_…_x64.dmg` |
+| Windows | `Vardo_…_x64-setup.exe` |
+| Linux | `.deb` or `.AppImage` |
+| Chrome, Edge, Brave, Vivaldi | `vardo-extension-chrome-….zip` |
+| Firefox | `vardo-extension-firefox-….zip` |
+
+The builds aren't signed, so your computer asks once before opening them:
+
+- **Mac:** open Vardo, then System Settings → Privacy & Security → Open Anyway.
+- **Windows:** click More info → Run anyway.
+- **Browser extension:** unzip it, turn on Developer mode in your browser's extensions page, and choose Load unpacked. Then connect it from Vardo's Settings.
+- **Firefox:** load it from `about:debugging`. Firefox forgets it on restart until Mozilla signs it.
+
+You can also build it yourself.
 
 <details>
 <summary>Build from source</summary>
