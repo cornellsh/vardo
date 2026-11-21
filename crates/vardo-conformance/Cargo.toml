@@ -6,4 +6,4 @@ license.workspace = true
 
 [dependencies]
 vardo-kdbx = { path = "../vardo-kdbx" }
-keepass = { version = "0.13", features = ["save_kdbx4"] }
+keepass = { version = "0.17", features = ["save_kdbx4"] }
