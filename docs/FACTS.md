@@ -162,7 +162,7 @@ Live checks ran on 2026-08-27 with `crates/vardo-drive/examples/contract.rs` aga
 ### fact:platform-macos
 
 - Verified 2026-11-12 on macOS 15.7.7, arm64: the release build runs; the socket appears mode 600 in a mode 700 dir under `$TMPDIR/vardo-$USER`; the real host relays `status` and `logins`; the e2e passes with Chrome for Testing 157; the tray item registers.
-- The uncommitted `RunEvent::Reopen` handler showed a hidden window on a reopen Apple Event.
+- A trial `RunEvent::Reopen` handler showed a hidden window on a reopen Apple Event.
 - Not verified: the tray icon's look and menu, unlocking through the window, closing then clicking the Dock icon.
 - An agent there has no Screen Recording or Accessibility permission by default, so it cannot see or click windows. `screencapture` returns only the wallpaper.
 

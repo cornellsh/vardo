@@ -4,7 +4,6 @@ Each entry is a choice that could have gone another way.
 **Chose** is the decision. **Because** is the deciding reason. **Rejected** lists what lost and why. **Reopen if** names the evidence that would change it.
 
 Do not relitigate a decision without its reopen condition. To reverse one, add a new entry and mark the old one `Superseded by dec:<new>`.
-The long-form records these came from (ADR-001 to ADR-006, CRITIQUE, RESEARCH, PHASE0-FINDINGS, UI-PLAN) are in git history before the commit that added this file.
 
 ## Product
 
@@ -198,10 +197,11 @@ The long-form records these came from (ADR-001 to ADR-006, CRITIQUE, RESEARCH, P
 
 ### dec:agent-first-docs
 
-- **Chose:** Docs form a small tagged map for agents. `AGENTS.md` routes. Each kind of knowledge has one file: architecture, invariants, decisions, facts, plan, runbooks. Code and tests cite tags. The `doc-links` gate verifies every tag and every named file and test.
+- **Chose:** Docs form a small tagged map for agents. `AGENTS.md` routes. Each kind of knowledge has one file: architecture, invariants, decisions, facts, runbooks. Code and tests cite tags. The `doc-links` gate verifies every tag and every named file and test.
 - **Because:** Prose status files went stale and contradicted the code. They claimed 14 e2e checks when there were 13, a `storage` permission the manifest lacks, and a lint gate that never ran.
 - **Rejected:** Keeping the ADRs, STATUS and ROADMAP. They mixed decisions, history and status, so nothing in them could be checked.
 - **Except:** `README.md` returned on 2026-11-14 as the front page for people on GitHub. It describes what Vardo does and how to build it, states no counts or pass rates, and links here for everything else. The `doc-links` gate checks the paths it names.
+- **Except:** Plans and working notes stay out of git, in docs/local. They change daily and mean nothing to a reader of the repo. The `doc-links` gate rejects any other Markdown file, so a stray summary cannot slip in. Added 2026-11-21.
 - **Date:** 2026-11-12.
 
 ### dec:ts-rs-bindings
@@ -224,7 +224,7 @@ The long-form records these came from (ADR-001 to ADR-006, CRITIQUE, RESEARCH, P
 
 - **Chose:** A `v*` tag runs `.github/workflows/release.yml`. It builds the macOS dmg (Apple Silicon and Intel), the Windows installer, the Linux deb and AppImage, and both extension zips, then publishes a GitHub Release. Nothing is signed beyond macOS ad hoc. The browser host ships inside each bundle as a Tauri sidecar, added only by the release build.
 - **Because:** People should be able to install Vardo now. Signing needs paid accounts, and the project owner chose to ship without them.
-- **Rejected:** Waiting for signing (`plan:distribution`), which left the project with no downloads at all.
+- **Rejected:** Waiting for signing, which left the project with no downloads at all.
 - **Reopen if:** Gatekeeper or SmartScreen stops offering a way past the warning, or auto-update is wanted, since the updater needs signed builds.
 - **Date:** 2026-11-21.
 

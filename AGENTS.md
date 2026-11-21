@@ -1,8 +1,8 @@
 # Vardo
 
 Vardo is a desktop password manager for KeePass `.kdbx` files.
-It syncs one vault across devices through Google Drive without losing edits.
-It fills logins in Chromium browsers through its own extension.
+It syncs one vault across devices through Google Drive or WebDAV without losing edits.
+It fills logins in Chromium browsers and Firefox through its own extension.
 Rust owns every byte of the vault. The window and the extension see metadata, and a secret only at the moment of use.
 
 This file loads into every agent session in the repo. It is the map. Everything else is one hop away.
@@ -16,7 +16,6 @@ This file loads into every agent session in the repo. It is the map. Everything 
 | Rules that must never break, and the test that proves each | `docs/INVARIANTS.md` | `inv:` |
 | Choices made, why, what lost, when to reopen | `docs/DECISIONS.md` | `dec:` |
 | Facts about the outside world, and how each was verified | `docs/FACTS.md` | `fact:` |
-| What to do next, in order, and when it counts as done | `docs/PLAN.md` | `plan:` |
 | Steps that need a person, a live account, or a real screen | `docs/RUNBOOKS.md` | none |
 | What a person on GitHub reads first | `README.md`. Update it when a user-visible feature changes | none |
 
@@ -67,6 +66,7 @@ Setup facts that cost failed runs:
 - A change to behaviour comes with a test that fails without it.
 - A new rule gets an `inv:` entry that names its test. A reversed choice gets a new `dec:` entry, and the old one is marked superseded.
 - Commit messages say why. The diff already says what.
+- Only the docs in the table above go in git. Plans, notes, findings and summaries go in docs/local, which git ignores. The `doc-links` gate fails on any other Markdown file.
 
 ## Where to start a change
 

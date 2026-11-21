@@ -1,17 +1,26 @@
 //! The doc-link gate.
 //!
-//! Docs, code and tests link through tags (`inv:`, `dec:`, `fact:`, `plan:`)
-//! and through repo paths written in backticks in `AGENTS.md` and `docs/`. A
-//! link to nothing fails here, so the map cannot drift from the code it
-//! describes.
+//! Docs, code and tests link through tags (`inv:`, `dec:`, `fact:`) and
+//! through repo paths written in backticks in `AGENTS.md` and `docs/`. A link
+//! to nothing fails here, so the map cannot drift from the code it describes.
+//! Markdown outside `PUBLISHED` fails too: working notes belong in the
+//! git-ignored docs/local.
 
 use std::{fs, io, path::Path};
 
-const KINDS: [(&str, &str); 4] = [
+const KINDS: [(&str, &str); 3] = [
     ("inv", "docs/INVARIANTS.md"),
     ("dec", "docs/DECISIONS.md"),
     ("fact", "docs/FACTS.md"),
-    ("plan", "docs/PLAN.md"),
+];
+const PUBLISHED: [&str; 7] = [
+    "README.md",
+    "AGENTS.md",
+    "docs/ARCHITECTURE.md",
+    "docs/INVARIANTS.md",
+    "docs/DECISIONS.md",
+    "docs/FACTS.md",
+    "docs/RUNBOOKS.md",
 ];
 const REF_ROOTS: [&str; 7] = [
     "crates",
@@ -43,7 +52,11 @@ pub fn check(root: &Path, files: &[String]) -> io::Result<Vec<String>> {
     refs.sort();
     refs.dedup();
 
-    let mut broken = Vec::new();
+    let mut broken: Vec<String> = files
+        .iter()
+        .filter(|f| f.ends_with(".md") && !PUBLISHED.contains(&f.as_str()))
+        .map(|f| format!("unlisted doc: {f} (keep it in docs/local)"))
+        .collect();
     for tag in tags {
         let kind = &tag[..tag.find(':').unwrap_or(0)];
         let doc = KINDS.iter().find(|(k, _)| *k == kind).map(|(_, d)| *d);
@@ -216,6 +229,8 @@ mod tests {
         assert_eq!(
             broken,
             [
+                "unlisted doc: docs/note.md (keep it in docs/local)".to_string(),
+                "unlisted doc: docs/sub/y.md (keep it in docs/local)".to_string(),
                 format!("undefined tag: {}", tag("inv", "unknown")),
                 "missing path: docs/ignored.md".to_string(),
                 "missing path: docs/none.md".to_string(),
