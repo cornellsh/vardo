@@ -21,14 +21,6 @@
 
 Vardo keeps your passwords in one encrypted file in your Google Drive or on your own server. The desktop app, the browser extension and a KeePass app on your phone all open that same file, so a password you save on one device shows up on the others.
 
-## What it does
-
-- Fills in your logins in the browser
-- Generates strong passwords and points out weak or reused ones
-- Keeps two-factor codes, notes and attached files
-- Opens a quick search from anywhere with Ctrl+Shift+Space
-- Locks itself and clears passwords you copied
-
 ## Your passwords stay yours
 
 There's no account to create, no subscription and no Vardo server. The file is encrypted on your device before it goes anywhere, and only your master password can open it. That also means nobody can get you back in if you forget it.
