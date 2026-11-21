@@ -150,7 +150,7 @@ export function VaultPicker({ selected, onSelect, disabled }: Props) {
 					type="button"
 					disabled={disabled}
 					onClick={() => void browse()}
-					className="btn btn-quiet flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-[6px] py-2 font-semibold transition-colors"
+					className="btn btn-quiet flex flex-auto cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-[6px] px-2.5 py-2 font-semibold transition-colors"
 					style={{
 						background: "var(--window-bg-over)",
 						color: "var(--window-active-text-fg)",
@@ -167,7 +167,7 @@ export function VaultPicker({ selected, onSelect, disabled }: Props) {
 						setDriveOpen((o) => !o);
 					}}
 					aria-expanded={driveOpen}
-					className="btn btn-quiet flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-[6px] py-2 font-semibold transition-colors"
+					className="btn btn-quiet flex flex-auto cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-[6px] px-2.5 py-2 font-semibold transition-colors"
 					style={{
 						background: "var(--window-bg-over)",
 						color: "var(--window-active-text-fg)",
@@ -185,7 +185,7 @@ export function VaultPicker({ selected, onSelect, disabled }: Props) {
 						setDavOpen((o) => !o);
 					}}
 					aria-expanded={davOpen}
-					className="btn btn-quiet flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-[6px] py-2 font-semibold transition-colors"
+					className="btn btn-quiet flex flex-auto cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-[6px] px-2.5 py-2 font-semibold transition-colors"
 					style={{
 						background: "var(--window-bg-over)",
 						color: "var(--window-active-text-fg)",

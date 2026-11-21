@@ -81,7 +81,7 @@ export function UpdatePrompt() {
 					type="button"
 					onClick={() => void setChecks("on")}
 					className="btn btn-quiet cursor-pointer rounded-[var(--button-radius)] px-3 py-1.5 font-semibold"
-					style={{ background: "var(--active-button-bg)", color: "var(--window-fg-active)" }}
+					style={{ color: "var(--window-active-text-fg)" }}
 				>
 					Check daily
 				</button>

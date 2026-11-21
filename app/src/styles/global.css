@@ -74,6 +74,12 @@ body {
   font-feature-settings: 'zero' 1, 'tnum' 1;
   letter-spacing: 0.01em;
 }
+/* A hint is words, not a secret, so it keeps the UI face. */
+.secret::placeholder {
+  font-family: var(--font-ui-stack);
+  font-feature-settings: normal;
+  letter-spacing: normal;
+}
 
 /* inv:keyboard-reachable, so the ring is never
    removed — only hidden for pointer users via :focus-visible. */

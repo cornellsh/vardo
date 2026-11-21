@@ -130,7 +130,7 @@
 		"Open Sans Variable", "Open Sans", "Segoe UI", -apple-system, system-ui,
 		sans-serif;
 	--font-mono-stack:
-		ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", monospace;
+		ui-monospace, "SF Mono", "Cascadia Mono", Consolas, "Roboto Mono", monospace;
 }
 
 .dark {
